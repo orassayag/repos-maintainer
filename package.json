@@ -4,12 +4,35 @@
   "description": "A reliable personal tool to maintain high structural standards across all GitHub repositories",
   "type": "module",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/orassayag/repos-maintainer.git"
+  },
+  "keywords": [
+    "nodejs",
+    "typescript",
+    "github-api",
+    "repository-management",
+    "automation",
+    "cli",
+    "batch-processing",
+    "github-maintenance"
+  ],
   "main": "dist/index.js",
   "scripts": {
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
     "start": "tsx src/index.ts",
+    "start:live": "cross-env DRY_MODE=false tsx src/index.ts",
+    "start:no-cache": "tsx src/index.ts --no-cache",
     "sync": "tsx src/index.ts --auto",
-    "test": "vitest run",
-    "test:ui": "vitest --ui"
+    "dev": "tsx watch src/index.ts",
+    "test": "cross-env NODE_OPTIONS='--no-warnings' vitest run --coverage",
+    "test:watch": "cross-env NODE_OPTIONS='--no-warnings' vitest",
+    "test:no-coverage": "cross-env NODE_OPTIONS='--no-warnings' vitest run",
+    "test:ui": "vitest --ui",
+    "build": "tsc"
   },
   "author": "Or Assayag <orassayag@gmail.com>",
   "contributors": [
@@ -19,6 +42,24 @@
       "url": "https://github.com/orassayag"
     }
   ],
+  "files": [
+    ".vscode",
+    "dist",
+    "src",
+    ".gitignore",
+    ".prettierrc",
+    "eslint.config.mjs",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "INSTRUCTIONS.md",
+    "CHANGELOG.md",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "README.md",
+    "tsconfig.json",
+    "vitest.config.ts"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
@@ -26,6 +67,7 @@
   "dependencies": {
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/rest": "^22.0.1",
+    "dotenv": "^16.4.5",
     "enquirer": "^2.4.1",
     "simple-git": "^3.27.0"
   },

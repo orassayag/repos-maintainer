@@ -1,24 +1,9 @@
-import fsSync from 'fs';
-import path from 'path';
-
-// Load environment variables from 'env' file
-const envPath = path.join(process.cwd(), 'env');
-if (fsSync.existsSync(envPath)) {
-  const envContent = fsSync.readFileSync(envPath, 'utf-8');
-  envContent.split('\n').forEach(line => {
-    const [key, ...valueParts] = line.split('=');
-    if (key && valueParts.length > 0) {
-      process.env[key.trim()] = valueParts.join('=').trim();
-    }
-  });
-}
-
+import 'dotenv/config';
 import { Logger } from './utils/logger.js';
 import { checkGitHubAuth } from './github.js';
 import { showMainMenu } from './cli.js';
 import { settings, getReposListPath } from './settings.js';
 import fs from 'fs/promises';
-import path from 'path';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-flight validation
