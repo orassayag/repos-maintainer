@@ -1,0 +1,52 @@
+{
+  "name": "repos-maintainer",
+  "version": "1.0.0",
+  "description": "A reliable personal tool to maintain high structural standards across all GitHub repositories",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "sync": "tsx src/index.ts --auto",
+    "test": "vitest run",
+    "test:ui": "vitest --ui"
+  },
+  "author": "Or Assayag <orassayag@gmail.com>",
+  "contributors": [
+    {
+      "name": "Or Assayag",
+      "email": "orassayag@gmail.com",
+      "url": "https://github.com/orassayag"
+    }
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/rest": "^22.0.1",
+    "enquirer": "^2.4.1",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rolldown/binding-win32-x64-msvc": "1.0.0-rc.17",
+    "@types/adm-zip": "^0.5.7",
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^25.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "@vitest/coverage-istanbul": "^4.1.1",
+    "@vitest/ui": "^4.1.1",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^4.1.1"
+  }
+}

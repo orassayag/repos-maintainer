@@ -1,0 +1,125 @@
+repos-maintainer:
+=================
+
+Goal:
+The goal of the project is to maintain the existing repos and a tool to add and update existing repos to keep them with hight structure standard
+
+This project will have CLI steps and 1 auto script.
+
+Once we enter "pnpm run start" we will perform the validation steps.
+
+-Validation steps:
+-Validate that the C:\Or\web\projects exists - declared on settings.ts file - if not exists / empty - throw an error.
+-Valudate that the C:\Or\web\project-repos-names.txt - declared on settings.ts file - if not exists / empty - throw an error.
+-Validate that connected to GitHub account. If not - throw an error.
+-Once all valid - we can continue.
+
+Manual script (CLI steps):
+-We will use the menu selection like in the event & people sync project.
+-So once the validation passed, the user will see the following:
+
+===Repos Maintainer===
+
+? Select a script to run (ESC to exit): ...
+> 🔄 Add Repo       	 - Add the initial features missing for a GitHub project
+  ♻️ Repos Sync          - Syncs all the repos
+  🚪 Exit
+
+Add Repo:
+=========
+1. When selecting this option, the CLI will ask the usr for the newley repo URL. If the url is invalid (not github url, missing repo name in the url) - An error will be throwen but the use will be able to recover and give the correct url.
+2. When the URL is valid - We will do a simple API call to GitHub API to check if the repo exists within the given name. If not - throw an error.
+3. If the repo exists we should do the following:
+-Check if the project is listed in the C:\Or\web\project-repos-names.txt file - If not, add it according to the existing patterns there and add it in the alfabetifc correct order.
+-Also check that the url and the project name are correct in C:\Or\web\project-repos-names.txt file according to the data fetched from GitHub. If not - Fix them accordinglly.
+
+For the following steps, we will do them all and not stop if any or all of the steps fail:
+
+-git step - Validate that the hidden .git folder exists. If not - needs to mark to fix.
+
+-package.json file validation: Take the logic from packageJsonValidator.ts file (Don't change the logic there, this is the logic I want for this step).
+-Need to add a validation of existance:
+  "author": "Or Assayag <orassayag@gmail.com>",
+  "contributors": [
+    {
+      "name": "Or Assayag",
+      "email": "orassayag@gmail.com",
+      "url": "https://github.com/orassayag"
+    }
+  ],
+-README.md file validation: Take the logic from readmeValidator.ts file (Don't change the logic there, this is the logic I want for this step).
+-Need to add a validation of existance:
+## Author
+
+**Or Assayag**
+
+- Email: orassayag@gmail.com
+- GitHub: [@orassayag](https://github.com/orassayag)
+- StackOverflow: [or-assayag](https://stackoverflow.com/users/4442606/or-assayag)
+- LinkedIn: [orassayag](https://linkedin.com/in/orassayag)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+-LICENSE file - Make sure it exists.
+-CONTRIBUTING.md file - Make sure it exists.
+-CHANGELOG.md file - Make sure it exists.
+-CODE_OF_CONDUCT.md file - Make sure it exists.
+-SECURITY.md - Make sure it exists.
+-.gitignore - Make sure it exists.
+
+-Metadata step:
+-Get the "About", the "URL", and the "tags".
+-Make sure all of them exists.
+-Make sure that the "About" is minimum 340 and maximum 350 charactrs.
+-Make sure we have URL, and if not, insert the linkedIn one.
+-Make sure we have at least 8 tags.
+
+-Rulesets step:
+-Get the Rulesets of this Repo.
+-Validate it's identity to Rulesets.json. If not exists or not equal - Add it.
+
+-Star and watch step:
+-Validate the project is starred and watched.
+
+-Git clean step:
+-Run the 2 commands:
+Create a github project to reduce all .git memory:
+git gc --aggressive --prune=now   # re-pack and prune unreachable objects
+git reflog expire --expire=now --all && git gc --prune=now  # also clear reflog
+
+======================
+
+======================================
+
+Update the MD files, license and package.json, Add GitHub Rulesets
+Reorgenize the project, Update the MD files, license and package.json, Add GitHub Rulesets
+
+========================================
+
+Repos Maintainer.
+
+Create a github project to reduce all .git memory:
+git gc --aggressive --prune=now   # re-pack and prune unreachable objects
+git reflog expire --expire=now --all && git gc --prune=now  # also clear reflog
+
+Create a github project which update the metadata of a new project:
+tags, description (350 chars limit), mit license file and mit license, add website as the https://linkedin.com/in/orassayag URL, rulsets, add it to the list C:\Or\web\project-repos-names.txt (order alphabetically of course)
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+It also scan all the projects and add the missing standard files.
+-Check if description between is less than 300.
+-Check if tags are less then 3.
+-Also auto-like and auto-watch the project.
+
+-לסנכרן ולעשות את הפרוייקט החדש שנמצא על הDesktop.
+-יהיה למעשה עוד crawler על הפרוייקטים שתמיד יעדכן אותם - דגש על לעדכן אותם עצמאית ברוב מה שאפשר.
+-הוא גם ינקה את הגיט וגם יוודא שהכל תקין עם כל הפרוייקטים ואם חסר להם משהו הוא ישלים לבד.
+-אם יש פרוייקט שצריך לעדכן הוא לא מעדכן לבד, אלא יוצר קובץ טקסט חדש על הDesktop - חד משמעית.
+=================================
+
+See the following text.
+If it's exeeded 350 characters - Make it the maximum of 350.
+If not, notify me in BOLD that you didn't touch it.
