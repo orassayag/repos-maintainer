@@ -1,9 +1,9 @@
 import 'dotenv/config';
+import fs from 'fs/promises';
 import { Logger } from './utils/logger.js';
 import { checkGitHubAuth } from './github.js';
 import { showMainMenu } from './cli.js';
 import { settings, getReposListPath } from './settings.js';
-import fs from 'fs/promises';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-flight validation
@@ -30,7 +30,9 @@ async function preFlightValidation(): Promise<boolean> {
   const listPath = getReposListPath();
   try {
     const content = await fs.readFile(listPath, 'utf-8');
-    const lines = content.split('\n').filter((l: string) => l.trim() && !l.trim().startsWith('#'));
+    const lines = content
+      .split('\n')
+      .filter((l: string) => l.trim() && !l.trim().startsWith('#'));
     if (lines.length === 0) {
       throw new Error('File has no repo entries');
     }

@@ -35,7 +35,7 @@ export async function fixPackageJson(repoPath: string): Promise<boolean> {
       changed = true;
     } else {
       const hasContributor = pkg.contributors.some(
-        (c: Record<string, string>) => c.email === settings.AUTHOR_EMAIL,
+        (c: Record<string, string>) => c.email === settings.AUTHOR_EMAIL
       );
       if (!hasContributor) {
         pkg.contributors.push(expectedContributor);

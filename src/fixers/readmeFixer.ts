@@ -7,7 +7,7 @@ import { settings } from '../settings.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTHOR_SECTION = `## Author
-
+ 
 **${settings.AUTHOR_NAME}**
 
 - Email: ${settings.AUTHOR_EMAIL}
@@ -33,8 +33,10 @@ export async function fixReadme(repoPath: string): Promise<boolean> {
     let content = await fs.readFile(readmePath, 'utf-8');
 
     // Check if Author section already exists with the correct name (idempotent)
-    const hasAuthor = content.includes('## Author') && content.includes(settings.AUTHOR_NAME);
-    const hasLicense = content.includes('## License') && content.includes('MIT License');
+    const hasAuthor =
+      content.includes('## Author') && content.includes(settings.AUTHOR_NAME);
+    const hasLicense =
+      content.includes('## License') && content.includes('MIT License');
 
     if (hasAuthor && hasLicense) {
       return false; // Already has both sections

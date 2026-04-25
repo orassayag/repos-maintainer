@@ -8,8 +8,14 @@ export async function showMainMenu(): Promise<void> {
   const action = await select({
     message: 'Select a script to run (ESC to exit):',
     choices: [
-      { name: '🔄 Add Repo          - Add and fully standardize a new GitHub repository', value: 'add' },
-      { name: '♻️  Repos Sync        - Scan, update and clean all repositories (crawler)', value: 'sync' },
+      {
+        name: '🔄 Add Repo          - Add and fully standardize a new GitHub repository',
+        value: 'add',
+      },
+      {
+        name: '♻️  Repos Sync        - Scan, update and clean all repositories (crawler)',
+        value: 'sync',
+      },
       { name: '🚪 Exit', value: 'exit' },
     ],
   });

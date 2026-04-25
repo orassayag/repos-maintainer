@@ -15,10 +15,15 @@ export function getOctokit(): any {
       auth: process.env.GITHUB_TOKEN,
       throttle: {
         onRateLimit: (retryAfter: number, _options: object): boolean => {
-          console.warn(`⏳ Rate limit hit. Retrying after ${retryAfter} seconds...`);
+          console.warn(
+            `⏳ Rate limit hit. Retrying after ${retryAfter} seconds...`
+          );
           return true;
         },
-        onSecondaryRateLimit: (_retryAfter: number, _options: object): boolean => true,
+        onSecondaryRateLimit: (
+          _retryAfter: number,
+          _options: object
+        ): boolean => true,
       },
     });
   }
@@ -46,7 +51,10 @@ export async function checkGitHubAuth(): Promise<boolean> {
 // Repository checks
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function repoExists(owner: string, repo: string): Promise<boolean> {
+export async function repoExists(
+  owner: string,
+  repo: string
+): Promise<boolean> {
   try {
     const octokit = getOctokit();
     await octokit.repos.get({ owner, repo });
@@ -67,7 +75,10 @@ export interface RepoMetadata {
   defaultBranch: string;
 }
 
-export async function getRepoMetadata(owner: string, repo: string): Promise<RepoMetadata> {
+export async function getRepoMetadata(
+  owner: string,
+  repo: string
+): Promise<RepoMetadata> {
   const octokit = getOctokit();
   const { data } = await octokit.repos.get({ owner, repo });
   return {
@@ -81,7 +92,7 @@ export async function getRepoMetadata(owner: string, repo: string): Promise<Repo
 export async function updateRepoMetadata(
   owner: string,
   repo: string,
-  updates: { description?: string; homepage?: string },
+  updates: { description?: string; homepage?: string }
 ): Promise<void> {
   const octokit = getOctokit();
   await octokit.repos.update({ owner, repo, ...updates });
@@ -90,7 +101,7 @@ export async function updateRepoMetadata(
 export async function replaceTopics(
   owner: string,
   repo: string,
-  topics: string[],
+  topics: string[]
 ): Promise<void> {
   const octokit = getOctokit();
   await octokit.repos.replaceAllTopics({ owner, repo, names: topics });
@@ -124,7 +135,10 @@ export interface RulesetData {
   rules: any[];
 }
 
-export async function getRulesets(owner: string, repo: string): Promise<RulesetData[]> {
+export async function getRulesets(
+  owner: string,
+  repo: string
+): Promise<RulesetData[]> {
   const octokit = getOctokit();
   try {
     const { data } = await octokit.repos.getRepoRulesets({ owner, repo });
@@ -137,11 +151,15 @@ export async function getRulesets(owner: string, repo: string): Promise<RulesetD
 export async function getRulesetDetails(
   owner: string,
   repo: string,
-  rulesetId: number,
+  rulesetId: number
 ): Promise<RulesetData | null> {
   const octokit = getOctokit();
   try {
-    const { data } = await octokit.repos.getRepoRuleset({ owner, repo, ruleset_id: rulesetId });
+    const { data } = await octokit.repos.getRepoRuleset({
+      owner,
+      repo,
+      ruleset_id: rulesetId,
+    });
     return data as unknown as RulesetData;
   } catch {
     return null;
@@ -151,7 +169,7 @@ export async function getRulesetDetails(
 export async function createRuleset(
   owner: string,
   repo: string,
-  ruleset: RulesetData,
+  ruleset: RulesetData
 ): Promise<void> {
   const octokit = getOctokit();
   await octokit.repos.createRepoRuleset({
@@ -170,7 +188,7 @@ export async function updateRuleset(
   owner: string,
   repo: string,
   rulesetId: number,
-  ruleset: RulesetData,
+  ruleset: RulesetData
 ): Promise<void> {
   const octokit = getOctokit();
   await octokit.repos.updateRepoRuleset({
@@ -189,7 +207,9 @@ export async function updateRuleset(
 // URL parsing
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+export function parseGitHubUrl(
+  url: string
+): { owner: string; repo: string } | null {
   const match = url.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
   if (!match) return null;
   return { owner: match[1], repo: match[2].replace('.git', '') };

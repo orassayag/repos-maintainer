@@ -1,5 +1,8 @@
 import { readRepoList } from '../utils/repoList.js';
-import { standardizeRepo, type StandardizeResult } from '../fixers/standardizer.js';
+import {
+  standardizeRepo,
+  type StandardizeResult,
+} from '../fixers/standardizer.js';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
 
@@ -35,7 +38,9 @@ export async function reposSyncCommand(): Promise<void> {
       if (result.success) successCount++;
     } catch (err) {
       // Per-repo try/catch: one failing repo does not stop the entire run
-      Logger.error(`Critical failure for ${repoName}: ${(err as Error).message}`);
+      Logger.error(
+        `Critical failure for ${repoName}: ${(err as Error).message}`
+      );
       results.push({
         repoName,
         success: false,
@@ -55,7 +60,7 @@ export async function reposSyncCommand(): Promise<void> {
 function printSummaryTable(
   results: StandardizeResult[],
   total: number,
-  successCount: number,
+  successCount: number
 ): void {
   const line = '═'.repeat(80);
   Logger.log('\n\n' + line);
@@ -79,18 +84,20 @@ function printSummaryTable(
     const changesCount = result.changes.length;
     const errorsCount = result.errors.length;
 
-    Logger.log(`\n${status}  ${result.repoName}  (${changesCount} changes, ${errorsCount} errors)`);
+    Logger.log(
+      `\n${status}  ${result.repoName}  (${changesCount} changes, ${errorsCount} errors)`
+    );
 
     if (result.changes.length > 0) {
       const shown = result.changes.slice(0, 8);
-      shown.forEach(c => Logger.log(`     ✓ ${c}`));
+      shown.forEach((c) => Logger.log(`     ✓ ${c}`));
       if (result.changes.length > 8) {
         Logger.log(`     ... and ${result.changes.length - 8} more`);
       }
     }
 
     if (result.errors.length > 0) {
-      result.errors.forEach(e => Logger.log(`     ✗ ${e}`));
+      result.errors.forEach((e) => Logger.log(`     ✗ ${e}`));
     }
   }
 

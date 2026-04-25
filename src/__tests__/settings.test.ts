@@ -10,7 +10,10 @@ describe('settings', () => {
   });
 
   it('should construct correct repos list path', () => {
-    const expected = path.join(path.dirname(settings.PROJECTS_ROOT), settings.REPOS_LIST_FILE);
+    const expected = path.join(
+      path.dirname(settings.PROJECTS_ROOT),
+      settings.REPOS_LIST_FILE
+    );
     expect(getReposListPath()).toBe(expected);
   });
 

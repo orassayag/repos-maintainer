@@ -5,7 +5,6 @@ import { ensureTemplateFile } from '../utils/fileFixer.js';
 import { parseGitHubUrl, starRepo, watchRepo } from '../github.js';
 import { addOrUpdateRepoInList } from '../utils/repoList.js';
 import { Logger } from '../utils/logger.js';
-
 import { fixPackageJson } from './packageJsonFixer.js';
 import { fixReadme } from './readmeFixer.js';
 import { fixMetadata } from './metadataFixer.js';
@@ -40,10 +39,17 @@ const TEMPLATE_FILES = [
  * Runs ALL standardization steps on a single repo.
  * Continues on individual step failures — never stops early.
  */
-export async function standardizeRepo(repoUrl: string): Promise<StandardizeResult> {
+export async function standardizeRepo(
+  repoUrl: string
+): Promise<StandardizeResult> {
   const parsed = parseGitHubUrl(repoUrl);
   if (!parsed) {
-    return { repoName: 'unknown', success: false, changes: [], errors: ['Invalid GitHub URL'] };
+    return {
+      repoName: 'unknown',
+      success: false,
+      changes: [],
+      errors: ['Invalid GitHub URL'],
+    };
   }
 
   const { owner, repo: repoName } = parsed;
@@ -112,7 +118,7 @@ export async function standardizeRepo(repoUrl: string): Promise<StandardizeResul
   // ── Step 6: Metadata (GitHub API) ──────────────────────────────────────
   try {
     const metadataChanges = await fixMetadata(owner, repoName);
-    changes.push(...metadataChanges.map(c => `Metadata: ${c}`));
+    changes.push(...metadataChanges.map((c) => `Metadata: ${c}`));
   } catch (err) {
     const msg = `Metadata: ${(err as Error).message}`;
     errors.push(msg);
@@ -169,9 +175,13 @@ export async function standardizeRepo(repoUrl: string): Promise<StandardizeResul
 
   const success = errors.length === 0;
   if (success) {
-    Logger.success(`Finished standardizing ${repoName} (${changes.length} changes)`);
+    Logger.success(
+      `Finished standardizing ${repoName} (${changes.length} changes)`
+    );
   } else {
-    Logger.warn(`Finished standardizing ${repoName} with ${errors.length} errors`);
+    Logger.warn(
+      `Finished standardizing ${repoName} with ${errors.length} errors`
+    );
   }
 
   return { repoName, success, changes, errors };

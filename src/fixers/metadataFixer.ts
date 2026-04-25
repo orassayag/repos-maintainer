@@ -1,4 +1,8 @@
-import { getRepoMetadata, updateRepoMetadata, replaceTopics } from '../github.js';
+import {
+  getRepoMetadata,
+  updateRepoMetadata,
+  replaceTopics,
+} from '../github.js';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
 
@@ -10,7 +14,10 @@ import { Logger } from '../utils/logger.js';
  *
  * Returns an array of change descriptions.
  */
-export async function fixMetadata(owner: string, repo: string): Promise<string[]> {
+export async function fixMetadata(
+  owner: string,
+  repo: string
+): Promise<string[]> {
   const changes: string[] = [];
 
   let metadata;
@@ -31,7 +38,9 @@ export async function fixMetadata(owner: string, repo: string): Promise<string[]
     // Missing or too short → replace with default
     newDescription = settings.DEFAULT_DESCRIPTION;
     descriptionChanged = true;
-    changes.push(`Description: Replaced with default (was ${currentLen} chars)`);
+    changes.push(
+      `Description: Replaced with default (was ${currentLen} chars)`
+    );
   } else if (currentLen > settings.DESCRIPTION_MAX) {
     // Too long → intelligent truncate at word boundary
     let truncated = newDescription.slice(0, settings.DESCRIPTION_MAX);
@@ -43,20 +52,27 @@ export async function fixMetadata(owner: string, repo: string): Promise<string[]
     truncated = truncated.replace(/[,;:\s]+$/, '');
     newDescription = truncated;
     descriptionChanged = true;
-    changes.push(`Description: Truncated to ${newDescription.length} chars (was ${currentLen})`);
+    changes.push(
+      `Description: Truncated to ${newDescription.length} chars (was ${currentLen})`
+    );
   } else {
     // In acceptable range (300-350)
     changes.push(`Description: OK (${currentLen} chars, left as-is)`);
 
     // Special note for 300-340 as per plan
     if (currentLen < 340) {
-      Logger.suggest(repo, `Current description is ${currentLen} chars. Consider expanding to ~350 chars for better SEO.`);
+      Logger.suggest(
+        repo,
+        `Current description is ${currentLen} chars. Consider expanding to ~350 chars for better SEO.`
+      );
     }
   }
 
   if (descriptionChanged) {
     if (settings.DRY_RUN) {
-      Logger.info(`[DRY RUN] Would update description to ${newDescription.length} chars`);
+      Logger.info(
+        `[DRY RUN] Would update description to ${newDescription.length} chars`
+      );
     } else {
       await updateRepoMetadata(owner, repo, { description: newDescription });
     }
@@ -65,9 +81,13 @@ export async function fixMetadata(owner: string, repo: string): Promise<string[]
   // ── Homepage ─────────────────────────────────────────────────────────────
   if (!metadata.homepage) {
     if (settings.DRY_RUN) {
-      Logger.info(`[DRY RUN] Would set homepage to ${settings.DEFAULT_HOMEPAGE}`);
+      Logger.info(
+        `[DRY RUN] Would set homepage to ${settings.DEFAULT_HOMEPAGE}`
+      );
     } else {
-      await updateRepoMetadata(owner, repo, { homepage: settings.DEFAULT_HOMEPAGE });
+      await updateRepoMetadata(owner, repo, {
+        homepage: settings.DEFAULT_HOMEPAGE,
+      });
     }
     changes.push(`Homepage: Set to ${settings.DEFAULT_HOMEPAGE}`);
   } else {
@@ -77,7 +97,7 @@ export async function fixMetadata(owner: string, repo: string): Promise<string[]
   // ── Topics ───────────────────────────────────────────────────────────────
   if (metadata.topics.length < settings.MIN_TOPICS) {
     // Pad with defaults (don't add duplicates)
-    const existingSet = new Set(metadata.topics.map(t => t.toLowerCase()));
+    const existingSet = new Set(metadata.topics.map((t) => t.toLowerCase()));
     const newTopics = [...metadata.topics];
 
     for (const topic of settings.DEFAULT_TOPICS) {
@@ -90,13 +110,19 @@ export async function fixMetadata(owner: string, repo: string): Promise<string[]
 
     if (newTopics.length > metadata.topics.length) {
       if (settings.DRY_RUN) {
-        Logger.info(`[DRY RUN] Would add topics: ${newTopics.slice(metadata.topics.length).join(', ')}`);
+        Logger.info(
+          `[DRY RUN] Would add topics: ${newTopics.slice(metadata.topics.length).join(', ')}`
+        );
       } else {
         await replaceTopics(owner, repo, newTopics);
       }
-      changes.push(`Topics: Padded from ${metadata.topics.length} → ${newTopics.length}`);
+      changes.push(
+        `Topics: Padded from ${metadata.topics.length} → ${newTopics.length}`
+      );
     } else {
-      changes.push(`Topics: ${metadata.topics.length} (could not pad further, defaults already present)`);
+      changes.push(
+        `Topics: ${metadata.topics.length} (could not pad further, defaults already present)`
+      );
     }
   } else {
     changes.push(`Topics: OK (${metadata.topics.length} topics)`);
