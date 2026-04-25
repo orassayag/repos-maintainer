@@ -16,7 +16,7 @@ export async function select<T = string>(config: SelectConfig<T>): Promise<T> {
     name: 'value',
     message: config.message,
     choices: config.choices.map(c => c.name),
-    result(name: string) {
+    result(name: string): T | undefined {
       return config.choices.find(c => c.name === name)?.value;
     }
   });

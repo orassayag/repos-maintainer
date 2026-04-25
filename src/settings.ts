@@ -1,5 +1,5 @@
 import path from 'path';
-import os from 'os';
+
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,7 +50,7 @@ export interface MaintainerSettings {
 // Settings
 // ─────────────────────────────────────────────────────────────────────────────
 
-const homeDir = os.homedir();
+
 
 export const settings: MaintainerSettings = {
   PROJECTS_ROOT: process.env.REPOS_ROOT || path.join('C:', 'Or', 'web', 'projects'),

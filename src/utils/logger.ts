@@ -1,4 +1,4 @@
-import { settings } from '../settings.js';
+
 
 /**
  * A simple logger that writes to the console.
