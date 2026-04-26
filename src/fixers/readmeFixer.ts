@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { settings } from '../settings.js';
+import { Logger } from '../utils/logger.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expected sections (must match exactly what the plan specifies)
@@ -43,7 +44,7 @@ export async function fixReadme(repoPath: string): Promise<boolean> {
     }
 
     if (settings.DRY_RUN) {
-      console.log('🔍 [DRY RUN] Would add Author/License section to README.md');
+      Logger.log('🔍 [DRY RUN] Would add Author/License section to README.md');
       return false;
     }
 
@@ -61,10 +62,9 @@ export async function fixReadme(repoPath: string): Promise<boolean> {
     }
 
     await fs.writeFile(readmePath, content, 'utf-8');
-    console.log('✅ Fixed README.md: Added Author/License section');
     return true;
   } catch (err) {
-    console.warn(`⚠️  Could not fix README.md: ${(err as Error).message}`);
+    Logger.error(`Could not fix README.md: ${(err as Error).message}`);
     return false;
   }
 }

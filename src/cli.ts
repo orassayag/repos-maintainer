@@ -28,7 +28,7 @@ export async function showMainMenu(): Promise<void> {
       await reposSyncCommand();
       break;
     case 'exit':
-      console.log('👋 Goodbye!');
+      console.log('\n👋 Goodbye!');
       process.exit(0);
   }
 

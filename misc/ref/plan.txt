@@ -10,7 +10,7 @@ Once we enter "pnpm run start" we will perform the validation steps.
 
 -Validation steps:
 -Validate that the C:\Or\web\projects exists - declared on settings.ts file - if not exists / empty - throw an error.
--Valudate that the C:\Or\web\project-repos-names.txt - declared on settings.ts file - if not exists / empty - throw an error.
+-Validate that the C:\Or\web\project-repos-names.txt - declared on settings.ts file - if not exists / empty - throw an error.
 -Validate that connected to GitHub account. If not - throw an error.
 -Once all valid - we can continue.
 
@@ -27,7 +27,7 @@ Manual script (CLI steps):
 
 Add Repo:
 =========
-1. When selecting this option, the CLI will ask the usr for the newley repo URL. If the url is invalid (not github url, missing repo name in the url) - An error will be throwen but the use will be able to recover and give the correct url.
+1. When selecting this option, the CLI will ask the usr for the newly repo URL. If the url is invalid (not github url, missing repo name in the url) - An error will be throwen but the use will be able to recover and give the correct url.
 2. When the URL is valid - We will do a simple API call to GitHub API to check if the repo exists within the given name. If not - throw an error.
 3. If the repo exists we should do the following:
 -Check if the project is listed in the C:\Or\web\project-repos-names.txt file - If not, add it according to the existing patterns there and add it in the alfabetifc correct order.
@@ -38,7 +38,7 @@ For the following steps, we will do them all and not stop if any or all of the s
 -git step - Validate that the hidden .git folder exists. If not - needs to mark to fix.
 
 -package.json file validation: Take the logic from packageJsonValidator.ts file (Don't change the logic there, this is the logic I want for this step).
--Need to add a validation of existance:
+-Need to add a validation of existence:
   "author": "Or Assayag <orassayag@gmail.com>",
   "contributors": [
     {
@@ -48,7 +48,7 @@ For the following steps, we will do them all and not stop if any or all of the s
     }
   ],
 -README.md file validation: Take the logic from readmeValidator.ts file (Don't change the logic there, this is the logic I want for this step).
--Need to add a validation of existance:
+-Need to add a validation of existence:
 ## Author
 
 **Or Assayag**
@@ -72,7 +72,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 -Metadata step:
 -Get the "About", the "URL", and the "tags".
 -Make sure all of them exists.
--Make sure that the "About" is minimum 340 and maximum 350 charactrs.
+-Make sure that the "About" is minimum 340 and maximum 350 characters.
 -Make sure we have URL, and if not, insert the linkedIn one.
 -Make sure we have at least 8 tags.
 
@@ -94,7 +94,7 @@ git reflog expire --expire=now --all && git gc --prune=now  # also clear reflog
 ======================================
 
 Update the MD files, license and package.json, Add GitHub Rulesets
-Reorgenize the project, Update the MD files, license and package.json, Add GitHub Rulesets
+Reorganize the project, Update the MD files, license and package.json, Add GitHub Rulesets
 
 ========================================
 
@@ -121,5 +121,5 @@ It also scan all the projects and add the missing standard files.
 =================================
 
 See the following text.
-If it's exeeded 350 characters - Make it the maximum of 350.
+If it's exceeded 350 characters - Make it the maximum of 350.
 If not, notify me in BOLD that you didn't touch it.

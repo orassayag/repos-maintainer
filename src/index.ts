@@ -20,9 +20,15 @@ async function preFlightValidation(): Promise<boolean> {
       throw new Error('Directory is empty');
     }
     Logger.success(`Projects root: ${settings.PROJECTS_ROOT}`);
-  } catch {
+  } catch (error: any) {
     Logger.error(`Projects root not found or empty: ${settings.PROJECTS_ROOT}`);
-    Logger.log('     Set REPOS_ROOT env var or ensure the directory exists.\n');
+    if (error.message === 'Directory is empty') {
+      Logger.log('     The directory exists but has no projects.\n');
+    } else {
+      Logger.log(
+        '     Set REPOS_ROOT env var or ensure the directory exists.\n'
+      );
+    }
     return false;
   }
 
@@ -37,18 +43,27 @@ async function preFlightValidation(): Promise<boolean> {
       throw new Error('File has no repo entries');
     }
     Logger.success(`Repos list: ${listPath} (${lines.length} repos)`);
-  } catch {
+  } catch (error: any) {
     Logger.error(`Repos list not found or empty: ${listPath}`);
+    if (error.code === 'ENOENT') {
+      Logger.log('     The file project-repos-names.txt was not found.\n');
+    } else if (error.message === 'File has no repo entries') {
+      Logger.log('     The file exists but contains no repository names.\n');
+    }
     return false;
   }
 
   // 3. Verify GitHub authentication
   const isAuthValid = await checkGitHubAuth();
   if (!isAuthValid) {
+    Logger.error('GitHub authentication failed.');
+    Logger.log(
+      '     Please ensure your GITHUB_TOKEN is valid and has proper scopes.\n'
+    );
     return false;
   }
 
-  Logger.log('\n✅ All pre-flight checks passed!\n');
+  Logger.success('All pre-flight checks passed!');
   return true;
 }
 

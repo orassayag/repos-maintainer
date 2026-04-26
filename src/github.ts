@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { throttling } from '@octokit/plugin-throttling';
+import { Logger } from './utils/logger.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Octokit singleton
@@ -15,8 +16,8 @@ export function getOctokit(): any {
       auth: process.env.GITHUB_TOKEN,
       throttle: {
         onRateLimit: (retryAfter: number, _options: object): boolean => {
-          console.warn(
-            `⏳ Rate limit hit. Retrying after ${retryAfter} seconds...`
+          Logger.warn(
+            `Rate limit hit. Retrying after ${retryAfter} seconds...`
           );
           return true;
         },
@@ -38,11 +39,11 @@ export async function checkGitHubAuth(): Promise<boolean> {
   try {
     const octokit = getOctokit();
     const { data } = await octokit.users.getAuthenticated();
-    console.log(`✅ GitHub authenticated as: ${data.login}`);
+    Logger.success(`GitHub authenticated as: ${data.login}`);
     return true;
   } catch {
-    console.error('❌ GitHub authentication failed.');
-    console.error('   Set GITHUB_TOKEN env var or run: gh auth login');
+    Logger.error('GitHub authentication failed.');
+    Logger.log('   Set GITHUB_TOKEN env var or run: gh auth login');
     return false;
   }
 }
@@ -61,6 +62,33 @@ export async function repoExists(
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Checks if a repository is empty (no commits).
+ */
+export async function isRepoEmpty(
+  owner: string,
+  repo: string
+): Promise<boolean> {
+  try {
+    const octokit = getOctokit();
+    // If listCommits fails with 409, the repo is empty
+    await octokit.repos.listCommits({
+      owner,
+      repo,
+      per_page: 1,
+    });
+    return false;
+  } catch (err: any) {
+    // 409 Conflict is returned by GitHub API when the repository is empty
+    if (err.status === 409 || err.status === 404) {
+      return true;
+    }
+    // If it's some other error, we assume it's not empty or we can't tell, 
+    // but for safety in this flow, we'll treat it as empty if we can't get commits.
+    return true;
   }
 }
 
@@ -98,6 +126,9 @@ export async function updateRepoMetadata(
   await octokit.repos.update({ owner, repo, ...updates });
 }
 
+/**
+ * Replaces all topics for a repository.
+ */
 export async function replaceTopics(
   owner: string,
   repo: string,

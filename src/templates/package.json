@@ -1,23 +1,14 @@
 {
-  "name": "repos-maintainer",
+  "name": "#REPO-NAME#",
   "version": "1.0.0",
-  "description": "A reliable personal tool to maintain high structural standards across all GitHub repositories",
+  "description": "#REPO-DESCRIPTION#",
   "type": "module",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git://github.com/orassayag/repos-maintainer.git"
+    "url": "git://github.com/orassayag/#REPO-NAME#.git"
   },
-  "keywords": [
-    "nodejs",
-    "typescript",
-    "github-api",
-    "repository-management",
-    "automation",
-    "cli",
-    "batch-processing",
-    "github-maintenance"
-  ],
+  "keywords": [],
   "main": "dist/index.js",
   "scripts": {
     "lint": "eslint \"src/**/*.ts\"",
@@ -62,31 +53,27 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ""
   },
   "dependencies": {
-    "@octokit/plugin-throttling": "^11.0.3",
-    "@octokit/rest": "^22.0.1",
-    "dotenv": "^16.4.5",
-    "enquirer": "^2.4.1",
-    "simple-git": "^3.27.0"
+    "dotenv": ""
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@rolldown/binding-win32-x64-msvc": "1.0.0-rc.17",
-    "@types/node": "^25.3.3",
-    "@typescript-eslint/eslint-plugin": "^8.46.0",
-    "@typescript-eslint/parser": "^8.46.0",
-    "@vitest/coverage-istanbul": "^4.1.1",
-    "@vitest/ui": "^4.1.1",
-    "cross-env": "^10.1.0",
-    "eslint": "^10.0.2",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "prettier": "^3.6.2",
-    "tsx": "^4.19.2",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.1"
+    "@eslint/js": "",
+    "@rolldown/binding-win32-x64-msvc": "",
+    "@types/node": "",
+    "@typescript-eslint/eslint-plugin": "",
+    "@typescript-eslint/parser": "",
+    "@vitest/coverage-istanbul": "",
+    "@vitest/ui": "",
+    "cross-env": "",
+    "eslint": "",
+    "eslint-config-prettier": "",
+    "eslint-plugin-prettier": "",
+    "prettier": "",
+    "tsx": "",
+    "typescript": "",
+    "typescript-eslint": "",
+    "vitest": ""
   }
 }

@@ -1,7 +1,10 @@
 import path from 'path';
 import { settings } from '../settings.js';
 import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
-import { ensureTemplateFile } from '../utils/fileFixer.js';
+import {
+  ensureTemplateFile,
+  getChangelogCommitMessage,
+} from '../utils/fileFixer.js';
 import { parseGitHubUrl, starRepo, watchRepo } from '../github.js';
 import { addOrUpdateRepoInList } from '../utils/repoList.js';
 import { Logger } from '../utils/logger.js';
@@ -29,6 +32,8 @@ const TEMPLATE_FILES = [
   'CODE_OF_CONDUCT.md',
   'SECURITY.md',
   '.gitignore',
+  'README.md',
+  'INSTRUCTIONS.md',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +80,7 @@ export async function standardizeRepo(
 
   // ── Step 2: Update repo list ───────────────────────────────────────────
   try {
-    await addOrUpdateRepoInList(repoName);
+    await addOrUpdateRepoInList(repoName, repoUrl);
     changes.push('Repo list: Updated');
   } catch (err) {
     const msg = `Repo list: ${(err as Error).message}`;
@@ -104,15 +109,22 @@ export async function standardizeRepo(
   }
 
   // ── Step 5: Standard files from templates ──────────────────────────────
+  let templatesCreated = false;
   for (const file of TEMPLATE_FILES) {
     try {
-      const created = await ensureTemplateFile(localPath, file);
-      if (created) changes.push(`${file}: Created/updated`);
+      const created = await ensureTemplateFile(localPath, file, true);
+      if (created) {
+        changes.push(`${file}: Created/updated`);
+        templatesCreated = true;
+      }
     } catch (err) {
       const msg = `${file}: ${(err as Error).message}`;
       errors.push(msg);
       Logger.error(msg);
     }
+  }
+  if (templatesCreated) {
+    Logger.success('Created all the template files');
   }
 
   // ── Step 6: Metadata (GitHub API) ──────────────────────────────────────
@@ -164,7 +176,10 @@ export async function standardizeRepo(
   // ── Step 10: Commit & Push ─────────────────────────────────────────────
   if (!settings.DRY_RUN) {
     try {
-      const committed = await commitAndPush(localPath);
+      const commitMessage =
+        (await getChangelogCommitMessage(localPath)) ||
+        'chore(maintainer): standardize repository structure';
+      const committed = await commitAndPush(localPath, commitMessage);
       if (committed) changes.push('Git: Committed & pushed');
     } catch (err) {
       const msg = `Git commit: ${(err as Error).message}`;

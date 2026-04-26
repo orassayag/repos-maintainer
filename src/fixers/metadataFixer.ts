@@ -75,6 +75,7 @@ export async function fixMetadata(
       );
     } else {
       await updateRepoMetadata(owner, repo, { description: newDescription });
+      Logger.success(`Updated description for ${repo}`);
     }
   }
 
@@ -88,6 +89,7 @@ export async function fixMetadata(
       await updateRepoMetadata(owner, repo, {
         homepage: settings.DEFAULT_HOMEPAGE,
       });
+      Logger.success(`Set homepage for ${repo} to ${settings.DEFAULT_HOMEPAGE}`);
     }
     changes.push(`Homepage: Set to ${settings.DEFAULT_HOMEPAGE}`);
   } else {
@@ -115,6 +117,7 @@ export async function fixMetadata(
         );
       } else {
         await replaceTopics(owner, repo, newTopics);
+        Logger.success(`Padded topics for ${repo} to ${newTopics.length}`);
       }
       changes.push(
         `Topics: Padded from ${metadata.topics.length} → ${newTopics.length}`

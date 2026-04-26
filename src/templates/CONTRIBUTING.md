@@ -10,7 +10,7 @@ Everyone is welcome to contribute to this project. Contributing doesn't just mea
 
 If you find a bug or have a feature request:
 
-1. Check if the issue already exists in the [GitHub Issues](https://github.com/orassayag/#PROJECT_NAME#/issues)
+1. Check if the issue already exists in the [GitHub Issues](https://github.com/orassayag/#REPO-NAME#/issues)
 2. If not, create a new issue with:
    - Clear title and description
    - Steps to reproduce (for bugs)

@@ -7,6 +7,7 @@ import {
 } from '../github.js';
 import type { RulesetData } from '../github.js';
 import { settings } from '../settings.js';
+import { Logger } from '../utils/logger.js';
 
 /**
  * Compares the repo's rulesets against the local template and creates/updates as needed.
@@ -32,17 +33,17 @@ export async function fixRulesets(
     if (!existingRuleset) {
       // No matching ruleset found → create it
       if (settings.DRY_RUN) {
-        console.log(
+        Logger.log(
           `🔍 [DRY RUN] Would create ruleset: "${templateRuleset.name}"`
         );
         return false;
       }
 
-      console.log(
+      Logger.log(
         `🔧 Creating ruleset: "${templateRuleset.name}" for ${owner}/${repo}`
       );
       await createRuleset(owner, repo, templateRuleset);
-      console.log(`✅ Ruleset created: "${templateRuleset.name}"`);
+      Logger.success(`Ruleset created: "${templateRuleset.name}"`);
       return true;
     }
 
@@ -58,24 +59,24 @@ export async function fixRulesets(
       }
 
       if (settings.DRY_RUN) {
-        console.log(
+        Logger.log(
           `🔍 [DRY RUN] Would update ruleset: "${templateRuleset.name}"`
         );
         return false;
       }
 
-      console.log(
+      Logger.log(
         `🔧 Updating ruleset: "${templateRuleset.name}" for ${owner}/${repo}`
       );
       await updateRuleset(owner, repo, existingRuleset.id!, templateRuleset);
-      console.log(`✅ Ruleset updated: "${templateRuleset.name}"`);
+      Logger.success(`Ruleset updated: "${templateRuleset.name}"`);
       return true;
     }
 
     return false;
   } catch (err) {
-    console.warn(
-      `⚠️  Rulesets step failed for ${owner}/${repo}: ${(err as Error).message}`
+    Logger.error(
+      `Rulesets step failed for ${owner}/${repo}: ${(err as Error).message}`
     );
     return false;
   }

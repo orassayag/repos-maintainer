@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { settings } from '../settings.js';
+import { Logger } from './logger.js';
 
 /**
  * Ensures a standard file exists in the repo based on overwrite policy.
@@ -8,13 +9,14 @@ import { settings } from '../settings.js';
  * - 'if-missing': only create if the file doesn't exist
  *
  * For LICENSE files, replaces the #YEAR# placeholder with the current year.
- * For CONTRIBUTING.md, replaces #PROJECT_NAME# with the repo folder name.
+ * For CONTRIBUTING.md, replaces #REPO-NAME# with the repo folder name.
  *
  * Returns true if a file was created or updated.
  */
 export async function ensureTemplateFile(
   repoPath: string,
   templateName: string,
+  silent: boolean = false
 ): Promise<boolean> {
   const destPath = path.join(repoPath, templateName);
   const templatePath = path.join(settings.TEMPLATES_DIR, templateName);
@@ -39,7 +41,7 @@ export async function ensureTemplateFile(
   try {
     content = await fs.readFile(templatePath, 'utf-8');
   } catch {
-    console.warn(`⚠️  Template not found: ${templatePath}`);
+    Logger.warn(`Template not found: ${templatePath}`);
     return false;
   }
 
@@ -48,7 +50,8 @@ export async function ensureTemplateFile(
   const repoName = path.basename(repoPath);
 
   content = content.replace(/#YEAR#/g, currentYear);
-  content = content.replace(/#PROJECT_NAME#/g, repoName);
+  content = content.replace(/#REPO-NAME#/g, repoName);
+  content = content.replace(/#PROJECT_NAME#/g, repoName); // Keep support for old placeholder just in case
 
   // For CHANGELOG.md — never overwrite (content is repo-specific)
   if (templateName === 'CHANGELOG.md' && fileExists) {
@@ -57,13 +60,44 @@ export async function ensureTemplateFile(
 
   if (settings.DRY_RUN) {
     const action = fileExists ? 'Would update' : 'Would create';
-    console.log(`🔍 [DRY RUN] ${action}: ${templateName}`);
+    Logger.info(`[DRY RUN] ${action}: ${templateName}`);
     return false;
   }
 
   await fs.writeFile(destPath, content, 'utf-8');
 
-  const action = fileExists ? '🔄 Updated' : '✅ Created';
-  console.log(`${action}: ${templateName}`);
+  if (!silent) {
+    const action = fileExists ? 'Updated' : 'Created';
+    Logger.success(`${action}: ${templateName}`);
+  }
   return true;
+}
+
+/**
+ * Reads the CHANGELOG.md file and returns the first non-empty line
+ * to be used as a commit message.
+ */
+export async function getChangelogCommitMessage(
+  repoPath: string
+): Promise<string | null> {
+  try {
+    const changelogPath = path.join(repoPath, 'CHANGELOG.md');
+    const content = await fs.readFile(changelogPath, 'utf-8');
+    const lines = content.split('\n');
+
+    const addedIndex = lines.findIndex((line) => line.trim() === '### Added');
+    if (addedIndex !== -1) {
+      for (let i = addedIndex + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('- ')) {
+          return line.replace(/^-\s*/, '').trim();
+        }
+        // If we hit another header before finding a list item, stop looking
+        if (line.startsWith('#')) break;
+      }
+    }
+  } catch {
+    // File not found or other error
+  }
+  return null;
 }
