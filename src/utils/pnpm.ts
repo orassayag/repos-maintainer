@@ -1,6 +1,9 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { Logger } from './logger.js';
 import { settings } from '../settings.js';
+
+const execAsync = promisify(exec);
 
 /**
  * Runs "pnpm install" in the specified directory.
@@ -14,9 +17,8 @@ export async function runPnpmInstall(repoPath: string): Promise<boolean> {
   }
 
   try {
-    execSync('pnpm install', {
+    await execAsync('pnpm install', {
       cwd: repoPath,
-      stdio: 'inherit',
     });
     Logger.success("'pnpm install' completed successfully");
     return true;

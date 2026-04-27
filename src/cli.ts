@@ -1,6 +1,7 @@
 import { select } from './utils/prompts.js';
 import { addRepoCommand } from './commands/addRepo.js';
 import { reposSyncCommand } from './commands/reposSync.js';
+import { scanRepoCommand } from './commands/scanRepo.js';
 
 export async function showMainMenu(): Promise<void> {
   console.log('\n=== Repos Maintainer ===\n');
@@ -13,7 +14,11 @@ export async function showMainMenu(): Promise<void> {
         value: 'add',
       },
       {
-        name: '♻️  Repos Sync        - Scan, update and clean all repositories (crawler)',
+        name: '🔎 Scan Repo         - Scan a repository and generate a report',
+        value: 'scan',
+      },
+      {
+        name: '🔎 Repos Sync        - Scan, update and clean all repositories (crawler)',
         value: 'sync',
       },
       { name: '🚪 Exit', value: 'exit' },
@@ -23,6 +28,9 @@ export async function showMainMenu(): Promise<void> {
   switch (action) {
     case 'add':
       await addRepoCommand();
+      break;
+    case 'scan':
+      await scanRepoCommand();
       break;
     case 'sync':
       await reposSyncCommand();

@@ -142,6 +142,26 @@ export async function replaceTopics(
 // Star & Watch
 // ─────────────────────────────────────────────────────────────────────────────
 
+export async function isRepoStarred(owner: string, repo: string): Promise<boolean> {
+  const octokit = getOctokit();
+  try {
+    await octokit.activity.checkRepoIsStarredByAuthenticatedUser({ owner, repo });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function isRepoWatched(owner: string, repo: string): Promise<boolean> {
+  const octokit = getOctokit();
+  try {
+    const { data } = await octokit.activity.getRepoSubscription({ owner, repo });
+    return data.subscribed;
+  } catch {
+    return false;
+  }
+}
+
 export async function starRepo(owner: string, repo: string): Promise<void> {
   const octokit = getOctokit();
   await octokit.activity.starRepoForAuthenticatedUser({ owner, repo });

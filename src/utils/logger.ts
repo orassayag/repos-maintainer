@@ -1,5 +1,3 @@
-
-
 /**
  * A simple logger that writes to the console.
  */

@@ -30,22 +30,26 @@ Built in February 2020. This application automates the process of discovering em
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/orassayag/crawler.git
 cd crawler
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Ensure MongoDB is running:
+
 ```bash
 mongod
 ```
 
 4. For production mode with Puppeteer:
+
 ```bash
 npm run preload
 ```
@@ -53,6 +57,7 @@ npm run preload
 ### Quick Start
 
 #### Test Mode (Development)
+
 ```bash
 # Edit src/settings/settings.js
 # Set IS_PRODUCTION_MODE: false
@@ -61,6 +66,7 @@ npm start
 ```
 
 #### Production Mode
+
 ```bash
 # Edit src/settings/settings.js
 # Set IS_PRODUCTION_MODE: true
@@ -76,18 +82,21 @@ Type `y` when prompted to confirm settings and start crawling.
 Edit `src/settings/settings.js` to configure:
 
 ### Core Settings
+
 - `IS_PRODUCTION_MODE`: Use real crawling (`true`) or test mode (`false`)
 - `GOAL_TYPE`: Stop condition - `EMAIL_ADDRESSES`, `MINUTES`, or `LINKS`
 - `GOAL_VALUE`: Target value for the goal
 - `IS_DROP_COLLECTION`: Clear database before starting
 
 ### Search Configuration
+
 - `SEARCH_KEY`: Static search term or `null` for random keys
 - `IS_ADVANCE_SEARCH_KEYS`: Use advanced Hebrew keys or basic static keys
 - Search engines configured in `src/configurations/files/searchEngines.configuration.js`
 - Search keys configured in `src/configurations/files/searchKeys.configuration.js`
 
 ### Filtering
+
 - Email filters: `src/configurations/files/filterEmailAddress.configuration.js`
 - Link filters: `src/configurations/files/filterLinkDomains.configuration.js`
 - File extensions: `src/configurations/files/filterFileExtensions.configuration.js`
@@ -97,6 +106,7 @@ See [INSTRUCTIONS.md](INSTRUCTIONS.md) for detailed configuration options.
 ## Available Scripts
 
 ### Main Application
+
 ```bash
 npm start              # Start crawler with monitoring
 npm run backup         # Backup the project
@@ -104,6 +114,7 @@ npm run domains        # Count email domains from results
 ```
 
 ### Testing Scripts
+
 ```bash
 npm run val            # Validate single email address
 npm run valmany        # Validate multiple email addresses
@@ -164,44 +175,44 @@ graph TB
     B --> C{MongoDB Connected?}
     C -->|No| D[Exit with Error]
     C -->|Yes| E[Start Crawl Logic]
-    
+
     E --> F[Generate Search Key]
     F --> G[Build Search Engine URL]
     G --> H[Fetch Search Results with Puppeteer]
-    
+
     H --> I[Extract Links from Results]
     I --> J[Filter Links]
     J --> K{More Links?}
-    
+
     K -->|Yes| L[Fetch Page with Puppeteer]
     L --> M[Extract Email Addresses]
     M --> N[Validate Each Email]
-    
+
     N --> O{Valid Email?}
     O -->|Yes| P[Check if Exists in DB]
     O -->|No| Q{Can Fix Typo?}
-    
+
     Q -->|Yes| P
     Q -->|No| R[Log as Invalid]
-    
+
     P --> S{Exists?}
     S -->|No| T[Save to MongoDB]
     S -->|Yes| U[Skip - Already Exists]
-    
+
     T --> V[Log to TXT File]
     V --> K
     U --> K
     R --> K
-    
+
     K -->|No| W{Goal Reached?}
     W -->|No| X[Next Process]
     W -->|Yes| Y[End & Log Statistics]
-    
+
     X --> F
-    
+
     Y --> Z[Close Puppeteer]
     Z --> AA[Exit Successfully]
-    
+
     subgraph "Email Validation"
         N --> N1[Check Format]
         N1 --> N2[Check Common Typos]
@@ -209,7 +220,7 @@ graph TB
         N3 --> N4[Gibberish Detection]
         N4 --> N5[Final Validation]
     end
-    
+
     subgraph "Monitoring"
         BB[Monitor Process] --> CC{Timeout?}
         CC -->|Yes| DD[Auto Restart]
@@ -233,6 +244,7 @@ graph TB
 ## Email Validation Features
 
 The email validation service includes:
+
 - **Format Validation**: Checks proper email structure
 - **Typo Correction**: Automatically fixes common typos (e.g., `gmial.com` → `gmail.com`)
 - **Domain Validation**: Verifies domain endings and structure
@@ -273,6 +285,7 @@ All output files are saved in `dist/production/YYYYMMDD_HHMMSS/` or `dist/develo
 ## Development
 
 ### Running Tests
+
 ```bash
 # Test email validation
 npm run val
@@ -288,7 +301,9 @@ npm run typos
 ```
 
 ### Development Mode
+
 Set `IS_PRODUCTION_MODE: false` in settings to:
+
 - Use local HTML sources instead of real requests
 - Test without Puppeteer
 - Avoid rate limiting from search engines
@@ -317,11 +332,11 @@ This application has an MIT license - see the [LICENSE](LICENSE) file for detail
 
 ## Author
 
-* **Or Assayag** - *Initial work* - [orassayag](https://github.com/orassayag)
-* Or Assayag <orassayag@gmail.com>
-* GitHub: https://github.com/orassayag
-* StackOverflow: https://stackoverflow.com/users/4442606/or-assayag?tab=profile
-* LinkedIn: https://linkedin.com/in/orassayag
+- **Or Assayag** - _Initial work_ - [orassayag](https://github.com/orassayag)
+- Or Assayag <orassayag@gmail.com>
+- GitHub: https://github.com/orassayag
+- StackOverflow: https://stackoverflow.com/users/4442606/or-assayag?tab=profile
+- LinkedIn: https://linkedin.com/in/orassayag
 
 ## Acknowledgments
 

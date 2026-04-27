@@ -15,10 +15,10 @@ export async function select<T = string>(config: SelectConfig<T>): Promise<T> {
   const prompt = new Select({
     name: 'value',
     message: config.message,
-    choices: config.choices.map(c => c.name),
+    choices: config.choices.map((c) => c.name),
     result(name: string): T | undefined {
-      return config.choices.find(c => c.name === name)?.value;
-    }
+      return config.choices.find((c) => c.name === name)?.value;
+    },
   });
 
   return await prompt.run();
@@ -34,7 +34,7 @@ export async function input(config: InputConfig): Promise<string> {
   const prompt = new Input({
     name: 'value',
     message: config.message,
-    validate: config.validate
+    validate: config.validate,
   });
 
   return await prompt.run();
