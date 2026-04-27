@@ -103,7 +103,7 @@ export class Scanner {
     let templateFiles: string[] = [];
     try {
       templateFiles = await fs.readdir(templatesDir);
-    } catch (err) {
+    } catch {
       // templates dir might not exist in some contexts (e.g. built app)
       // but in this project it should.
     }
@@ -136,7 +136,7 @@ export class Scanner {
     if (parsed) {
       try {
         await this.scanGitHubMetadata(parsed.owner, parsed.repo);
-      } catch (err) {
+      } catch {
         // Ignore metadata errors in bulk scan to avoid stopping
       }
     }
@@ -321,11 +321,27 @@ export class Scanner {
           `package.json: "name" should be "${repoName}"`,
           Severity.MEDIUM
         );
-      if (pkg.author !== 'Or Assayag <orassayag@gmail.com>')
+
+      // Author Validation
+      const expectedAuthor = {
+        name: 'Or Assayag',
+        email: 'orassayag@gmail.com',
+        url: 'https://github.com/orassayag',
+      };
+      if (!pkg.author) {
+        this.logToReport(`package.json: Missing "author" key`, Severity.MEDIUM);
+      } else if (
+        typeof pkg.author !== 'object' ||
+        pkg.author.name !== expectedAuthor.name ||
+        pkg.author.email !== expectedAuthor.email ||
+        pkg.author.url !== expectedAuthor.url
+      ) {
         this.logToReport(
-          `package.json: "author" should be "Or Assayag <orassayag@gmail.com>"`,
+          `package.json: "author" should be ${JSON.stringify(expectedAuthor, null, 2)}`,
           Severity.MEDIUM
         );
+      }
+
       if (pkg.license !== 'MIT')
         this.logToReport(
           `package.json: "license" should be "MIT"`,
@@ -340,6 +356,68 @@ export class Scanner {
       ) {
         this.logToReport(
           `package.json: "repository" should be { "type": "git", "url": "${expectedRepoUrl}" }`,
+          Severity.MEDIUM
+        );
+      }
+
+      // Homepage Validation
+      const expectedHomepage = `https://github.com/orassayag/${repoName}#readme`;
+      if (!pkg.homepage) {
+        this.logToReport(
+          `package.json: Missing "homepage" key`,
+          Severity.MEDIUM
+        );
+      } else if (pkg.homepage !== expectedHomepage) {
+        this.logToReport(
+          `package.json: "homepage" should be "${expectedHomepage}"`,
+          Severity.MEDIUM
+        );
+      }
+
+      // Bugs Validation
+      const expectedBugsUrl = `https://github.com/orassayag/${repoName}/issues`;
+      if (!pkg.bugs) {
+        this.logToReport(`package.json: Missing "bugs" key`, Severity.MEDIUM);
+      } else if (!pkg.bugs.url || pkg.bugs.url !== expectedBugsUrl) {
+        this.logToReport(
+          `package.json: "bugs" should be { "url": "${expectedBugsUrl}" }`,
+          Severity.MEDIUM
+        );
+      }
+
+      // Funding Validation
+      const expectedFunding = {
+        type: 'github',
+        url: 'https://github.com/sponsors/orassayag',
+      };
+      if (!pkg.funding) {
+        this.logToReport(
+          `package.json: Missing "funding" key`,
+          Severity.MEDIUM
+        );
+      } else if (
+        typeof pkg.funding !== 'object' ||
+        pkg.funding.type !== expectedFunding.type ||
+        pkg.funding.url !== expectedFunding.url
+      ) {
+        this.logToReport(
+          `package.json: "funding" should be ${JSON.stringify(expectedFunding, null, 2)}`,
+          Severity.MEDIUM
+        );
+      }
+
+      // Engines Validation
+      if (!pkg.engines) {
+        this.logToReport(
+          `package.json: Missing "engines" key`,
+          Severity.MEDIUM
+        );
+      } else if (
+        typeof pkg.engines !== 'object' ||
+        Object.keys(pkg.engines).length === 0
+      ) {
+        this.logToReport(
+          `package.json: "engines" should contain node and npm/pnpm versions`,
           Severity.MEDIUM
         );
       }
