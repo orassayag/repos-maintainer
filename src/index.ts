@@ -82,7 +82,7 @@ async function main(): Promise<void> {
 
   // Parse CLI flags
   const args = process.argv.slice(2);
-  const isAutoMode = args.includes('--auto') || args.includes('sync');
+  const isAutoMode = args.includes('--auto') || args.includes('sync') || args.includes('AUTO');
 
   if (args.includes('--dry-run')) {
     settings.DRY_RUN = true;
@@ -101,10 +101,10 @@ async function main(): Promise<void> {
   }
 
   if (isAutoMode) {
-    // Auto mode: run Repos Sync directly without menu
-    Logger.log('🔄 Running in AUTO mode (Repos Sync)...');
-    const { reposSyncCommand } = await import('./commands/reposSync.js');
-    await reposSyncCommand();
+    // Auto mode: run Scan Repos directly without menu
+    Logger.log('🔄 Running in AUTO mode (Scan Repos)...');
+    const { scanReposCommand } = await import('./commands/scanRepos.js');
+    await scanReposCommand();
   } else {
     // Interactive mode: show menu
     await showMainMenu();

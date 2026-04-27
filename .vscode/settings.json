@@ -1,3 +1,11 @@
 {
-  "cSpell.words": ["Assayag", "msvc", "orassayag", "STACKOVERFLOW", "syncer"]
+  "cSpell.words": [
+    "Assayag",
+    "dedup",
+    "msvc",
+    "orassayag",
+    "reflog",
+    "STACKOVERFLOW",
+    "syncer"
+  ]
 }

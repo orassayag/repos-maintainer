@@ -69,6 +69,7 @@
     "@octokit/rest": "^22.0.1",
     "dotenv": "^16.4.5",
     "enquirer": "^2.4.1",
+    "ora": "^9.4.0",
     "simple-git": "^3.27.0"
   },
   "devDependencies": {

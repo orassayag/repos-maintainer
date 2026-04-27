@@ -1,6 +1,6 @@
 import { select } from './utils/prompts.js';
 import { addRepoCommand } from './commands/addRepo.js';
-import { reposSyncCommand } from './commands/reposSync.js';
+import { scanReposCommand } from './commands/scanRepos.js';
 import { scanRepoCommand } from './commands/scanRepo.js';
 
 export async function showMainMenu(): Promise<void> {
@@ -18,7 +18,7 @@ export async function showMainMenu(): Promise<void> {
         value: 'scan',
       },
       {
-        name: '🔎 Repos Sync        - Scan, update and clean all repositories (crawler)',
+        name: '🔎 Scan Repos        - Scan all repositories in projects folder',
         value: 'sync',
       },
       { name: '🚪 Exit', value: 'exit' },
@@ -33,7 +33,7 @@ export async function showMainMenu(): Promise<void> {
       await scanRepoCommand();
       break;
     case 'sync':
-      await reposSyncCommand();
+      await scanReposCommand();
       break;
     case 'exit':
       console.log('\n👋 Goodbye!');
