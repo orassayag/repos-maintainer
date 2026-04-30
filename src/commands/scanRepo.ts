@@ -5,8 +5,10 @@ import { parseGitHubUrl } from '../github.js';
 import { Scanner, Severity } from '../utils/scanner.js';
 import Enquirer from 'enquirer';
 import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 
-const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPORT.txt';
+const REPORT_PATH = path.join(os.homedir(), 'Desktop', 'SCAN_REPOS_REPORT.txt');
 
 export async function scanRepoCommand(): Promise<void> {
   Logger.log('\nScan Repo:');

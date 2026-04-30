@@ -18,7 +18,7 @@ This document outlines the detailed plan for implementing the "Scan Repo" featur
   - *Reference*: Logic for suggestions and dropdown will be adapted from existing patterns (or similar projects).
 
 ## 3. Scanning Logic & Reporting
-- **Report File**: Create/Overwrite `C:\Users\Or Assayag\Desktop\SCAN_REPORT.txt`.
+- **Report File**: Create/Overwrite `SCAN_REPOS_REPORT.txt` on the Desktop.
 - **Step 1: Local Existence**:
   - Check if the project exists in `C:\Or\web\projects`.
   - Log to report if missing.

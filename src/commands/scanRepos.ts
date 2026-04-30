@@ -7,7 +7,7 @@ import { Scanner, RepoScanResult, Severity } from '../utils/scanner.js';
 import { settings } from '../settings.js';
 import { readRepoList } from '../utils/repoList.js';
 
-const REPORT_PATH = path.join(os.homedir(), 'Desktop', 'SCAN_REPORT.txt');
+const REPORT_PATH = path.join(os.homedir(), 'Desktop', 'SCAN_REPOS_REPORT.txt');
 
 export async function scanReposCommand(): Promise<void> {
   Logger.log('\n🔎 Scan Repos — Starting full repository scan...\n');
