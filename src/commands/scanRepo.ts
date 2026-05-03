@@ -105,12 +105,18 @@ export async function scanRepoCommand(): Promise<void> {
     if (result.issues.length === 0) {
       reportContent += `✨ No issues found! The repository follows all standards.\n`;
     } else {
-      // Sort and Group issues by severity (High -> Medium -> Low)
-      const severityOrder = [Severity.HIGH, Severity.MEDIUM, Severity.LOW];
+      // Sort and Group issues by severity (High -> Medium -> Low -> Very Low)
+      const severityOrder = [
+        Severity.HIGH,
+        Severity.MEDIUM,
+        Severity.LOW,
+        Severity.VERY_LOW,
+      ];
       const issuesBySeverity: Record<Severity, string[]> = {
         [Severity.HIGH]: [],
         [Severity.MEDIUM]: [],
         [Severity.LOW]: [],
+        [Severity.VERY_LOW]: [],
       };
 
       for (const issue of result.issues) {
@@ -120,9 +126,16 @@ export async function scanRepoCommand(): Promise<void> {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          reportContent += `\n${severity}:\n`;
-          for (const message of issues) {
-            reportContent += `-${message}\n`;
+          if (severity === Severity.VERY_LOW) {
+            reportContent += `\n${severity}:\n`;
+            for (const message of issues) {
+              reportContent += `-${message}\n`;
+            }
+          } else {
+            reportContent += `\n${severity}:\n`;
+            for (const message of issues) {
+              reportContent += `-${message}\n`;
+            }
           }
         }
       }

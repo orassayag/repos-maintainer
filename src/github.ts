@@ -261,7 +261,17 @@ export async function updateRuleset(
 export function parseGitHubUrl(
   url: string
 ): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+  const match = url.match(/github\.com[/:]([^/]+)\/([^/]+)/);
   if (!match) return null;
-  return { owner: match[1], repo: match[2].replace('.git', '') };
+  const owner = match[1];
+  let repo = match[2];
+
+  if (repo.endsWith('.git')) {
+    repo = repo.slice(0, -4);
+  }
+
+  // Remove trailing slashes or anchors
+  repo = repo.split(/[?#]/)[0].replace(/\/$/, '');
+
+  return { owner, repo };
 }

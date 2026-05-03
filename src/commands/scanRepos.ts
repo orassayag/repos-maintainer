@@ -83,8 +83,8 @@ export async function scanReposCommand(): Promise<void> {
 
   spinner.stop();
 
-  // 3. Sort results by severity (1 -> 2 -> 3 -> 0)
-  // maxSeverity: 1 (High), 2 (Medium), 3 (Low), 0 (None)
+  // 3. Sort results by severity (1 -> 2 -> 3 -> 4 -> 0)
+  // maxSeverity: 1 (High), 2 (Medium), 3 (Low), 4 (Very Low), 0 (None)
   const sortedResults = [...results].sort((a, b) => {
     // If one has no issues (maxSeverity 0), it goes to the bottom
     if (a.maxSeverity === 0 && b.maxSeverity === 0)
@@ -110,11 +110,17 @@ export async function scanReposCommand(): Promise<void> {
     reportContent += ` \n ${result.repoName} \n`;
 
     if (result.issues.length > 0) {
-      const severityOrder = [Severity.HIGH, Severity.MEDIUM, Severity.LOW];
+      const severityOrder = [
+        Severity.HIGH,
+        Severity.MEDIUM,
+        Severity.LOW,
+        Severity.VERY_LOW,
+      ];
       const issuesBySeverity: Record<Severity, string[]> = {
         [Severity.HIGH]: [],
         [Severity.MEDIUM]: [],
         [Severity.LOW]: [],
+        [Severity.VERY_LOW]: [],
       };
 
       for (const issue of result.issues) {
@@ -124,9 +130,16 @@ export async function scanReposCommand(): Promise<void> {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          reportContent += ` \n ${severity}: \n \n`;
-          for (const message of issues) {
-            reportContent += ` -${message} \n`;
+          if (severity === Severity.VERY_LOW) {
+            reportContent += ` \n ${severity}: \n`;
+            for (const message of issues) {
+              reportContent += ` -${message} \n`;
+            }
+          } else {
+            reportContent += ` \n ${severity}: \n \n`;
+            for (const message of issues) {
+              reportContent += ` -${message} \n`;
+            }
           }
         }
       }

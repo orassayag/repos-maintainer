@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { getLocalRepoPath } from '../settings.js';
 import {
   parseGitHubUrl,
@@ -15,6 +16,7 @@ export enum Severity {
   HIGH = '1 - High - Most critical - Fix ASAP',
   MEDIUM = '2 - Medium - Need to be addressed',
   LOW = '3 - Low - Fix when have time, nice to have',
+  VERY_LOW = '4 - Very Low - Minor issues',
 }
 
 export interface ScanIssue {
@@ -25,7 +27,7 @@ export interface ScanIssue {
 export interface RepoScanResult {
   repoName: string;
   issues: ScanIssue[];
-  maxSeverity: number; // 1, 2, or 3 (0 if no issues)
+  maxSeverity: number; // 1, 2, 3, or 4 (0 if no issues)
 }
 
 export class Scanner {
@@ -109,6 +111,7 @@ export class Scanner {
     }
 
     for (const file of templateFiles) {
+      if (file === 'node_modules') continue;
       const targetFilePath = path.join(repoPath, file);
       try {
         await fs.access(targetFilePath);
@@ -132,7 +135,10 @@ export class Scanner {
     // 7. package.json deep scan
     await this.scanPackageJson(repoPath, repo.name);
 
-    // 8. GitHub Metadata Scan
+    // 8. Formatter Scan
+    this.scanFormatters(repoPath);
+
+    // 9. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(parsed.owner, parsed.repo);
@@ -141,7 +147,8 @@ export class Scanner {
       }
     }
 
-    return this.getResult(repo.name);
+    const result = this.getResult(repo.name);
+    return result;
   }
 
   private logToReport(
@@ -153,13 +160,15 @@ export class Scanner {
 
   private getResult(repoName: string): RepoScanResult {
     let maxSeverity = 0;
-    // Severity levels are: 1 - High, 2 - Medium, 3 - Low
+    // Severity levels are: 1 - High, 2 - Medium, 3 - Low, 4 - Very Low
     if (this.scanIssues.some((i) => i.severity === Severity.HIGH))
       maxSeverity = 1;
     else if (this.scanIssues.some((i) => i.severity === Severity.MEDIUM))
       maxSeverity = 2;
     else if (this.scanIssues.some((i) => i.severity === Severity.LOW))
       maxSeverity = 3;
+    else if (this.scanIssues.some((i) => i.severity === Severity.VERY_LOW))
+      maxSeverity = 4;
 
     return {
       repoName,
@@ -428,7 +437,7 @@ export class Scanner {
         url: 'https://github.com/orassayag',
       };
       const hasContributor = pkg.contributors?.some(
-        (c: any) =>
+        (c: { name: string; email: string; url: string }) =>
           c.name === expectedContributor.name &&
           c.email === expectedContributor.email &&
           c.url === expectedContributor.url
@@ -507,7 +516,7 @@ export class Scanner {
     if (!isStarred) {
       this.logToReport(
         `GitHub: Repository is NOT starred by you`,
-        Severity.LOW
+        Severity.HIGH
       );
     }
 
@@ -515,7 +524,7 @@ export class Scanner {
     if (!isWatched) {
       this.logToReport(
         `GitHub: Repository is NOT watched by you`,
-        Severity.LOW
+        Severity.HIGH
       );
     }
 
@@ -526,5 +535,252 @@ export class Scanner {
         Severity.LOW
       );
     }
+  }
+
+  private scanFormatters(repoPath: string): void {
+    const formatters = [
+      {
+        name: 'Prettier',
+        detect: (dir: string): boolean => {
+          const pkg = this.readPkg(dir);
+          return (
+            existsSync(path.join(dir, '.prettierrc')) ||
+            existsSync(path.join(dir, '.prettierrc.json')) ||
+            existsSync(path.join(dir, '.prettierrc.js')) ||
+            existsSync(path.join(dir, '.prettierrc.yaml')) ||
+            existsSync(path.join(dir, '.prettierrc.yml')) ||
+            existsSync(path.join(dir, 'prettier.config.js')) ||
+            this.hasDep(pkg, 'prettier')
+          );
+        },
+        check: (dir: string): string[] => {
+          const bin = this.resolveRunner(dir, 'prettier');
+          const r = this.runCmd(`${bin} --check . --log-level warn`, dir);
+          return this.parsePrettierCheck(r.combined);
+        },
+      },
+      {
+        name: 'ESLint',
+        detect: (dir: string): boolean => {
+          const pkg = this.readPkg(dir);
+          return (
+            existsSync(path.join(dir, '.eslintrc')) ||
+            existsSync(path.join(dir, '.eslintrc.js')) ||
+            existsSync(path.join(dir, '.eslintrc.json')) ||
+            existsSync(path.join(dir, 'eslint.config.js')) ||
+            existsSync(path.join(dir, 'eslint.config.mjs')) ||
+            this.hasDep(pkg, 'eslint')
+          );
+        },
+        check: (dir: string): string[] => {
+          const bin = this.resolveRunner(dir, 'eslint');
+          // Try without --ext first (for flat config), fallback to --ext for legacy
+          let r = this.runCmd(`${bin} --fix-dry-run --format json .`, dir);
+          if (r.combined.includes("Invalid option '--ext'")) {
+            // Already tried without --ext, if it still fails with that error, something else is wrong
+          } else if (r.combined.includes('No files matching the pattern')) {
+            // Try with extensions for legacy
+            r = this.runCmd(
+              `${bin} --fix-dry-run --format json . --ext .js,.jsx,.ts,.tsx,.mjs,.cjs`,
+              dir
+            );
+          }
+
+          try {
+            const results = JSON.parse(r.stdout) as Array<{
+              filePath: string;
+              output?: string;
+            }>;
+            return results
+              .filter((f) => f.output !== undefined)
+              .map((f) => path.relative(dir, f.filePath));
+          } catch {
+            return this.parseEslintOutput(r.combined, dir);
+          }
+        },
+      },
+      {
+        name: 'Biome',
+        detect: (dir: string): boolean =>
+          existsSync(path.join(dir, 'biome.json')) ||
+          existsSync(path.join(dir, 'biome.jsonc')),
+        check: (dir: string): string[] => {
+          const bin = this.resolveRunner(dir, '@biomejs/biome');
+          const r = this.runCmd(`${bin} format .`, dir);
+          return this.parseBiomeOutput(r.combined, dir);
+        },
+      },
+      {
+        name: 'Stylelint',
+        detect: (dir: string): boolean => {
+          const pkg = this.readPkg(dir);
+          return (
+            existsSync(path.join(dir, '.stylelintrc')) ||
+            existsSync(path.join(dir, '.stylelintrc.js')) ||
+            existsSync(path.join(dir, '.stylelintrc.json')) ||
+            existsSync(path.join(dir, 'stylelint.config.js')) ||
+            this.hasDep(pkg, 'stylelint')
+          );
+        },
+        check: (dir: string): string[] => {
+          const bin = this.resolveRunner(dir, 'stylelint');
+          const r = this.runCmd(
+            `${bin} "**/*.{css,scss,less}" --formatter json`,
+            dir
+          );
+          try {
+            const results = JSON.parse(r.stdout) as Array<{
+              source: string;
+              warnings: Array<{ fixable?: boolean }>;
+            }>;
+            return results
+              .filter((f) => f.warnings.some((w) => w.fixable))
+              .map((f) => path.relative(dir, f.source));
+          } catch {
+            return [];
+          }
+        },
+      },
+      {
+        name: 'rustfmt',
+        detect: (dir: string): boolean =>
+          existsSync(path.join(dir, 'Cargo.toml')),
+        check: (dir: string): string[] => {
+          const r = this.runCmd('cargo fmt --check', dir);
+          const changed: string[] = [];
+          for (const line of r.combined.split('\n')) {
+            const m = line.match(/^Diff in (.+) at line/);
+            if (m) changed.push(path.relative(dir, m[1] as string));
+          }
+          return [...new Set(changed)];
+        },
+      },
+      {
+        name: 'gofmt',
+        detect: (dir: string): boolean => existsSync(path.join(dir, 'go.mod')),
+        check: (dir: string): string[] => {
+          const r = this.runCmd('gofmt -l .', dir);
+          return r.stdout.trim().split('\n').filter(Boolean);
+        },
+      },
+      {
+        name: 'Black',
+        detect: (dir: string): boolean => {
+          if (!existsSync(path.join(dir, 'pyproject.toml'))) return false;
+          try {
+            return readFileSync(
+              path.join(dir, 'pyproject.toml'),
+              'utf-8'
+            ).includes('[tool.black]');
+          } catch {
+            return false;
+          }
+        },
+        check: (dir: string): string[] => {
+          const r = this.runCmd('black --check .', dir);
+          const changed: string[] = [];
+          for (const line of r.combined.split('\n')) {
+            const m = line.match(/^would reformat (.+)$/);
+            if (m) changed.push(path.relative(dir, m[1]!.trim()));
+          }
+          return changed;
+        },
+      },
+    ];
+
+    for (const fmt of formatters) {
+      if (fmt.detect(repoPath)) {
+        try {
+          const unformatted = fmt.check(repoPath);
+          if (unformatted.length > 0) {
+            this.logToReport(
+              `${fmt.name}: ${unformatted.length} file(s) unformatted:\n${unformatted.map((f: string) => `  - ${f}`).join('\n')}`,
+              Severity.LOW
+            );
+          }
+        } catch (_err) {
+          // Ignore formatter errors
+        }
+      }
+    }
+  }
+
+  private readPkg(dir: string): Record<string, any> {
+    try {
+      return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf-8'));
+    } catch {
+      return {};
+    }
+  }
+
+  private hasDep(pkg: Record<string, any>, name: string): boolean {
+    return !!(pkg.dependencies?.[name] || pkg.devDependencies?.[name]);
+  }
+
+  private resolveRunner(dir: string, pkgName: string): string {
+    const binName = pkgName.startsWith('@') ? pkgName.split('/')[1] : pkgName;
+    const localBin = path.join(dir, 'node_modules', '.bin', binName);
+    if (existsSync(localBin)) return `"${localBin}"`;
+    return `npx --yes ${pkgName}`;
+  }
+
+  private runCmd(
+    cmd: string,
+    cwd: string
+  ): { stdout: string; combined: string } {
+    const result = spawnSync(cmd, {
+      cwd,
+      shell: true,
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    });
+    const stdout = result.stdout || '';
+    const stderr = result.stderr || '';
+    return { stdout, combined: stdout + stderr };
+  }
+
+  private parsePrettierCheck(output: string): string[] {
+    const files: string[] = [];
+    const cleanOutput = output.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    for (const line of cleanOutput.split(/\r?\n/)) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+      const m = trimmedLine.match(/\[warn\]\s+(.+)$/);
+      if (m && m[1] && !m[1].includes('Code style issues')) {
+        files.push(m[1].trim());
+      }
+    }
+    return files;
+  }
+
+  private parseEslintOutput(output: string, repoDir: string): string[] {
+    const files = new Set<string>();
+    const cleanOutput = output.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    for (const line of cleanOutput.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith(' ') || line.startsWith(' ')) continue;
+      if (trimmed.match(/^([A-Za-z]:\\|\/)/)) {
+        const rel = path.relative(repoDir, trimmed);
+        if (!rel.startsWith('..') && existsSync(trimmed)) {
+          files.add(rel);
+        }
+      }
+    }
+    return [...files];
+  }
+
+  private parseBiomeOutput(output: string, repoDir: string): string[] {
+    const files = new Set<string>();
+    const cleanOutput = output.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    for (const line of cleanOutput.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      const m = trimmed.match(/^([\w./\\-]+\.(js|ts|jsx|tsx|json|css|scss))/);
+      if (m) {
+        const candidate = m[1];
+        const full = path.resolve(repoDir, candidate);
+        if (existsSync(full)) files.add(candidate);
+      }
+    }
+    return [...files];
   }
 }
