@@ -2,6 +2,8 @@ import fs from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { execSync, spawnSync } from 'child_process';
+import latestVersion from 'latest-version';
+import semver from 'semver';
 import { getLocalRepoPath } from '../settings.js';
 import {
   parseGitHubUrl,
@@ -467,11 +469,18 @@ export class Scanner {
           `package.json: Missing "dependencies" section`,
           Severity.MEDIUM
         );
+      else {
+        await this.checkDependenciesVersion(pkg.dependencies);
+      }
+
       if (!pkg.devDependencies)
         this.logToReport(
           `package.json: Missing "devDependencies" section`,
           Severity.MEDIUM
         );
+      else {
+        await this.checkDependenciesVersion(pkg.devDependencies);
+      }
 
       const keywords = pkg.keywords || [];
       if (keywords.length < 8 || keywords.length > 20) {
@@ -491,6 +500,33 @@ export class Scanner {
     } catch {
       // Already reported
     }
+  }
+
+  private async checkDependenciesVersion(
+    dependencies: Record<string, string>
+  ): Promise<void> {
+    const packages = Object.keys(dependencies);
+    // Use Promise.all to check versions in parallel for better performance
+    await Promise.all(
+      packages.map(async (pkgName) => {
+        try {
+          const currentVersionRange = dependencies[pkgName];
+          const latest = await latestVersion(pkgName);
+
+          // Get the minimum version that satisfies the range in package.json
+          const minCurrent = semver.minVersion(currentVersionRange)?.version;
+
+          if (minCurrent && semver.gt(latest, minCurrent)) {
+            this.logToReport(
+              `Package "${pkgName}" is outdated. Current: ${currentVersionRange}, Latest: ${latest}`,
+              Severity.LOW
+            );
+          }
+        } catch {
+          // Ignore errors like package not found or network issues
+        }
+      })
+    );
   }
 
   private async scanGitHubMetadata(owner: string, repo: string): Promise<void> {

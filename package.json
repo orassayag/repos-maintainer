@@ -69,13 +69,16 @@
     "@octokit/rest": "^22.0.1",
     "dotenv": "^16.4.5",
     "enquirer": "^2.4.1",
+    "latest-version": "^9.0.0",
     "ora": "^9.4.0",
+    "semver": "^7.7.4",
     "simple-git": "^3.27.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@rolldown/binding-win32-x64-msvc": "1.0.0-rc.17",
     "@types/node": "^25.3.3",
+    "@types/semver": "^7.7.1",
     "@typescript-eslint/eslint-plugin": "^8.46.0",
     "@typescript-eslint/parser": "^8.46.0",
     "@vitest/coverage-istanbul": "^4.1.1",
