@@ -1,0 +1,17 @@
+{
+  "name": "repo-formatter",
+  "version": "1.0.0",
+  "description": "Format all files across all your repos and report what changed",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "dry-run": "tsx src/index.ts --dry-run"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

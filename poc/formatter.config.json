@@ -1,0 +1,5 @@
+{
+  "reposRoot": "C:\\Or\\web\\projects",
+  "exclude": ["archived-repo", "vendor"],
+  "depth": 1
+}
