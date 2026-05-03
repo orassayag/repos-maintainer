@@ -12,11 +12,33 @@ vi.mock('../utils/prompts.js');
 vi.mock('../utils/logger.js');
 vi.mock('../github.js');
 vi.mock('../settings.js');
+vi.mock('fs', async (importOriginal) => {
+  const actual = (await importOriginal()) as any;
+  return {
+    ...actual,
+    readFileSync: vi.fn().mockImplementation((p: string, encoding: string) => {
+      if (p.includes('package.json')) {
+        // We'll override this in tests if needed, but provide a default
+        return JSON.stringify({ name: 'test-repo' });
+      }
+      return actual.readFileSync(p, encoding);
+    }),
+    existsSync: vi.fn().mockImplementation((p: string) => {
+      if (p.includes('node_modules')) return false;
+      return true;
+    }),
+  };
+});
 vi.mock('latest-version', () => ({
   default: vi.fn().mockResolvedValue('2.0.0'),
 }));
 vi.mock('child_process', () => ({
   execSync: vi.fn().mockReturnValue(Buffer.from('')),
+  spawnSync: vi.fn().mockReturnValue({
+    stdout: '',
+    stderr: '',
+    status: 0,
+  }),
 }));
 vi.mock('enquirer', () => ({
   default: {
@@ -30,8 +52,11 @@ describe('scanRepoCommand', () => {
   const mockRepoList = ['test-repo:https://github.com/user/test-repo'];
   const mockRepoPath = 'C:\\mock\\path\\test-repo';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { existsSync } = await import('fs');
+    vi.mocked(existsSync).mockReturnValue(true);
+
     vi.mocked(readRepoList).mockResolvedValue(mockRepoList);
     vi.mocked(input).mockResolvedValue('test-repo');
     vi.mocked(getLocalRepoPath).mockReturnValue(mockRepoPath);
@@ -221,5 +246,105 @@ describe('scanRepoCommand', () => {
     expect(reportContent).toContain(
       '-Package "vitest" is outdated. Current: ^1.0.0, Latest: 2.0.0'
     );
+  });
+
+  it('should report lint issues via npx when node_modules is missing', async () => {
+    const pkgJson = {
+      name: 'test-repo',
+      scripts: {
+        lint: 'eslint .',
+      },
+      dependencies: {},
+      devDependencies: {},
+      author: {
+        name: 'Or Assayag',
+        email: 'orassayag@gmail.com',
+        url: 'https://github.com/orassayag',
+      },
+      license: 'MIT',
+      repository: {
+        type: 'git',
+        url: 'git://github.com/orassayag/test-repo.git',
+      },
+      homepage: 'https://github.com/orassayag/test-repo#readme',
+      bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+      funding: {
+        type: 'github',
+        url: 'https://github.com/sponsors/orassayag',
+      },
+      engines: { node: '>=20' },
+      contributors: [
+        {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+      ],
+      main: 'index.js',
+      type: 'module',
+      files: ['src'],
+      keywords: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+      description: 'A'.repeat(150),
+    };
+
+    vi.mocked(fs.readFile).mockImplementation((p: any) => {
+      if (p.toString().endsWith('package.json'))
+        return Promise.resolve(JSON.stringify(pkgJson));
+      if (p.toString().endsWith('README.md'))
+        return Promise.resolve(
+          '# Test Repo\n' +
+            'A'.repeat(150) +
+            '\nFeatures\nCore Capabilities\nTechnical Excellence\nDeveloper Experience\nGetting Started\nPrerequisites\nInstallation\nConfiguration\nUsage\nAvailable Scripts\nBest Practices\nDevelopment\nArchitecture Principles\nArchitecture\nDirectory Structure\nDesign Patterns\nContributing\nLicense\nSupport\nAuthor\nAcknowledgments'
+        );
+      if (p.toString().endsWith('INSTRUCTIONS.md'))
+        return Promise.resolve(
+          'Setup and Usage Instructions\nTable of Contents\nPrerequisites\nSystem Requirements\nInitial Setup\nInstall Dependencies\nAvailable Commands\nDevelopment Commands\nRunning Scripts\nTroubleshooting\nExtending the Application\nBest Practices\nDocumentation\nExternal Resources\nAuthor\nLast Updated\nVersion'
+        );
+      return Promise.resolve('template content');
+    });
+
+    const { spawnSync } = await import('child_process');
+    // Mock readFileSync for package.json
+    const { readFileSync } = await import('fs');
+    vi.mocked(readFileSync).mockImplementation((p: any) => {
+      if (p.toString().includes('package.json')) {
+        return JSON.stringify(pkgJson);
+      }
+      return '';
+    });
+
+    vi.mocked(spawnSync).mockImplementation((cmd: string) => {
+      if (cmd.includes('npx --yes eslint .')) {
+        return {
+          stdout: 'error: something is wrong',
+          stderr: '',
+          status: 1,
+        } as any;
+      }
+      return {
+        stdout: '',
+        stderr: '',
+        status: 0,
+      } as any;
+    });
+
+    // Mock existsSync to return false for node_modules
+    const { existsSync } = await import('fs');
+    vi.mocked(existsSync).mockImplementation((p: any) => {
+      if (p.toString().includes('node_modules')) return false;
+      if (p.toString().includes('go.mod')) return false;
+      return true;
+    });
+
+    await scanRepoCommand();
+
+    const calls = vi.mocked(fs.writeFile).mock.calls;
+    const reportContent = calls.map((call) => call[1]).join('\n');
+
+    expect(reportContent).toContain(
+      '3 - Low - Fix when have time, nice to have:'
+    );
+    expect(reportContent).toContain('Lint issues found (run via npx):');
+    expect(reportContent).toContain('  - error: something is wrong');
   });
 });

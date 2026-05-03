@@ -140,11 +140,19 @@ export class Scanner {
     // 8. Formatter Scan
     this.scanFormatters(repoPath);
 
-    // 9. GitHub Metadata Scan
+    // 9. Lint Scan (via npx if node_modules missing)
+    try {
+      this.scanLint(repoPath);
+    } catch {
+      // console.error('Lint Scan Error');
+    }
+
+    // 10. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(parsed.owner, parsed.repo);
       } catch {
+        // console.error('Metadata Scan Error');
         // Ignore metadata errors in bulk scan to avoid stopping
       }
     }
@@ -502,6 +510,43 @@ export class Scanner {
     }
   }
 
+  private scanLint(repoPath: string): void {
+    const pkg = this.readPkg(repoPath);
+    if (!pkg.scripts?.lint) return;
+
+    const nodeModulesPath = path.join(repoPath, 'node_modules');
+    if (existsSync(nodeModulesPath)) return;
+
+    // Run lint command via npx
+    // Note: We use --yes to bypass the npx installation prompt
+    const cmd = `npx --yes ${pkg.scripts.lint}`;
+    const result = this.runCmd(cmd, repoPath);
+
+    if (
+      result.combined.toLowerCase().includes('error') ||
+      result.combined.toLowerCase().includes('failed')
+    ) {
+      // Check if it's a real lint issue or just a command failure
+      const issues = result.combined
+        .split('\n')
+        .filter((line) => line.includes('error') || line.includes('warning'))
+        .slice(0, 5); // Limit to first 5 issues to keep report concise
+
+      if (issues.length > 0) {
+        this.logToReport(
+          `Lint issues found (run via npx):\n${issues.map((i) => `  - ${i.trim()}`).join('\n')}`,
+          Severity.LOW
+        );
+      } else {
+        // If no specific lines found but command failed, report the failure
+        this.logToReport(
+          `Lint command failed when running via npx.`,
+          Severity.LOW
+        );
+      }
+    }
+  }
+
   private async checkDependenciesVersion(
     dependencies: Record<string, string>
   ): Promise<void> {
@@ -743,7 +788,8 @@ export class Scanner {
 
   private readPkg(dir: string): Record<string, any> {
     try {
-      return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf-8'));
+      const pkgPath = path.join(dir, 'package.json');
+      return JSON.parse(readFileSync(pkgPath, 'utf-8'));
     } catch {
       return {};
     }
@@ -770,8 +816,8 @@ export class Scanner {
       encoding: 'utf-8',
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
-    const stdout = result.stdout || '';
-    const stderr = result.stderr || '';
+    const stdout = (result.stdout as string) || '';
+    const stderr = (result.stderr as string) || '';
     return { stdout, combined: stdout + stderr };
   }
 
