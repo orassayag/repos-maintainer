@@ -102,9 +102,9 @@ export async function scanReposCommand(): Promise<void> {
   });
 
   // 4. Generate Report
-  let reportContent = `SCAN REPORT \n \n`;
-  reportContent += `Date: ${new Date().toLocaleString()} \n \n`;
-  reportContent += `========================== \n`;
+  let reportContent = `SCAN_REPOS_REPORT\n`;
+  reportContent += `Date: ${new Date().toLocaleString()}\n`;
+  reportContent += `==========================\n`;
 
   for (const result of sortedResults) {
     reportContent += ` \n ${result.repoName} \n`;
