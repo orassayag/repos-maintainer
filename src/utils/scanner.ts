@@ -282,9 +282,9 @@ export class Scanner {
 
       const description = lines[1]?.trim() || '';
       const descLen = description.length;
-      if (descLen < 120 || descLen > 350) {
+      if (descLen < 290 || descLen > 350) {
         this.logToReport(
-          `README.md: Description length is ${descLen} (expected 120-350 chars)`,
+          `README.md: Description length is ${descLen} (expected 290-350 chars)`,
           Severity.LOW
         );
       }
@@ -499,9 +499,9 @@ export class Scanner {
       }
 
       const descLen = pkg.description?.length || 0;
-      if (descLen < 120 || descLen > 300) {
+      if (descLen < 290 || descLen > 300) {
         this.logToReport(
-          `package.json: Description length is ${descLen} (expected 120-300 chars)`,
+          `package.json: Description length is ${descLen} (expected 290-300 chars)`,
           Severity.MEDIUM
         );
       }

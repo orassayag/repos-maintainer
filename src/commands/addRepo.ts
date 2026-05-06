@@ -77,11 +77,11 @@ export async function addRepoCommand(): Promise<void> {
 
   // 2. Descriptions
   const packageDesc = await input({
-    message: 'Enter description for package.json (120-300 characters):',
+    message: 'Enter description for package.json (290-300 characters):',
     validate: (val) => {
       const len = val.trim().length;
-      if (len < 120 || len > 300)
-        return `Length must be between 120 and 300 chars (current: ${len})`;
+      if (len < 290 || len > 300)
+        return `Length must be between 290 and 300 chars (current: ${len})`;
       return true;
     },
   });

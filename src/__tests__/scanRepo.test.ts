@@ -99,7 +99,7 @@ describe('scanRepoCommand', () => {
     vi.mocked(fs.access).mockResolvedValue(undefined);
     const fullReadme =
       '# Test Repo\n' +
-      'A'.repeat(150) +
+      'A'.repeat(295) +
       '\nFeatures\nCore Capabilities\nTechnical Excellence\nDeveloper Experience\nGetting Started\nPrerequisites\nInstallation\nConfiguration\nUsage\nAvailable Scripts\nBest Practices\nDevelopment\nArchitecture Principles\nArchitecture\nDirectory Structure\nDesign Patterns\nContributing\nLicense\nSupport\nAuthor\nAcknowledgments';
     const fullInstructions =
       'Setup and Usage Instructions\nTable of Contents\nPrerequisites\nSystem Requirements\nInitial Setup\nInstall Dependencies\nAvailable Commands\nDevelopment Commands\nRunning Scripts\nTroubleshooting\nExtending the Application\nBest Practices\nDocumentation\nExternal Resources\nAuthor\nLast Updated\nVersion';
@@ -144,7 +144,7 @@ describe('scanRepoCommand', () => {
             dependencies: {},
             devDependencies: {},
             keywords: ['1', '2', '3', '4', '5', '6', '7', '8'],
-            description: 'A'.repeat(150),
+            description: 'A'.repeat(295),
           })
         );
       return Promise.resolve('template content');
