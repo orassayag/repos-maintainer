@@ -9,7 +9,7 @@ import { settings, getReposListPath } from './settings.js';
 // Pre-flight validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function preFlightValidation(): Promise<boolean> {
+export async function preFlightValidation(): Promise<boolean> {
   Logger.log('🔍 Running pre-flight validations...\n');
 
   // 1. Check PROJECTS_ROOT exists and is not empty
@@ -77,12 +77,13 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   Logger.log('\n🚀 Repos Maintainer starting...\n');
 
   // Parse CLI flags
   const args = process.argv.slice(2);
-  const isAutoMode = args.includes('--auto') || args.includes('sync') || args.includes('AUTO');
+  const isAutoMode =
+    args.includes('--auto') || args.includes('sync') || args.includes('AUTO');
 
   if (args.includes('--dry-run')) {
     settings.DRY_RUN = true;
@@ -111,7 +112,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  Logger.error(`Fatal error: ${err.message}`);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  main().catch((err) => {
+    Logger.error(`Fatal error: ${err.message}`);
+    process.exit(1);
+  });
+}

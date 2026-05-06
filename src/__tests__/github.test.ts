@@ -1,7 +1,62 @@
-import { describe, it, expect } from 'vitest';
-import { parseGitHubUrl } from '../github.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { 
+  parseGitHubUrl, 
+  checkGitHubAuth, 
+  repoExists, 
+  isRepoEmpty, 
+  getRepoMetadata, 
+  updateRepoMetadata, 
+  replaceTopics, 
+  isRepoStarred, 
+  isRepoWatched, 
+  starRepo, 
+  watchRepo, 
+  getRulesets, 
+  getRulesetDetails, 
+  createRuleset, 
+  updateRuleset 
+} from '../github.js';
+import { Logger } from '../utils/logger.js';
+
+const mockOctokit = {
+  users: {
+    getAuthenticated: vi.fn(),
+  },
+  repos: {
+    get: vi.fn(),
+    listCommits: vi.fn(),
+    update: vi.fn(),
+    replaceAllTopics: vi.fn(),
+    getRepoRulesets: vi.fn(),
+    getRepoRuleset: vi.fn(),
+    createRepoRuleset: vi.fn(),
+    updateRepoRuleset: vi.fn(),
+  },
+  activity: {
+    checkRepoIsStarredByAuthenticatedUser: vi.fn(),
+    getRepoSubscription: vi.fn(),
+    starRepoForAuthenticatedUser: vi.fn(),
+    setRepoSubscription: vi.fn(),
+  },
+};
+
+vi.mock('@octokit/rest', () => {
+  return {
+    Octokit: {
+      plugin: vi.fn().mockReturnValue(function() {
+        return mockOctokit;
+      }),
+    },
+  };
+});
+
+vi.mock('../utils/logger.js');
 
 describe('github utils', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('parseGitHubUrl', () => {
     it('should parse standard https URL', () => {
       const url = 'https://github.com/orassayag/repos-maintainer';
@@ -31,6 +86,152 @@ describe('github utils', () => {
       const url = 'not-a-url';
       const result = parseGitHubUrl(url);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('checkGitHubAuth', () => {
+    it('should return true if authenticated', async () => {
+      mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'user' } });
+      const result = await checkGitHubAuth();
+      expect(result).toBe(true);
+      expect(Logger.success).toHaveBeenCalledWith(expect.stringContaining('user'));
+    });
+
+    it('should return false if auth fails', async () => {
+      mockOctokit.users.getAuthenticated.mockRejectedValue(new Error('fail'));
+      const result = await checkGitHubAuth();
+      expect(result).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('repoExists', () => {
+    it('should return true if repo exists', async () => {
+      mockOctokit.repos.get.mockResolvedValue({ data: {} });
+      const result = await repoExists('owner', 'repo');
+      expect(result).toBe(true);
+    });
+
+    it('should return false if repo does not exist', async () => {
+      mockOctokit.repos.get.mockRejectedValue(new Error('fail'));
+      const result = await repoExists('owner', 'repo');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isRepoEmpty', () => {
+    it('should return false if commits exist', async () => {
+      mockOctokit.repos.listCommits.mockResolvedValue({ data: [{}] });
+      const result = await isRepoEmpty('owner', 'repo');
+      expect(result).toBe(false);
+    });
+
+    it('should return true if commits fail with 409', async () => {
+      const err = new Error('empty');
+      (err as any).status = 409;
+      mockOctokit.repos.listCommits.mockRejectedValue(err);
+      const result = await isRepoEmpty('owner', 'repo');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('getRepoMetadata', () => {
+    it('should return metadata', async () => {
+      mockOctokit.repos.get.mockResolvedValue({
+        data: {
+          description: 'desc',
+          homepage: 'home',
+          topics: ['t1'],
+          default_branch: 'main',
+        },
+      });
+      const result = await getRepoMetadata('owner', 'repo');
+      expect(result).toEqual({
+        description: 'desc',
+        homepage: 'home',
+        topics: ['t1'],
+        defaultBranch: 'main',
+      });
+    });
+  });
+
+  describe('updateRepoMetadata', () => {
+    it('should call update', async () => {
+      mockOctokit.repos.update.mockResolvedValue({});
+      await updateRepoMetadata('owner', 'repo', { description: 'new' });
+      expect(mockOctokit.repos.update).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        description: 'new',
+      });
+    });
+  });
+
+  describe('replaceTopics', () => {
+    it('should call replaceAllTopics', async () => {
+      mockOctokit.repos.replaceAllTopics.mockResolvedValue({});
+      await replaceTopics('owner', 'repo', ['t1']);
+      expect(mockOctokit.repos.replaceAllTopics).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        names: ['t1'],
+      });
+    });
+  });
+
+  describe('star & watch', () => {
+    it('should check if starred', async () => {
+      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockResolvedValue({});
+      expect(await isRepoStarred('o', 'r')).toBe(true);
+    });
+
+    it('should check if watched', async () => {
+      mockOctokit.activity.getRepoSubscription.mockResolvedValue({ data: { subscribed: true } });
+      expect(await isRepoWatched('o', 'r')).toBe(true);
+    });
+
+    it('should star repo', async () => {
+      mockOctokit.activity.starRepoForAuthenticatedUser.mockResolvedValue({});
+      await starRepo('o', 'r');
+      expect(mockOctokit.activity.starRepoForAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should watch repo', async () => {
+      mockOctokit.activity.setRepoSubscription.mockResolvedValue({});
+      await watchRepo('o', 'r');
+      expect(mockOctokit.activity.setRepoSubscription).toHaveBeenCalledWith({
+        owner: 'o',
+        repo: 'r',
+        subscribed: true,
+      });
+    });
+  });
+
+  describe('rulesets', () => {
+    it('should get rulesets', async () => {
+      mockOctokit.repos.getRepoRulesets.mockResolvedValue({ data: [{ id: 1 }] });
+      const result = await getRulesets('o', 'r');
+      expect(result).toEqual([{ id: 1 }]);
+    });
+
+    it('should get ruleset details', async () => {
+      mockOctokit.repos.getRepoRuleset.mockResolvedValue({ data: { id: 1 } });
+      const result = await getRulesetDetails('o', 'r', 1);
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it('should create ruleset', async () => {
+      mockOctokit.repos.createRepoRuleset.mockResolvedValue({});
+      const ruleset: any = { name: 'rs', target: 'branch', enforcement: 'active', rules: [] };
+      await createRuleset('o', 'r', ruleset);
+      expect(mockOctokit.repos.createRepoRuleset).toHaveBeenCalled();
+    });
+
+    it('should update ruleset', async () => {
+      mockOctokit.repos.updateRepoRuleset.mockResolvedValue({});
+      const ruleset: any = { name: 'rs', enforcement: 'active' };
+      await updateRuleset('o', 'r', 1, ruleset);
+      expect(mockOctokit.repos.updateRepoRuleset).toHaveBeenCalled();
     });
   });
 });
