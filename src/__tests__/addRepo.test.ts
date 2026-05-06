@@ -10,7 +10,7 @@ import {
   starRepo,
   watchRepo,
 } from '../github.js';
-import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
+import { ensureRepoCloned, commitAndPush } from '../utils/git.js';
 import {
   ensureTemplateFile,
   getChangelogCommitMessage,

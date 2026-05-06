@@ -6,7 +6,6 @@ import {
 import fs from 'fs/promises';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
-import path from 'path';
 
 vi.mock('fs/promises');
 vi.mock('../utils/logger.js');

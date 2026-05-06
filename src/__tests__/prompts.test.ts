@@ -5,14 +5,14 @@ import { select, input } from '../utils/prompts.js';
 vi.mock('enquirer', () => {
   return {
     default: {
-      Select: function (config: any) {
+      Select: function (config: any): {} {
         return {
           run: vi.fn().mockResolvedValue(
             config.result ? config.result(config.choices[0]) : config.choices[0]
           ),
         };
       },
-      Input: function () {
+      Input: function (): {} {
         return {
           run: vi.fn().mockResolvedValue('test-input'),
         };
