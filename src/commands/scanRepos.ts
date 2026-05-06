@@ -19,7 +19,12 @@ export async function scanReposCommand(): Promise<void> {
       withFileTypes: true,
     });
     projectDirs = entries
-      .filter((dirent) => dirent.isDirectory() && !dirent.name.startsWith('.'))
+      .filter(
+        (dirent) =>
+          dirent.isDirectory() &&
+          !dirent.name.startsWith('.') &&
+          !settings.EXCLUDED_PROJECTS.includes(dirent.name)
+      )
       .map((dirent) => dirent.name);
   } catch (err) {
     Logger.error(`Failed to read projects root: ${(err as Error).message}`);

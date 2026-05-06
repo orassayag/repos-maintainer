@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync, spawnSync } from 'child_process';
 import latestVersion from 'latest-version';
 import semver from 'semver';
-import { getLocalRepoPath } from '../settings.js';
+import { getLocalRepoPath, settings } from '../settings.js';
 import {
   parseGitHubUrl,
   getRepoMetadata,
@@ -39,6 +39,7 @@ export class Scanner {
     this.scanIssues = [];
     const repoPath = getLocalRepoPath(repo.name);
     const parsed = parseGitHubUrl(repo.url);
+    const excludedPaths = settings.EXCLUDED_PATHS[repo.name] || [];
 
     // 1. Local existence
     try {
@@ -64,10 +65,30 @@ export class Scanner {
 
     // 3. File comparison with GitHub
     try {
-      const status = execSync('git status --porcelain', {
+      let status = execSync('git status --porcelain', {
         cwd: repoPath,
         stdio: 'pipe',
       }).toString();
+
+      if (excludedPaths.length > 0) {
+        status = status
+          .split('\n')
+          .filter((line) => {
+            if (!line.trim()) return false;
+            // git status --porcelain output: "XY path/to/file"
+            // or "XY "path/with spaces/file""
+            let filePath = line.substring(3).trim();
+            if (filePath.startsWith('"') && filePath.endsWith('"')) {
+              filePath = filePath.substring(1, filePath.length - 1);
+            }
+            return !excludedPaths.some(
+              (excluded) =>
+                filePath === excluded || filePath.startsWith(excluded + '/')
+            );
+          })
+          .join('\n');
+      }
+
       if (status.trim().length > 0) {
         this.logToReport(
           `Project files are NOT equal to GitHub (local changes found):\n${status}`,
@@ -114,6 +135,8 @@ export class Scanner {
 
     for (const file of templateFiles) {
       if (file === 'node_modules') continue;
+      if (excludedPaths.includes(file)) continue;
+
       const targetFilePath = path.join(repoPath, file);
       try {
         await fs.access(targetFilePath);
@@ -129,13 +152,19 @@ export class Scanner {
     }
 
     // 5. INSTRUCTIONS.md deep scan
-    await this.scanInstructionsFile(repoPath);
+    if (!excludedPaths.includes('INSTRUCTIONS.md')) {
+      await this.scanInstructionsFile(repoPath);
+    }
 
     // 6. README.md deep scan
-    await this.scanReadmeFile(repoPath, repo.name);
+    if (!excludedPaths.includes('README.md')) {
+      await this.scanReadmeFile(repoPath, repo.name);
+    }
 
     // 7. package.json deep scan
-    await this.scanPackageJson(repoPath, repo.name);
+    if (!excludedPaths.includes('package.json')) {
+      await this.scanPackageJson(repoPath, repo.name);
+    }
 
     // 8. Formatter Scan
     this.scanFormatters(repoPath);
