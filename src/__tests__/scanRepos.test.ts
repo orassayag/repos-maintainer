@@ -4,7 +4,6 @@ import fs from 'fs/promises';
 import { readRepoList } from '../utils/repoList.js';
 import { Scanner } from '../utils/scanner.js';
 import { Logger } from '../utils/logger.js';
-import ora from 'ora';
 
 vi.mock('fs/promises');
 vi.mock('../utils/repoList.js');
@@ -31,8 +30,8 @@ describe('scanReposCommand', () => {
 
   it('should scan directories and generate a report', async () => {
     vi.mocked(fs.readdir).mockResolvedValue([
-      { name: 'repo1', isDirectory: () => true },
-      { name: 'repo2', isDirectory: () => true },
+      { name: 'repo1', isDirectory: (): boolean => true },
+      { name: 'repo2', isDirectory: (): boolean => true },
     ] as any);
     vi.mocked(readRepoList).mockResolvedValue(['repo1: url1']);
     

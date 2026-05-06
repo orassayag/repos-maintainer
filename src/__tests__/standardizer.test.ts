@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { standardizeRepo } from '../fixers/standardizer.js';
-import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
+import { ensureRepoCloned, commitAndPush } from '../utils/git.js';
 import { ensureTemplateFile, getChangelogCommitMessage } from '../utils/fileFixer.js';
 import { parseGitHubUrl, starRepo, watchRepo } from '../github.js';
 import { addOrUpdateRepoInList } from '../utils/repoList.js';
@@ -8,7 +8,6 @@ import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixMetadata } from '../fixers/metadataFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
-import { Logger } from '../utils/logger.js';
 
 vi.mock('../utils/git.js');
 vi.mock('../utils/fileFixer.js');

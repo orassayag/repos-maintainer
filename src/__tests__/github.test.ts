@@ -1,20 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-  parseGitHubUrl, 
-  checkGitHubAuth, 
-  repoExists, 
-  isRepoEmpty, 
-  getRepoMetadata, 
-  updateRepoMetadata, 
-  replaceTopics, 
-  isRepoStarred, 
-  isRepoWatched, 
-  starRepo, 
-  watchRepo, 
-  getRulesets, 
-  getRulesetDetails, 
-  createRuleset, 
-  updateRuleset 
+import {
+  parseGitHubUrl,
+  checkGitHubAuth,
+  repoExists,
+  isRepoEmpty,
+  getRepoMetadata,
+  updateRepoMetadata,
+  replaceTopics,
+  isRepoStarred,
+  isRepoWatched,
+  starRepo,
+  watchRepo,
+  getRulesets,
+  getRulesetDetails,
+  createRuleset,
+  updateRuleset,
 } from '../github.js';
 import { Logger } from '../utils/logger.js';
 
@@ -43,7 +43,7 @@ const mockOctokit = {
 vi.mock('@octokit/rest', () => {
   return {
     Octokit: {
-      plugin: vi.fn().mockReturnValue(function() {
+      plugin: vi.fn().mockReturnValue(function () {
         return mockOctokit;
       }),
     },
@@ -91,10 +91,14 @@ describe('github utils', () => {
 
   describe('checkGitHubAuth', () => {
     it('should return true if authenticated', async () => {
-      mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'user' } });
+      mockOctokit.users.getAuthenticated.mockResolvedValue({
+        data: { login: 'user' },
+      });
       const result = await checkGitHubAuth();
       expect(result).toBe(true);
-      expect(Logger.success).toHaveBeenCalledWith(expect.stringContaining('user'));
+      expect(Logger.success).toHaveBeenCalledWith(
+        expect.stringContaining('user')
+      );
     });
 
     it('should return false if auth fails', async () => {
@@ -133,6 +137,20 @@ describe('github utils', () => {
       const result = await isRepoEmpty('owner', 'repo');
       expect(result).toBe(true);
     });
+
+    it('should return true if commits fail with 404', async () => {
+      const err = new Error('not found');
+      (err as any).status = 404;
+      mockOctokit.repos.listCommits.mockRejectedValue(err);
+      const result = await isRepoEmpty('owner', 'repo');
+      expect(result).toBe(true);
+    });
+
+    it('should return true for other errors in listCommits', async () => {
+      mockOctokit.repos.listCommits.mockRejectedValue(new Error('other'));
+      const result = await isRepoEmpty('owner', 'repo');
+      expect(result).toBe(true);
+    });
   });
 
   describe('getRepoMetadata', () => {
@@ -152,6 +170,18 @@ describe('github utils', () => {
         topics: ['t1'],
         defaultBranch: 'main',
       });
+    });
+
+    it('should return empty fields if missing in response', async () => {
+      mockOctokit.repos.get.mockResolvedValue({
+        data: {
+          default_branch: 'main',
+        },
+      });
+      const result = await getRepoMetadata('owner', 'repo');
+      expect(result.description).toBe('');
+      expect(result.homepage).toBe('');
+      expect(result.topics).toEqual([]);
     });
   });
 
@@ -181,19 +211,39 @@ describe('github utils', () => {
 
   describe('star & watch', () => {
     it('should check if starred', async () => {
-      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockResolvedValue({});
+      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockResolvedValue(
+        {}
+      );
       expect(await isRepoStarred('o', 'r')).toBe(true);
     });
 
+    it('should return false if check starred fails', async () => {
+      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockRejectedValue(
+        new Error('fail')
+      );
+      expect(await isRepoStarred('o', 'r')).toBe(false);
+    });
+
     it('should check if watched', async () => {
-      mockOctokit.activity.getRepoSubscription.mockResolvedValue({ data: { subscribed: true } });
+      mockOctokit.activity.getRepoSubscription.mockResolvedValue({
+        data: { subscribed: true },
+      });
       expect(await isRepoWatched('o', 'r')).toBe(true);
+    });
+
+    it('should return false if check watched fails', async () => {
+      mockOctokit.activity.getRepoSubscription.mockRejectedValue(
+        new Error('fail')
+      );
+      expect(await isRepoWatched('o', 'r')).toBe(false);
     });
 
     it('should star repo', async () => {
       mockOctokit.activity.starRepoForAuthenticatedUser.mockResolvedValue({});
       await starRepo('o', 'r');
-      expect(mockOctokit.activity.starRepoForAuthenticatedUser).toHaveBeenCalled();
+      expect(
+        mockOctokit.activity.starRepoForAuthenticatedUser
+      ).toHaveBeenCalled();
     });
 
     it('should watch repo', async () => {
@@ -209,9 +259,17 @@ describe('github utils', () => {
 
   describe('rulesets', () => {
     it('should get rulesets', async () => {
-      mockOctokit.repos.getRepoRulesets.mockResolvedValue({ data: [{ id: 1 }] });
+      mockOctokit.repos.getRepoRulesets.mockResolvedValue({
+        data: [{ id: 1 }],
+      });
       const result = await getRulesets('o', 'r');
       expect(result).toEqual([{ id: 1 }]);
+    });
+
+    it('should return empty array if getRulesets fails', async () => {
+      mockOctokit.repos.getRepoRulesets.mockRejectedValue(new Error('fail'));
+      const result = await getRulesets('o', 'r');
+      expect(result).toEqual([]);
     });
 
     it('should get ruleset details', async () => {
@@ -220,9 +278,20 @@ describe('github utils', () => {
       expect(result).toEqual({ id: 1 });
     });
 
+    it('should return null if getRulesetDetails fails', async () => {
+      mockOctokit.repos.getRepoRuleset.mockRejectedValue(new Error('fail'));
+      const result = await getRulesetDetails('o', 'r', 1);
+      expect(result).toBeNull();
+    });
+
     it('should create ruleset', async () => {
       mockOctokit.repos.createRepoRuleset.mockResolvedValue({});
-      const ruleset: any = { name: 'rs', target: 'branch', enforcement: 'active', rules: [] };
+      const ruleset: any = {
+        name: 'rs',
+        target: 'branch',
+        enforcement: 'active',
+        rules: [],
+      };
       await createRuleset('o', 'r', ruleset);
       expect(mockOctokit.repos.createRepoRuleset).toHaveBeenCalled();
     });

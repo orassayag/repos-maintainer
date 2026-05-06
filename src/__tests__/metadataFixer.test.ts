@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fixMetadata } from '../fixers/metadataFixer.js';
 import { getRepoMetadata, updateRepoMetadata, replaceTopics } from '../github.js';
 import { settings } from '../settings.js';
-import { Logger } from '../utils/logger.js';
 
 vi.mock('../github.js');
 vi.mock('../utils/logger.js');
