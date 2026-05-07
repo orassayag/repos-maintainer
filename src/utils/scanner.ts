@@ -501,6 +501,34 @@ export class Scanner {
           `package.json: Missing or empty "files" section`,
           Severity.MEDIUM
         );
+      else {
+        const rootItems = (await fs.readdir(repoPath)).filter(
+          (item) => item !== '.git' && item !== 'node_modules'
+        );
+        const sortedRootItems = [...rootItems].sort();
+        const pkgFiles = pkg.files;
+
+        const isIdentical =
+          pkgFiles.length === rootItems.length &&
+          pkgFiles.every((file: string) => rootItems.includes(file));
+
+        if (!isIdentical) {
+          this.logToReport(
+            `package.json: "files" section is not identical to root level files and folders`,
+            Severity.LOW
+          );
+        } else {
+          const isSorted = pkgFiles.every(
+            (file: string, index: number) => file === sortedRootItems[index]
+          );
+          if (!isSorted) {
+            this.logToReport(
+              `package.json: "files" section is not in alphabetical order`,
+              Severity.LOW
+            );
+          }
+        }
+      }
       if (!pkg.dependencies)
         this.logToReport(
           `package.json: Missing "dependencies" section`,

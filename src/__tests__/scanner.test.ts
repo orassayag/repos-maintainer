@@ -19,6 +19,9 @@ vi.mock('latest-version');
 vi.mock('simple-git');
 vi.mock('../settings.js', () => ({
   getLocalRepoPath: vi.fn((name) => `/mock/path/${name}`),
+  settings: {
+    EXCLUDED_PATHS: {},
+  },
 }));
 vi.mock('../github.js', () => ({
   parseGitHubUrl: vi.fn(() => ({ owner: 'user', repo: 'repo' })),
