@@ -126,16 +126,9 @@ export async function scanRepoCommand(): Promise<void> {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          if (severity === Severity.VERY_LOW) {
-            reportContent += `\n${severity}:\n`;
-            for (const message of issues) {
-              reportContent += `-${message}\n`;
-            }
-          } else {
-            reportContent += `\n${severity}:\n`;
-            for (const message of issues) {
-              reportContent += `-${message}\n`;
-            }
+          reportContent += `\n${severity}:\n\n`;
+          for (const message of issues) {
+            reportContent += `-${message.trim()}\n`;
           }
         }
       }

@@ -11,6 +11,7 @@ import {
   isRepoStarred,
   isRepoWatched,
   getRulesets,
+  RepoMetadata,
 } from '../github.js';
 import { normalizeToTitle } from './stringUtils.js';
 
@@ -162,8 +163,21 @@ export class Scanner {
     }
 
     // 7. package.json deep scan
+    let githubMetadata: RepoMetadata | null = null;
+    if (parsed) {
+      try {
+        githubMetadata = await getRepoMetadata(parsed.owner, parsed.repo);
+      } catch {
+        // Ignore metadata errors for now
+      }
+    }
+
     if (!excludedPaths.includes('package.json')) {
-      await this.scanPackageJson(repoPath, repo.name);
+      await this.scanPackageJson(
+        repoPath,
+        repo.name,
+        githubMetadata?.topics || []
+      );
     }
 
     // 8. Formatter Scan
@@ -179,7 +193,11 @@ export class Scanner {
     // 10. GitHub Metadata Scan
     if (parsed) {
       try {
-        await this.scanGitHubMetadata(parsed.owner, parsed.repo);
+        await this.scanGitHubMetadata(
+          parsed.owner,
+          parsed.repo,
+          githubMetadata
+        );
       } catch {
         // console.error('Metadata Scan Error');
         // Ignore metadata errors in bulk scan to avoid stopping
@@ -357,7 +375,8 @@ export class Scanner {
 
   private async scanPackageJson(
     repoPath: string,
-    repoName: string
+    repoName: string,
+    githubTopics: string[] = []
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -555,6 +574,25 @@ export class Scanner {
         );
       }
 
+      // Keywords vs GitHub Topics Validation
+      if (keywords.length > 0) {
+        const sortedKeywords = [...keywords].sort();
+        const sortedTopics = [...githubTopics].sort();
+
+        const areEqual =
+          sortedKeywords.length === sortedTopics.length &&
+          sortedKeywords.every((kw, i) => kw === sortedTopics[i]);
+
+        if (!areEqual) {
+          this.logToReport(
+            `package.json: Keywords do not match GitHub topics.
+Expected (from package.json): ${keywords.join(', ')}
+Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
+            Severity.LOW
+          );
+        }
+      }
+
       const descLen = pkg.description?.length || 0;
       if (descLen < 290 || descLen > 300) {
         this.logToReport(
@@ -592,13 +630,13 @@ export class Scanner {
       if (issues.length > 0) {
         this.logToReport(
           `Lint issues found (run via npx):\n${issues.map((i) => `  - ${i.trim()}`).join('\n')}`,
-          Severity.LOW
+          Severity.VERY_LOW
         );
       } else {
         // If no specific lines found but command failed, report the failure
         this.logToReport(
           `Lint command failed when running via npx.`,
-          Severity.LOW
+          Severity.VERY_LOW
         );
       }
     }
@@ -631,18 +669,22 @@ export class Scanner {
     );
   }
 
-  private async scanGitHubMetadata(owner: string, repo: string): Promise<void> {
-    const metadata = await getRepoMetadata(owner, repo);
-    if (!metadata) return;
+  private async scanGitHubMetadata(
+    owner: string,
+    repo: string,
+    metadata?: RepoMetadata | null
+  ): Promise<void> {
+    const data = metadata || (await getRepoMetadata(owner, repo));
+    if (!data) return;
 
-    if (metadata.homepage !== 'https://linkedin.com/in/orassayag') {
+    if (data.homepage !== 'https://linkedin.com/in/orassayag') {
       this.logToReport(
-        `GitHub: Homepage should be "https://linkedin.com/in/orassayag" (found "${metadata.homepage}")`,
+        `GitHub: Homepage should be "https://linkedin.com/in/orassayag" (found "${data.homepage}")`,
         Severity.LOW
       );
     }
 
-    const descLen = metadata.description?.length || 0;
+    const descLen = data.description?.length || 0;
     if (descLen < 340 || descLen > 350) {
       this.logToReport(
         `GitHub: Description length should be 340-350 chars (current: ${descLen})`,
@@ -833,7 +875,7 @@ export class Scanner {
           if (unformatted.length > 0) {
             this.logToReport(
               `${fmt.name}: ${unformatted.length} file(s) unformatted:\n${unformatted.map((f: string) => `  - ${f}`).join('\n')}`,
-              Severity.LOW
+              Severity.VERY_LOW
             );
           }
         } catch (_err) {

@@ -149,6 +149,114 @@ describe('Scanner', () => {
         result.issues.some((i) => i.message.includes('No rulesets found'))
       ).toBe(true);
     });
+
+    it('should report keyword mismatch between package.json and GitHub topics', async () => {
+      const pkgJson = {
+        name: 'test-repo',
+        keywords: ['k1', 'k2'],
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        license: 'MIT',
+        repository: {
+          type: 'git',
+          url: 'git://github.com/orassayag/test-repo.git',
+        },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20' },
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
+        main: 'dist/index.js',
+        type: 'module',
+        scripts: { test: 'vitest' },
+        files: ['dist'],
+        description: 'A'.repeat(295),
+        dependencies: {},
+        devDependencies: {},
+      };
+      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkgJson));
+
+      const { getRepoMetadata } = await import('../github.js');
+      vi.mocked(getRepoMetadata).mockResolvedValue({
+        homepage: 'https://linkedin.com/in/orassayag',
+        description: 'A'.repeat(345),
+        topics: ['t1', 't2'],
+        defaultBranch: 'main',
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('Keywords do not match GitHub topics')
+        )
+      ).toBe(true);
+    });
+
+    it('should NOT report if keywords match GitHub topics', async () => {
+      const pkgJson = {
+        name: 'test-repo',
+        keywords: ['k1', 'k2'],
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        license: 'MIT',
+        repository: {
+          type: 'git',
+          url: 'git://github.com/orassayag/test-repo.git',
+        },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20' },
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
+        main: 'dist/index.js',
+        type: 'module',
+        scripts: { test: 'vitest' },
+        files: ['dist'],
+        description: 'A'.repeat(295),
+        dependencies: {},
+        devDependencies: {},
+      };
+      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkgJson));
+
+      const { getRepoMetadata } = await import('../github.js');
+      vi.mocked(getRepoMetadata).mockResolvedValue({
+        homepage: 'https://linkedin.com/in/orassayag',
+        description: 'A'.repeat(345),
+        topics: ['k2', 'k1'], // Different order
+        defaultBranch: 'main',
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('Keywords do not match GitHub topics')
+        )
+      ).toBe(false);
+    });
   });
 
   describe('scanRepo templates', () => {

@@ -112,7 +112,7 @@ export async function scanReposCommand(): Promise<void> {
   reportContent += `==========================\n`;
 
   for (const result of sortedResults) {
-    reportContent += ` \n ${result.repoName} \n`;
+    reportContent += `\n${result.repoName}\n`;
 
     if (result.issues.length > 0) {
       const severityOrder = [
@@ -135,21 +135,14 @@ export async function scanReposCommand(): Promise<void> {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          if (severity === Severity.VERY_LOW) {
-            reportContent += ` \n ${severity}: \n`;
-            for (const message of issues) {
-              reportContent += ` -${message} \n`;
-            }
-          } else {
-            reportContent += ` \n ${severity}: \n \n`;
-            for (const message of issues) {
-              reportContent += ` -${message} \n`;
-            }
+          reportContent += `\n${severity}:\n\n`;
+          for (const message of issues) {
+            reportContent += `-${message.trim()}\n`;
           }
         }
       }
     }
-    reportContent += ` \n ========================== \n`;
+    reportContent += `\n==========================\n`;
   }
 
   try {
