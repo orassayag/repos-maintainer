@@ -20,6 +20,7 @@ vi.mock('../settings.js', () => ({
   settings: {
     PROJECTS_ROOT: '/mock/projects',
     AUTHOR_GITHUB: 'user',
+    EXCLUDED_PROJECTS: [],
   },
 }));
 

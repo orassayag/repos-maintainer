@@ -150,15 +150,25 @@ describe('scanRepoCommand', () => {
       return Promise.resolve('template content');
     });
 
-    // Mock templates dir to be empty for simplicity
-    vi.mocked(fs.readdir).mockResolvedValue([] as any);
+    // Mock templates dir and repo root to have 'dist' to match package.json
+    vi.mocked(fs.readdir).mockResolvedValue(['dist'] as any);
 
     // Mock GitHub methods
-    const { getRepoMetadata, isRepoStarred, isRepoWatched, getRulesets } =
-      await import('../github.js');
+    const {
+      parseGitHubUrl,
+      getRepoMetadata,
+      isRepoStarred,
+      isRepoWatched,
+      getRulesets,
+    } = await import('../github.js');
+    vi.mocked(parseGitHubUrl).mockReturnValue({
+      owner: 'orassayag',
+      repo: 'test-repo',
+    });
     vi.mocked(getRepoMetadata).mockResolvedValue({
       homepage: 'https://linkedin.com/in/orassayag',
       description: 'A'.repeat(345),
+      topics: ['1', '2', '3', '4', '5', '6', '7', '8'],
     } as any);
     vi.mocked(isRepoStarred).mockResolvedValue(true);
     vi.mocked(isRepoWatched).mockResolvedValue(true);
