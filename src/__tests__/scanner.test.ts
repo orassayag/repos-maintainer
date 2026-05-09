@@ -59,7 +59,9 @@ describe('Scanner', () => {
   describe('scanLint', () => {
     it('should return early if node_modules exists', async () => {
       vi.mocked(existsSync).mockImplementation((p: any) => {
-        if (p.toString().endsWith('node_modules')) return true;
+        const pathStr = p.toString();
+        if (pathStr.endsWith('node_modules')) return true;
+        if (pathStr.endsWith('eslint.config.mjs')) return true;
         return false;
       });
       // We need to provide a pkg with a lint script

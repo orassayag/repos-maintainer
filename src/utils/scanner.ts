@@ -185,7 +185,10 @@ export class Scanner {
       // console.error('Lint Scan Error');
     }
 
-    // 10. GitHub Metadata Scan
+    // 10. ESLint Config Scan
+    this.scanEslintConfig(repoPath);
+
+    // 11. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(
@@ -568,6 +571,19 @@ export class Scanner {
         // If no specific lines found but command failed, report the failure
         this.logIssue('LINT_COMMAND_FAILED');
       }
+    }
+  }
+
+  private scanEslintConfig(repoPath: string): void {
+    const hasLegacyConfig =
+      existsSync(path.join(repoPath, 'eslintrc.json')) ||
+      existsSync(path.join(repoPath, '.eslintrc.json'));
+    const hasFlatConfig = existsSync(path.join(repoPath, 'eslint.config.mjs'));
+
+    if (!hasLegacyConfig && !hasFlatConfig) {
+      this.logIssue('ESLINT_CONFIG_MISSING');
+    } else if (hasLegacyConfig && !hasFlatConfig) {
+      this.logIssue('ESLINT_LEGACY_CONFIG');
     }
   }
 

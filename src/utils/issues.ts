@@ -221,6 +221,15 @@ export const ISSUES = {
     message: '{formatter}: {count} file(s) unformatted:\n{files}',
     severity: Severity.VERY_LOW,
   },
+  ESLINT_CONFIG_MISSING: {
+    message: 'ESLint: Missing both "eslintrc.json" (Legacy) or "eslint.config.mjs" (Latest)',
+    severity: Severity.MEDIUM,
+  },
+  ESLINT_LEGACY_CONFIG: {
+    message:
+      'ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to "eslint.config.mjs")',
+    severity: Severity.MEDIUM,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;
