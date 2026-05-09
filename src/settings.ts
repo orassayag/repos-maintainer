@@ -43,10 +43,6 @@ export interface MaintainerSettings {
 
   // Overwrite policies
   OVERWRITE_POLICY: Record<string, OverwritePolicy>;
-
-  // Exclusions
-  EXCLUDED_PROJECTS: string[];
-  EXCLUDED_PATHS: Record<string, string[]>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,11 +105,6 @@ export const settings: MaintainerSettings = {
     'CONTRIBUTING.md': 'if-missing',
     'CHANGELOG.md': 'if-missing',
     '.gitignore': 'if-missing',
-  },
-
-  EXCLUDED_PROJECTS: [],
-  EXCLUDED_PATHS: {
-    'daily-events-bot': ['db/days.json'],
   },
 };
 

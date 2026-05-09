@@ -4,7 +4,9 @@ import path from 'path';
 import { execSync, spawnSync } from 'child_process';
 import latestVersion from 'latest-version';
 import semver from 'semver';
-import { getLocalRepoPath, settings } from '../settings.js';
+import { getLocalRepoPath } from '../settings.js';
+import { Severity, ISSUES, IssueKey } from './issues.js';
+import { getExcludedPaths, isIssueExcluded } from './excludes.js';
 import {
   parseGitHubUrl,
   getRepoMetadata,
@@ -14,13 +16,6 @@ import {
   RepoMetadata,
 } from '../github.js';
 import { normalizeToTitle } from './stringUtils.js';
-
-export enum Severity {
-  HIGH = '1 - High - Most critical - Fix ASAP',
-  MEDIUM = '2 - Medium - Need to be addressed',
-  LOW = '3 - Low - Fix when have time, nice to have',
-  VERY_LOW = '4 - Very Low - Minor issues',
-}
 
 export interface ScanIssue {
   severity: Severity;
@@ -35,21 +30,40 @@ export interface RepoScanResult {
 
 export class Scanner {
   private scanIssues: ScanIssue[] = [];
+  private currentRepoName: string = '';
+
+  private logIssue(
+    issueKey: IssueKey,
+    params?: Record<string, string | number>
+  ): void {
+    if (isIssueExcluded(this.currentRepoName, issueKey)) {
+      return;
+    }
+
+    const issueDef = ISSUES[issueKey];
+    let message: string = issueDef.message;
+
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        message = message.replace(`{${key}}`, String(value));
+      }
+    }
+
+    this.logToReport(message, issueDef.severity);
+  }
 
   async scanRepo(repo: { name: string; url: string }): Promise<RepoScanResult> {
     this.scanIssues = [];
+    this.currentRepoName = repo.name;
     const repoPath = getLocalRepoPath(repo.name);
     const parsed = parseGitHubUrl(repo.url);
-    const excludedPaths = settings.EXCLUDED_PATHS[repo.name] || [];
+    const excludedPaths = getExcludedPaths(repo.name);
 
     // 1. Local existence
     try {
       await fs.access(repoPath);
     } catch {
-      this.logToReport(
-        `Project NOT found locally at ${repoPath}`,
-        Severity.HIGH
-      );
+      this.logIssue('PROJECT_NOT_FOUND', { repoPath });
       return this.getResult(repo.name);
     }
 
@@ -58,10 +72,7 @@ export class Scanner {
     try {
       await fs.access(gitPath);
     } catch {
-      this.logToReport(
-        `Project is NOT synced with git (.git folder missing)`,
-        Severity.HIGH
-      );
+      this.logIssue('PROJECT_NOT_SYNCED');
     }
 
     // 3. File comparison with GitHub
@@ -91,37 +102,21 @@ export class Scanner {
       }
 
       if (status.trim().length > 0) {
-        this.logToReport(
-          `Project files are NOT equal to GitHub (local changes found):\n${status}`,
-          Severity.HIGH
-        );
+        this.logIssue('LOCAL_CHANGES', { status });
       }
 
       // Check if pushed to remote
-      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd: repoPath,
-        stdio: 'pipe',
-      })
-        .toString()
-        .trim();
-      const remoteStatus = execSync(`git status -sb`, {
+      const branchStatus = execSync('git status -uno', {
         cwd: repoPath,
         stdio: 'pipe',
       }).toString();
-      if (
-        remoteStatus.includes('[ahead ') ||
-        remoteStatus.includes('[behind ')
-      ) {
-        this.logToReport(
-          `Project is NOT in sync with remote branch (${branch}): ${remoteStatus.split('\n')[0]}`,
-          Severity.HIGH
-        );
+      if (branchStatus.includes('Your branch is ahead of')) {
+        this.logIssue('NOT_PUSHED');
       }
     } catch (err) {
-      this.logToReport(
-        `Failed to run git status: ${(err as Error).message}`,
-        Severity.HIGH
-      );
+      this.logIssue('GIT_STATUS_FAILED', {
+        error: (err as Error).message,
+      });
     }
 
     // 4. Template Scan
@@ -148,7 +143,7 @@ export class Scanner {
           path.join(templatesDir, file)
         );
       } catch {
-        this.logToReport(`Missing template file: ${file}`, Severity.MEDIUM);
+        this.logIssue('MISSING_TEMPLATE_FILE', { file });
       }
     }
 
@@ -250,23 +245,14 @@ export class Scanner {
       fileName === 'INSTRUCTIONS.md'
     ) {
       if (!targetContent.includes(templateContent.trim())) {
-        const severity = fileName.endsWith('.md')
-          ? Severity.LOW
-          : Severity.MEDIUM;
-        this.logToReport(
-          `${fileName} content is incomplete or doesn't match template.`,
-          severity
-        );
+        this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
       }
     } else if (fileName === 'LICENSE') {
       // Ignore year in LICENSE
       const targetNoYear = targetContent.replace(/\d{4}/g, 'YEAR');
       const templateNoYear = templateContent.replace(/\d{4}/g, 'YEAR');
       if (!targetNoYear.includes(templateNoYear.trim())) {
-        this.logToReport(
-          `LICENSE content is incomplete or doesn't match template.`,
-          Severity.MEDIUM
-        );
+        this.logIssue('LICENSE_CONTENT_MISMATCH');
       }
     }
   }
@@ -297,10 +283,7 @@ export class Scanner {
 
       for (const section of requiredSections) {
         if (!content.includes(section)) {
-          this.logToReport(
-            `INSTRUCTIONS.md: Missing section "${section}"`,
-            Severity.LOW
-          );
+          this.logIssue('INSTRUCTIONS_MISSING_SECTION', { section });
         }
       }
     } catch {
@@ -321,19 +304,20 @@ export class Scanner {
       const actualTitle = lines[0]?.trim() || '';
 
       if (actualTitle !== expectedTitle) {
-        this.logToReport(
-          `README.md: First section should be similar to "${expectedTitle}" (found "${actualTitle}")`,
-          Severity.LOW
-        );
+        this.logIssue('README_TITLE_MISMATCH', {
+          expectedTitle,
+          actualTitle,
+        });
       }
 
       const description = lines[1]?.trim() || '';
       const descLen = description.length;
       if (descLen < 290 || descLen > 350) {
-        this.logToReport(
-          `README.md: Description length is ${descLen} (expected 290-350 chars)`,
-          Severity.LOW
-        );
+        this.logIssue('README_DESCRIPTION_LENGTH', {
+          actualLen: descLen,
+          min: 290,
+          max: 350,
+        });
       }
 
       const requiredSections = [
@@ -362,10 +346,7 @@ export class Scanner {
 
       for (const section of requiredSections) {
         if (!content.includes(section)) {
-          this.logToReport(
-            `README.md: Missing section "${section}"`,
-            Severity.LOW
-          );
+          this.logIssue('README_MISSING_SECTION', { section });
         }
       }
     } catch {
@@ -396,24 +377,21 @@ export class Scanner {
         url: 'https://github.com/orassayag',
       };
       if (!pkg.author) {
-        this.logToReport(`package.json: Missing "author" key`, Severity.MEDIUM);
+        this.logIssue('PACKAGE_JSON_MISSING_AUTHOR');
       } else if (
         typeof pkg.author !== 'object' ||
         pkg.author.name !== expectedAuthor.name ||
         pkg.author.email !== expectedAuthor.email ||
         pkg.author.url !== expectedAuthor.url
       ) {
-        this.logToReport(
-          `package.json: "author" should be ${JSON.stringify(expectedAuthor, null, 2)}`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_AUTHOR_MISMATCH', {
+          expectedAuthor: JSON.stringify(expectedAuthor, null, 2),
+        });
       }
 
-      if (pkg.license !== 'MIT')
-        this.logToReport(
-          `package.json: "license" should be "MIT"`,
-          Severity.MEDIUM
-        );
+      if (pkg.license !== 'MIT') {
+        this.logIssue('PACKAGE_JSON_LICENSE_MISMATCH');
+      }
 
       const expectedRepoUrl = `git://github.com/orassayag/${repoName}.git`;
       if (
@@ -421,35 +399,29 @@ export class Scanner {
         pkg.repository.type !== 'git' ||
         pkg.repository.url !== expectedRepoUrl
       ) {
-        this.logToReport(
-          `package.json: "repository" should be { "type": "git", "url": "${expectedRepoUrl}" }`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_REPO_URL_MISMATCH', {
+          expectedRepoUrl,
+        });
       }
 
       // Homepage Validation
       const expectedHomepage = `https://github.com/orassayag/${repoName}#readme`;
       if (!pkg.homepage) {
-        this.logToReport(
-          `package.json: Missing "homepage" key`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_MISSING_HOMEPAGE');
       } else if (pkg.homepage !== expectedHomepage) {
-        this.logToReport(
-          `package.json: "homepage" should be "${expectedHomepage}"`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_HOMEPAGE_MISMATCH', {
+          expectedHomepage,
+        });
       }
 
       // Bugs Validation
       const expectedBugsUrl = `https://github.com/orassayag/${repoName}/issues`;
       if (!pkg.bugs) {
-        this.logToReport(`package.json: Missing "bugs" key`, Severity.MEDIUM);
+        this.logIssue('PACKAGE_JSON_MISSING_BUGS');
       } else if (!pkg.bugs.url || pkg.bugs.url !== expectedBugsUrl) {
-        this.logToReport(
-          `package.json: "bugs" should be { "url": "${expectedBugsUrl}" }`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_BUGS_MISMATCH', {
+          expectedBugsUrl,
+        });
       }
 
       // Funding Validation
@@ -458,35 +430,23 @@ export class Scanner {
         url: 'https://github.com/sponsors/orassayag',
       };
       if (!pkg.funding) {
-        this.logToReport(
-          `package.json: Missing "funding" key`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_MISSING_FUNDING');
       } else if (
         typeof pkg.funding !== 'object' ||
         pkg.funding.type !== expectedFunding.type ||
         pkg.funding.url !== expectedFunding.url
       ) {
-        this.logToReport(
-          `package.json: "funding" should be ${JSON.stringify(expectedFunding, null, 2)}`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_FUNDING_MISMATCH');
       }
 
       // Engines Validation
       if (!pkg.engines) {
-        this.logToReport(
-          `package.json: Missing "engines" key`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_MISSING_ENGINES');
       } else if (
         typeof pkg.engines !== 'object' ||
         Object.keys(pkg.engines).length === 0
       ) {
-        this.logToReport(
-          `package.json: "engines" should contain node and npm/pnpm versions`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_ENGINES_MISMATCH');
       }
 
       const expectedContributor = {
@@ -500,27 +460,16 @@ export class Scanner {
           c.email === expectedContributor.email &&
           c.url === expectedContributor.url
       );
-      if (!hasContributor)
-        this.logToReport(
-          `package.json: Missing or incorrect "contributors" entry for Or Assayag`,
-          Severity.MEDIUM
-        );
+      if (!hasContributor) {
+        this.logIssue('PACKAGE_JSON_MISSING_CONTRIBUTOR');
+      }
 
-      if (!pkg.main)
-        this.logToReport(`package.json: Missing "main" field`, Severity.MEDIUM);
-      if (!pkg.type)
-        this.logToReport(`package.json: Missing "type" field`, Severity.MEDIUM);
-      if (!pkg.scripts)
-        this.logToReport(
-          `package.json: Missing "scripts" section`,
-          Severity.MEDIUM
-        );
-      if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0)
-        this.logToReport(
-          `package.json: Missing or empty "files" section`,
-          Severity.MEDIUM
-        );
-      else {
+      if (!pkg.main) this.logIssue('PACKAGE_JSON_MISSING_MAIN');
+      if (!pkg.type) this.logIssue('PACKAGE_JSON_MISSING_TYPE');
+      if (!pkg.scripts) this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS');
+      if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {
+        this.logIssue('PACKAGE_JSON_MISSING_FILES');
+      } else {
         const rootItems = (await fs.readdir(repoPath)).filter(
           (item) => item !== '.git' && item !== 'node_modules'
         );
@@ -532,46 +481,33 @@ export class Scanner {
           pkgFiles.every((file: string) => rootItems.includes(file));
 
         if (!isIdentical) {
-          this.logToReport(
-            `package.json: "files" section is not identical to root level files and folders`,
-            Severity.LOW
-          );
+          this.logIssue('PACKAGE_JSON_FILES_NOT_IDENTICAL');
         } else {
           const isSorted = pkgFiles.every(
             (file: string, index: number) => file === sortedRootItems[index]
           );
           if (!isSorted) {
-            this.logToReport(
-              `package.json: "files" section is not in alphabetical order`,
-              Severity.LOW
-            );
+            this.logIssue('PACKAGE_JSON_FILES_NOT_SORTED');
           }
         }
       }
-      if (!pkg.dependencies)
-        this.logToReport(
-          `package.json: Missing "dependencies" section`,
-          Severity.MEDIUM
-        );
-      else {
+      if (!pkg.dependencies) {
+        this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES');
+      } else {
         await this.checkDependenciesVersion(pkg.dependencies);
       }
 
-      if (!pkg.devDependencies)
-        this.logToReport(
-          `package.json: Missing "devDependencies" section`,
-          Severity.MEDIUM
-        );
-      else {
+      if (!pkg.devDependencies) {
+        this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES');
+      } else {
         await this.checkDependenciesVersion(pkg.devDependencies);
       }
 
       const keywords = pkg.keywords || [];
       if (keywords.length < 8 || keywords.length > 20) {
-        this.logToReport(
-          `package.json: Keywords count is ${keywords.length} (expected 8-20 unique items)`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_KEYWORDS_COUNT', {
+          actualCount: keywords.length,
+        });
       }
 
       // Keywords vs GitHub Topics Validation
@@ -584,21 +520,18 @@ export class Scanner {
           sortedKeywords.every((kw, i) => kw === sortedTopics[i]);
 
         if (!areEqual) {
-          this.logToReport(
-            `package.json: Keywords do not match GitHub topics.
-Expected (from package.json): ${keywords.join(', ')}
-Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
-            Severity.LOW
-          );
+          this.logIssue('PACKAGE_JSON_KEYWORDS_MISMATCH', {
+            expected: keywords.join(', '),
+            found: githubTopics.join(', ') || 'none',
+          });
         }
       }
 
       const descLen = pkg.description?.length || 0;
       if (descLen < 290 || descLen > 300) {
-        this.logToReport(
-          `package.json: Description length is ${descLen} (expected 290-300 chars)`,
-          Severity.MEDIUM
-        );
+        this.logIssue('PACKAGE_JSON_DESCRIPTION_LENGTH', {
+          actualLen: descLen,
+        });
       }
     } catch {
       // Already reported
@@ -628,16 +561,12 @@ Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
         .slice(0, 5); // Limit to first 5 issues to keep report concise
 
       if (issues.length > 0) {
-        this.logToReport(
-          `Lint issues found (run via npx):\n${issues.map((i) => `  - ${i.trim()}`).join('\n')}`,
-          Severity.VERY_LOW
-        );
+        this.logIssue('LINT_ISSUES', {
+          issues: issues.map((i) => `  - ${i.trim()}`).join('\n'),
+        });
       } else {
         // If no specific lines found but command failed, report the failure
-        this.logToReport(
-          `Lint command failed when running via npx.`,
-          Severity.VERY_LOW
-        );
+        this.logIssue('LINT_COMMAND_FAILED');
       }
     }
   }
@@ -657,10 +586,11 @@ Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
           const minCurrent = semver.minVersion(currentVersionRange)?.version;
 
           if (minCurrent && semver.gt(latest, minCurrent)) {
-            this.logToReport(
-              `Package "${pkgName}" is outdated. Current: ${currentVersionRange}, Latest: ${latest}`,
-              Severity.LOW
-            );
+            this.logIssue('DEPENDENCY_OUTDATED', {
+              name: pkgName,
+              current: currentVersionRange,
+              latest,
+            });
           }
         } catch {
           // Ignore errors like package not found or network issues
@@ -678,42 +608,44 @@ Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
     if (!data) return;
 
     if (data.homepage !== 'https://linkedin.com/in/orassayag') {
-      this.logToReport(
-        `GitHub: Homepage should be "https://linkedin.com/in/orassayag" (found "${data.homepage}")`,
-        Severity.LOW
-      );
+      this.logIssue('GITHUB_HOMEPAGE_MISMATCH', {
+        actual: data.homepage || 'none',
+      });
     }
 
     const descLen = data.description?.length || 0;
     if (descLen < 340 || descLen > 350) {
-      this.logToReport(
-        `GitHub: Description length should be 340-350 chars (current: ${descLen})`,
-        Severity.LOW
-      );
+      this.logIssue('GITHUB_DESCRIPTION_LENGTH', { actual: descLen });
     }
 
     const isStarred = await isRepoStarred(owner, repo);
     if (!isStarred) {
-      this.logToReport(
-        `GitHub: Repository is NOT starred by you`,
-        Severity.HIGH
-      );
+      this.logIssue('GITHUB_STAR_MISSING');
     }
 
     const isWatched = await isRepoWatched(owner, repo);
     if (!isWatched) {
-      this.logToReport(
-        `GitHub: Repository is NOT watched by you`,
-        Severity.HIGH
-      );
+      this.logIssue('GITHUB_WATCH_MISSING');
     }
 
     const rulesets = await getRulesets(owner, repo);
     if (rulesets.length === 0) {
-      this.logToReport(
-        `GitHub: No rulesets found for the repository`,
-        Severity.LOW
-      );
+      this.logIssue('GITHUB_NO_RULESETS');
+    } else {
+      const requiredRulesets = ['Main Branch Protection'];
+      for (const name of requiredRulesets) {
+        const ruleset = rulesets.find((r) => r.name === name);
+        if (!ruleset) {
+          this.logIssue('GITHUB_RULESET_MISSING', { rulesetName: name });
+        } else if (!ruleset.enforcement) {
+          this.logIssue('GITHUB_RULESET_DISABLED', { rulesetName: name });
+        } else if (ruleset.enforcement !== 'active') {
+          this.logIssue('GITHUB_RULESET_MISCONFIGURED', {
+            rulesetName: name,
+            expected: 'active',
+          });
+        }
+      }
     }
   }
 
@@ -873,10 +805,11 @@ Found (on GitHub): ${githubTopics.join(', ') || 'none'}`,
         try {
           const unformatted = fmt.check(repoPath);
           if (unformatted.length > 0) {
-            this.logToReport(
-              `${fmt.name}: ${unformatted.length} file(s) unformatted:\n${unformatted.map((f: string) => `  - ${f}`).join('\n')}`,
-              Severity.VERY_LOW
-            );
+            this.logIssue('FORMATTER_UNFORMATTED', {
+              formatter: fmt.name,
+              count: unformatted.length,
+              files: unformatted.map((f: string) => `  - ${f}`).join('\n'),
+            });
           }
         } catch (_err) {
           // Ignore formatter errors

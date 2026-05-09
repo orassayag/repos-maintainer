@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Scanner } from '../utils/scanner.js';
 import fs from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
-import { spawnSync } from 'child_process';
+import { spawnSync, execSync } from 'child_process';
 import path from 'path';
 
 vi.mock('fs/promises');
@@ -19,9 +19,11 @@ vi.mock('latest-version');
 vi.mock('simple-git');
 vi.mock('../settings.js', () => ({
   getLocalRepoPath: vi.fn((name) => `/mock/path/${name}`),
-  settings: {
-    EXCLUDED_PATHS: {},
-  },
+  settings: {},
+}));
+vi.mock('../utils/excludes.js', () => ({
+  getExcludedPaths: vi.fn(() => []),
+  isIssueExcluded: vi.fn(() => false),
 }));
 vi.mock('../github.js', () => ({
   parseGitHubUrl: vi.fn(() => ({ owner: 'user', repo: 'repo' })),
@@ -49,6 +51,7 @@ describe('Scanner', () => {
       stderr: '',
       status: 0,
     } as any);
+    vi.mocked(execSync).mockReturnValue('' as any);
     vi.mocked(existsSync).mockReturnValue(false);
     vi.mocked(readFileSync).mockReturnValue('');
   });
@@ -274,15 +277,14 @@ describe('Scanner', () => {
 
   describe('git status failure', () => {
     it('should report failure if git status fails', async () => {
-      const { simpleGit } = await import('simple-git');
-      vi.mocked(simpleGit).mockReturnValue({
-        status: vi.fn().mockRejectedValue(new Error('git fail')),
-      } as any);
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('git fail');
+      });
 
       const result = await scanner.scanRepo(mockRepo);
       expect(
         result.issues.some((i) =>
-          i.message.includes('Failed to run git status')
+          i.message.includes('Failed to check git status')
         )
       ).toBe(true);
     });

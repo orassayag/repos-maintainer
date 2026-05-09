@@ -3,7 +3,9 @@ import path from 'path';
 import os from 'os';
 import ora from 'ora';
 import { Logger } from '../utils/logger.js';
-import { Scanner, RepoScanResult, Severity } from '../utils/scanner.js';
+import { Scanner, RepoScanResult } from '../utils/scanner.js';
+import { Severity } from '../utils/issues.js';
+import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
 import { readRepoList } from '../utils/repoList.js';
 
@@ -23,7 +25,7 @@ export async function scanReposCommand(): Promise<void> {
         (dirent) =>
           dirent.isDirectory() &&
           !dirent.name.startsWith('.') &&
-          !settings.EXCLUDED_PROJECTS.includes(dirent.name)
+          !isProjectExcluded(dirent.name)
       )
       .map((dirent) => dirent.name);
   } catch (err) {

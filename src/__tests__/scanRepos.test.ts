@@ -20,8 +20,10 @@ vi.mock('../settings.js', () => ({
   settings: {
     PROJECTS_ROOT: '/mock/projects',
     AUTHOR_GITHUB: 'user',
-    EXCLUDED_PROJECTS: [],
   },
+}));
+vi.mock('../utils/excludes.js', () => ({
+  isProjectExcluded: vi.fn(() => false),
 }));
 
 describe('scanReposCommand', () => {

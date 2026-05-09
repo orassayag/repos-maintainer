@@ -22,6 +22,7 @@ client_secret*.json
 
 # Runtime Data
 api-stats.json
+excludes/
 
 # Misc
 .DS_Store

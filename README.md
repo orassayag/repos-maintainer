@@ -80,6 +80,26 @@ The tool uses several important paths that can be configured in `src/settings.ts
 - **PROJECTS_ROOT**: Where your repositories are located locally (Default: `C:\Or\web\projects`).
 - **REPOS_LIST_PATH**: Path to the `.txt` file containing your repository names (Default: `C:\Or\web\project-repos-names.txt`).
 
+### 3. Exclusions
+
+You can exclude specific projects, paths, or issues from being reported by creating an `excludes/exclude.json` file. This file is ignored by git.
+
+Structure of `exclude.json`:
+```json
+{
+  "EXCLUDED_PROJECTS": ["repo-name-to-ignore"],
+  "EXCLUDED_PATHS": {
+    "repo-name": ["path/to/ignore"]
+  },
+  "EXCLUDED_ISSUES": {
+    "repo-name": ["ISSUE_KEY_TO_IGNORE", "*"]
+  }
+}
+```
+- `EXCLUDED_PROJECTS`: List of repository names to skip entirely during bulk scans.
+- `EXCLUDED_PATHS`: Mapping of repository names to specific file paths that should not be reported as "local changes".
+- `EXCLUDED_ISSUES`: Mapping of repository names to specific issue keys (from `src/utils/issues.ts`) to ignore. Use `"*"` to ignore all issues for a repository.
+
 ## Usage
 
 ### Interactive Menu (Recommended)

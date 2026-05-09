@@ -10,7 +10,8 @@
 6. [Script Usage Guide](#script-usage-guide)
 7. [Troubleshooting](#troubleshooting)
 8. [Advanced Configuration](#advanced-configuration)
-9. [Best Practices](#best-practices)
+9. [Exclusions Guide](#exclusions-guide)
+10. [Best Practices](#best-practices)
 
 ## Prerequisites
 
@@ -67,6 +68,7 @@ Ensure your repository list file exists at the expected location. By default, th
 `C:\Or\web\project-repos-names.txt`
 
 The file should contain one repository name per line, e.g.:
+
 ```text
 events-and-people-syncer
 repos-maintainer
@@ -153,9 +155,11 @@ pnpm start
 ### Add Repo
 
 #### Purpose
+
 Used to onboard a new repository into your local maintenance workflow and apply immediate standardization.
 
 #### Workflow
+
 1. Select **Add Repo** from the main menu.
 2. Enter the full GitHub URL (e.g., `https://github.com/orassayag/new-project`).
 3. The tool parses the URL and checks GitHub for the repository's existence.
@@ -167,9 +171,11 @@ Used to onboard a new repository into your local maintenance workflow and apply 
 ### Repos Sync
 
 #### Purpose
+
 The "crawler" script that iterates through your entire repository list to ensure global consistency.
 
 #### Workflow
+
 1. Select **Repos Sync** from the main menu.
 2. The tool reads your `project-repos-names.txt` file.
 3. For each repository:
@@ -184,22 +190,28 @@ The "crawler" script that iterates through your entire repository list to ensure
 Fixers are modular scripts that enforce specific standards. You can find them in `src/fixers/`.
 
 ### README Fixer
+
 Enforces a standard structure for `README.md` files. It checks for:
+
 - Standard headers and badges.
 - Correct license links.
 - Consistent project descriptions.
 
 ### Package JSON Fixer
+
 Ensures `package.json` contains:
+
 - Correct author information.
 - Valid license field.
 - Proper repository and bug links.
 - Consistent versioning patterns.
 
 ### Metadata Fixer
+
 Synchronizes your local project descriptions and topics with the GitHub API, ensuring your GitHub profile stays updated.
 
 ### Rulesets Fixer
+
 Configures repository rulesets (branch protection) via the GitHub API to prevent accidental deletions or unreviewed pushes.
 
 ## Troubleshooting
@@ -209,6 +221,7 @@ Configures repository rulesets (branch protection) via the GitHub API to prevent
 **Problem**: You see "❌ GitHub authentication failed" in the terminal.
 
 **Solutions**:
+
 1. Check your `env` file and ensure it's named exactly `env` (no extension).
 2. Ensure the token in `env` is exactly what you copied from GitHub.
 3. Verify your token has not expired.
@@ -219,6 +232,7 @@ Configures repository rulesets (branch protection) via the GitHub API to prevent
 **Problem**: The tool reports "❌ Repos list file not found".
 
 **Solutions**:
+
 1. Ensure the file exists at `C:\Or\web\project-repos-names.txt`.
 2. Check that the path in `src/settings.ts` matches your actual file location.
 
@@ -227,6 +241,7 @@ Configures repository rulesets (branch protection) via the GitHub API to prevent
 **Problem**: Errors related to Git credentials or network.
 
 **Solutions**:
+
 1. Verify you have `git` installed and accessible in your path.
 2. If using SSH, ensure your SSH key is added to your GitHub account and your SSH agent is running.
 3. If using HTTPS, ensure your GitHub credentials are cached or accessible.
@@ -234,6 +249,7 @@ Configures repository rulesets (branch protection) via the GitHub API to prevent
 ## Advanced Configuration
 
 ### Modifying Settings
+
 You can fine-tune the tool's behavior by editing `src/settings.ts`. Key settings include:
 
 ```typescript
@@ -242,9 +258,42 @@ export const REPOS_LIST_FILENAME = 'project-repos-names.txt';
 ```
 
 ### Adding New Fixers
+
 1. Create a new fixer file in `src/fixers/` (e.g., `gitignoreFixer.ts`).
 2. Implement the `fix` method to handle your specific logic.
 3. Register the new fixer in `src/fixers/standardizer.ts`.
+
+## Exclusions Guide
+
+The tool allows you to suppress specific warnings or skip projects entirely using the `excludes/exclude.json` file.
+
+### How to use `exclude.json`
+
+1. Create a folder named `excludes` in the project root.
+2. Create a file named `exclude.json` inside that folder.
+3. Use the following format:
+
+```json
+{
+  "EXCLUDED_PROJECTS": ["deprecated-repo-1", "private-test-repo"],
+  "EXCLUDED_PATHS": {
+    "my-bot-repo": ["db/local-database.json", "logs/"]
+  },
+  "EXCLUDED_ISSUES": {
+    "legacy-project": [
+      "PACKAGE_JSON_MISSING_HOMEPAGE",
+      "README_DESCRIPTION_LENGTH"
+    ],
+    "experimental-project": ["*"]
+  }
+}
+```
+
+### Exclusion Types
+
+- **EXCLUDED_PROJECTS**: Projects listed here will be skipped by the "Repos Sync" and "Add Repo" commands.
+- **EXCLUDED_PATHS**: Files or directories that should be ignored when checking for "local changes". This is useful for database files or logs that change frequently but shouldn't be committed.
+- **EXCLUDED_ISSUES**: Specific issue keys to ignore for a project. Issue keys can be found in `src/utils/issues.ts`. Using `"*"` will ignore all issues for that repository.
 
 ## Best Practices
 

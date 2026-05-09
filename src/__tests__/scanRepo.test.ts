@@ -12,6 +12,11 @@ vi.mock('../utils/prompts.js');
 vi.mock('../utils/logger.js');
 vi.mock('../github.js');
 vi.mock('../settings.js');
+vi.mock('../utils/excludes.js', () => ({
+  getExcludedPaths: vi.fn(() => []),
+  isIssueExcluded: vi.fn(() => false),
+  isProjectExcluded: vi.fn(() => false),
+}));
 vi.mock('fs', async (importOriginal) => {
   const actual = (await importOriginal()) as any;
   return {
@@ -63,6 +68,18 @@ describe('scanRepoCommand', () => {
     vi.mocked(fs.readdir).mockResolvedValue(['.gitignore', 'README.md'] as any);
     vi.mocked(fs.readFile).mockResolvedValue('content');
     vi.mocked(fs.access).mockResolvedValue(undefined);
+
+    const { getRulesets } = await import('../github.js');
+    vi.mocked(getRulesets).mockResolvedValue([
+      {
+        name: 'Main Branch Protection',
+        enforcement: 'active',
+        target: 'branch',
+        conditions: {},
+        bypass_actors: [],
+        rules: [],
+      },
+    ]);
   });
 
   it('should generate a report with grouped issues by severity', async () => {
@@ -172,7 +189,16 @@ describe('scanRepoCommand', () => {
     } as any);
     vi.mocked(isRepoStarred).mockResolvedValue(true);
     vi.mocked(isRepoWatched).mockResolvedValue(true);
-    vi.mocked(getRulesets).mockResolvedValue([{ id: 1 }] as any);
+    vi.mocked(getRulesets).mockResolvedValue([
+      {
+        name: 'Main Branch Protection',
+        enforcement: 'active',
+        target: 'branch',
+        conditions: {},
+        bypass_actors: [],
+        rules: [],
+      },
+    ]);
 
     await scanRepoCommand();
 
@@ -250,6 +276,6 @@ describe('scanRepoCommand', () => {
     expect(reportContent).toContain(
       '3 - Low - Fix when have time, nice to have:'
     );
-    expect(reportContent).toContain('Package "express" is outdated');
+    expect(reportContent).toContain('Dependency "express" is outdated');
   });
 });
