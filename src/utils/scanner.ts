@@ -191,7 +191,14 @@ export class Scanner {
     // 11. Vitest Config Scan
     this.scanVitestConfig(repoPath);
 
-    // 12. GitHub Metadata Scan
+    // 12. Test Scan (via npx if node_modules missing)
+    try {
+      this.scanTests(repoPath);
+    } catch {
+      // Ignore test scan errors
+    }
+
+    // 13. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(
@@ -541,6 +548,42 @@ export class Scanner {
       }
     } catch {
       // Already reported
+    }
+  }
+
+  private scanTests(repoPath: string): void {
+    const pkg = this.readPkg(repoPath);
+    if (!pkg.scripts?.test) return;
+
+    const hasVitestConfig = existsSync(path.join(repoPath, 'vitest.config.ts'));
+    if (!hasVitestConfig) return;
+
+    // Run test command via npx
+    const cmd = `npx --yes ${pkg.scripts.test}`;
+    const result = this.runCmd(cmd, repoPath);
+
+    if (
+      result.combined.toLowerCase().includes('error') ||
+      result.combined.toLowerCase().includes('failed')
+    ) {
+      // Look for specific ERROR lines (e.g. coverage thresholds)
+      const issues = result.combined
+        .split('\n')
+        .filter(
+          (line) =>
+            line.includes('ERROR:') ||
+            line.includes('error') ||
+            line.includes('failed')
+        )
+        .slice(0, 10); // Limit to first 10 issues
+
+      if (issues.length > 0) {
+        this.logIssue('TEST_ISSUES', {
+          issues: issues.map((i) => `  - ${i.trim()}`).join('\n'),
+        });
+      } else {
+        this.logIssue('TEST_COMMAND_FAILED');
+      }
     }
   }
 

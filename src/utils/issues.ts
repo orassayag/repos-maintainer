@@ -235,6 +235,14 @@ export const ISSUES = {
     message: 'Vitest: Missing "vitest.config.ts" in the root',
     severity: Severity.MEDIUM,
   },
+  TEST_ISSUES: {
+    message: 'Test issues found:\n{issues}',
+    severity: Severity.LOW,
+  },
+  TEST_COMMAND_FAILED: {
+    message: 'Test command failed when running via npx.',
+    severity: Severity.LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;

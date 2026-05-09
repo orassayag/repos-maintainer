@@ -61,9 +61,9 @@ describe('Scanner', () => {
       vi.mocked(existsSync).mockImplementation((p: any) => {
         const pathStr = p.toString();
         if (pathStr.endsWith('node_modules')) return true;
-         if (pathStr.endsWith('eslint.config.mjs')) return true;
-         if (pathStr.endsWith('vitest.config.ts')) return true;
-         return false;
+        if (pathStr.endsWith('eslint.config.mjs')) return true;
+        if (pathStr.endsWith('vitest.config.ts')) return true;
+        return false;
       });
       // We need to provide a pkg with a lint script
       vi.mocked(readFileSync).mockImplementation((p: any) => {
@@ -94,6 +94,52 @@ describe('Scanner', () => {
         i.message.includes('Lint command failed')
       );
       expect(lintIssue).toBeDefined();
+    });
+  });
+
+  describe('scanTests', () => {
+    it('should report test issues if tests fail', async () => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ scripts: { test: 'vitest' } });
+        return '';
+      });
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        if (pathStr.endsWith('vitest.config.ts')) return true;
+        return false;
+      });
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout:
+          'ERROR: Coverage for lines (79.46%) does not meet global threshold (80%)',
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const testIssue = result.issues.find((i) =>
+        i.message.includes('Test issues found')
+      );
+      expect(testIssue).toBeDefined();
+      expect(testIssue?.message).toContain('Coverage for lines');
+      expect(testIssue?.severity).toBe(
+        '3 - Low - Fix when have time, nice to have'
+      );
+    });
+
+    it('should return early if vitest.config.ts is missing', async () => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ scripts: { test: 'vitest' } });
+        return '';
+      });
+      vi.mocked(existsSync).mockReturnValue(false); // No vitest.config.ts
+
+      const result = await scanner.scanRepo(mockRepo);
+      // It should still report VITEST_CONFIG_MISSING (Medium), but NOT TEST_ISSUES (Low)
+      expect(
+        result.issues.some((i) => i.message.includes('Test issues found'))
+      ).toBe(false);
     });
   });
 
