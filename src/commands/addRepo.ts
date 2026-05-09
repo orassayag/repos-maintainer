@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { input } from '../utils/prompts.js';
 import {
   parseGitHubUrl,
@@ -35,15 +37,22 @@ export async function addRepoCommand(): Promise<void> {
   let parsed: { owner: string; repo: string } | null = null;
 
   while (true) {
-    repoUrl = await input({
-      message: 'Enter the GitHub repository URL:',
-      validate: (value: string): string | boolean => {
-        if (!value.trim()) return 'URL is required';
-        return true;
-      },
-    });
+    repoUrl = (
+      await input({
+        message: 'Enter the GitHub repository URL:',
+        validate: (value: string): string | boolean => {
+          if (!value.trim()) return 'URL is required';
+          return true;
+        },
+      })
+    ).trim();
 
-    parsed = parseGitHubUrl(repoUrl.trim());
+    // Remove .git suffix if present
+    if (repoUrl.toLowerCase().endsWith('.git')) {
+      repoUrl = repoUrl.slice(0, -4);
+    }
+
+    parsed = parseGitHubUrl(repoUrl);
     if (!parsed) {
       Logger.error('Invalid GitHub URL format.');
       Logger.log(
@@ -140,12 +149,37 @@ export async function addRepoCommand(): Promise<void> {
     '.gitignore',
     'README.md',
     'INSTRUCTIONS.md',
+    '.prettierrc',
+    'eslint.config.mjs',
+    'tsconfig.json',
+    'tsconfig.node.json',
+    'vitest.config.ts',
+    '.github/rulesets/main-protection.json',
+    '.vscode/settings.json',
   ];
 
   for (const template of templates) {
     await ensureTemplateFile(repoPath, template, true);
   }
-  Logger.success('Created all the template files');
+
+  // Create empty misc and src folders
+  try {
+    await fs.mkdir(path.join(repoPath, 'misc'), { recursive: true });
+    await fs.mkdir(path.join(repoPath, 'src'), { recursive: true });
+    // Create empty index.ts in src
+    const indexPath = path.join(repoPath, 'src', 'index.ts');
+    try {
+      await fs.access(indexPath);
+    } catch {
+      await fs.writeFile(indexPath, '', 'utf-8');
+    }
+  } catch (err) {
+    Logger.warn(
+      `Failed to create misc/src folders or index.ts: ${(err as Error).message}`
+    );
+  }
+
+  Logger.success('Created all the template files and folders');
 
   // 4. package.json Injection
   const pkgInjected = await injectPackageJson(

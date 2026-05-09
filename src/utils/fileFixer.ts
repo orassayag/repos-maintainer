@@ -64,6 +64,10 @@ export async function ensureTemplateFile(
     return false;
   }
 
+  // Ensure parent directory exists
+  const parentDir = path.dirname(destPath);
+  await fs.mkdir(parentDir, { recursive: true });
+
   await fs.writeFile(destPath, content, 'utf-8');
 
   if (!silent) {

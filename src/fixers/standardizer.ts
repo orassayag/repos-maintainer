@@ -1,3 +1,4 @@
+import fs from 'fs/promises';
 import path from 'path';
 import { settings } from '../settings.js';
 import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
@@ -34,6 +35,13 @@ const TEMPLATE_FILES = [
   '.gitignore',
   'README.md',
   'INSTRUCTIONS.md',
+  '.prettierrc',
+  'eslint.config.mjs',
+  'tsconfig.json',
+  'tsconfig.node.json',
+  'vitest.config.ts',
+  '.github/rulesets/main-protection.json',
+  '.vscode/settings.json',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +133,24 @@ export async function standardizeRepo(
   }
   if (templatesCreated) {
     Logger.success('Created all the template files');
+  }
+
+  // ── Step 5.1: Ensure folders ──────────────────────────────────────────
+  try {
+    await fs.mkdir(path.join(localPath, 'misc'), { recursive: true });
+    await fs.mkdir(path.join(localPath, 'src'), { recursive: true });
+    // Create empty index.ts in src if it doesn't exist
+    const indexPath = path.join(localPath, 'src', 'index.ts');
+    try {
+      await fs.access(indexPath);
+    } catch {
+      await fs.writeFile(indexPath, '', 'utf-8');
+      changes.push('src/index.ts: Created empty file');
+    }
+  } catch (err) {
+    const msg = `Folders/index.ts: ${(err as Error).message}`;
+    errors.push(msg);
+    Logger.error(msg);
   }
 
   // ── Step 6: Metadata (GitHub API) ──────────────────────────────────────
