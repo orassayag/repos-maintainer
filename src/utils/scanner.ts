@@ -188,7 +188,10 @@ export class Scanner {
     // 10. ESLint Config Scan
     this.scanEslintConfig(repoPath);
 
-    // 11. GitHub Metadata Scan
+    // 11. Vitest Config Scan
+    this.scanVitestConfig(repoPath);
+
+    // 12. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(
@@ -584,6 +587,13 @@ export class Scanner {
       this.logIssue('ESLINT_CONFIG_MISSING');
     } else if (hasLegacyConfig && !hasFlatConfig) {
       this.logIssue('ESLINT_LEGACY_CONFIG');
+    }
+  }
+
+  private scanVitestConfig(repoPath: string): void {
+    const hasVitestConfig = existsSync(path.join(repoPath, 'vitest.config.ts'));
+    if (!hasVitestConfig) {
+      this.logIssue('VITEST_CONFIG_MISSING');
     }
   }
 

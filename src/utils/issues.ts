@@ -222,12 +222,17 @@ export const ISSUES = {
     severity: Severity.VERY_LOW,
   },
   ESLINT_CONFIG_MISSING: {
-    message: 'ESLint: Missing both "eslintrc.json" (Legacy) or "eslint.config.mjs" (Latest)',
+    message:
+      'ESLint: Missing both "eslintrc.json" (Legacy) or "eslint.config.mjs" (Latest)',
     severity: Severity.MEDIUM,
   },
   ESLINT_LEGACY_CONFIG: {
     message:
-      'ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to "eslint.config.mjs")',
+      'ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to flat config)',
+    severity: Severity.MEDIUM,
+  },
+  VITEST_CONFIG_MISSING: {
+    message: 'Vitest: Missing "vitest.config.ts" in the root',
     severity: Severity.MEDIUM,
   },
 } as const;

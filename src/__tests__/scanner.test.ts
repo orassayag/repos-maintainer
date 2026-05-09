@@ -61,8 +61,9 @@ describe('Scanner', () => {
       vi.mocked(existsSync).mockImplementation((p: any) => {
         const pathStr = p.toString();
         if (pathStr.endsWith('node_modules')) return true;
-        if (pathStr.endsWith('eslint.config.mjs')) return true;
-        return false;
+         if (pathStr.endsWith('eslint.config.mjs')) return true;
+         if (pathStr.endsWith('vitest.config.ts')) return true;
+         return false;
       });
       // We need to provide a pkg with a lint script
       vi.mocked(readFileSync).mockImplementation((p: any) => {
