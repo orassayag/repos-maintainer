@@ -243,6 +243,14 @@ export const ISSUES = {
     message: 'Test command failed when running via npx.',
     severity: Severity.LOW,
   },
+  KNIP_ISSUES: {
+    message: 'Knip found unused dependencies or exports:\n{issues}',
+    severity: Severity.VERY_LOW,
+  },
+  KNIP_COMMAND_FAILED: {
+    message: 'Knip command failed when running via {command}.',
+    severity: Severity.VERY_LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;

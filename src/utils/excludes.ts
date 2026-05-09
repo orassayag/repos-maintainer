@@ -9,9 +9,18 @@ export interface Excludes {
   EXCLUDED_PROJECTS: string[];
   EXCLUDED_PATHS: Record<string, string[]>;
   EXCLUDED_ISSUES: Record<string, string[]>;
+  EXCLUDED_KNIP_PACKAGES: Record<string, string[]>;
+  EXCLUDED_KNIP_SCAN: string[];
+  EXCLUDED_OUTDATED_SCAN: string[];
 }
 
-const EXCLUDES_PATH = path.join(__dirname, '..', '..', 'excludes', 'exclude.json');
+const EXCLUDES_PATH = path.join(
+  __dirname,
+  '..',
+  '..',
+  'excludes',
+  'exclude.json'
+);
 
 export function loadExcludes(): Excludes {
   try {
@@ -26,6 +35,9 @@ export function loadExcludes(): Excludes {
     EXCLUDED_PROJECTS: [],
     EXCLUDED_PATHS: {},
     EXCLUDED_ISSUES: {},
+    EXCLUDED_KNIP_PACKAGES: {},
+    EXCLUDED_KNIP_SCAN: [],
+    EXCLUDED_OUTDATED_SCAN: [],
   };
 }
 
@@ -42,4 +54,16 @@ export function isIssueExcluded(repoName: string, issueKey: string): boolean {
 
 export function getExcludedPaths(repoName: string): string[] {
   return excludes.EXCLUDED_PATHS[repoName] || [];
+}
+
+export function getExcludedKnipPackages(repoName: string): string[] {
+  return excludes.EXCLUDED_KNIP_PACKAGES[repoName] || [];
+}
+
+export function isKnipScanExcluded(repoName: string): boolean {
+  return excludes.EXCLUDED_KNIP_SCAN.includes(repoName);
+}
+
+export function isOutdatedScanExcluded(repoName: string): boolean {
+  return excludes.EXCLUDED_OUTDATED_SCAN.includes(repoName);
 }

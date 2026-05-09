@@ -24,6 +24,9 @@ vi.mock('../settings.js', () => ({
 vi.mock('../utils/excludes.js', () => ({
   getExcludedPaths: vi.fn(() => []),
   isIssueExcluded: vi.fn(() => false),
+  isKnipScanExcluded: vi.fn(() => false),
+  getExcludedKnipPackages: vi.fn(() => []),
+  isOutdatedScanExcluded: vi.fn(() => false),
 }));
 vi.mock('../github.js', () => ({
   parseGitHubUrl: vi.fn(() => ({ owner: 'user', repo: 'repo' })),
@@ -40,7 +43,16 @@ describe('Scanner', () => {
     url: 'https://github.com/user/test-repo',
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const {
+      isKnipScanExcluded,
+      getExcludedKnipPackages,
+      isOutdatedScanExcluded,
+    } = await import('../utils/excludes.js');
+    vi.mocked(isKnipScanExcluded).mockReturnValue(false);
+    vi.mocked(getExcludedKnipPackages).mockReturnValue([]);
+    vi.mocked(isOutdatedScanExcluded).mockReturnValue(false);
+
     vi.clearAllMocks();
     scanner = new Scanner();
     vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -156,6 +168,25 @@ describe('Scanner', () => {
       const result = await scanner.scanRepo(mockRepo);
       // Should not throw, should just ignore the error
       expect(result.issues.length).toBeDefined();
+    });
+
+    it('should skip outdated check if excluded', async () => {
+      const { isOutdatedScanExcluded } = await import('../utils/excludes.js');
+      vi.mocked(isOutdatedScanExcluded).mockReturnValue(true);
+
+      const pkgJson = {
+        name: 'test-repo',
+        dependencies: { lodash: '^4.0.0' },
+      };
+      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkgJson));
+
+      const { default: latestVersion } = await import('latest-version');
+      vi.mocked(latestVersion).mockResolvedValue('5.0.0');
+
+      const result = await scanner.scanRepo(mockRepo);
+      expect(result.issues.some((i) => i.message.includes('is outdated'))).toBe(
+        false
+      );
     });
   });
 
@@ -308,6 +339,112 @@ describe('Scanner', () => {
           i.message.includes('Keywords do not match GitHub topics')
         )
       ).toBe(false);
+    });
+  });
+
+  describe('scanKnip', () => {
+    it('should report knip issues if unused items found', async () => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout:
+          'Unused dependencies (2):\n- lodash\n- express\nUnused files (1):\n- src/old.ts',
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      // Verify knip was called with --directory and from current process.cwd()
+      const knipCall = vi
+        .mocked(spawnSync)
+        .mock.calls.find(
+          (call) =>
+            call[0].toString().includes('knip') &&
+            call[0].toString().includes('--directory')
+        );
+      expect(knipCall).toBeDefined();
+      expect((knipCall![1] as any)?.cwd).toBe(process.cwd());
+
+      const knipIssue = result.issues.find((i) =>
+        i.message.includes('Knip found unused dependencies')
+      );
+      expect(knipIssue).toBeDefined();
+      expect(knipIssue?.message).toContain('Unused dependencies (2)');
+      expect(knipIssue?.message).toContain('  - lodash');
+      expect(knipIssue?.message).toContain('  - express');
+      expect(knipIssue?.message).toContain('Unused files (1)');
+      expect(knipIssue?.message).toContain('  - src/old.ts');
+      expect(knipIssue?.severity).toBe('4 - Very Low - Minor issues');
+    });
+
+    it('should report knip failure if command fails with error', async () => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout: '',
+        stderr: 'Error: Knip command failed',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const knipIssue = result.issues.find((i) =>
+        i.message.includes('Knip command failed')
+      );
+      expect(knipIssue).toBeDefined();
+    });
+
+    it('should skip knip scan if excluded', async () => {
+      const { isKnipScanExcluded } = await import('../utils/excludes.js');
+      vi.mocked(isKnipScanExcluded).mockReturnValue(true);
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      expect(spawnSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('knip'),
+        expect.any(Object)
+      );
+      expect(
+        result.issues.some((i) => i.message.includes('Knip found unused'))
+      ).toBe(false);
+    });
+
+    it('should filter out excluded packages from knip output', async () => {
+      const { getExcludedKnipPackages } = await import('../utils/excludes.js');
+      vi.mocked(getExcludedKnipPackages).mockReturnValue(['lodash']);
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout:
+          'Unused dependencies (2):\n- lodash\n- express\nUnused devDependencies (1):\n- @eslint/js',
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const knipIssue = result.issues.find((i) =>
+        i.message.includes('Knip found unused dependencies')
+      );
+      expect(knipIssue).toBeDefined();
+      expect(knipIssue?.message).not.toContain('lodash');
+      expect(knipIssue?.message).toContain('express');
+      expect(knipIssue?.message).toContain('@eslint/js');
     });
   });
 

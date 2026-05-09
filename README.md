@@ -93,12 +93,20 @@ Structure of `exclude.json`:
   },
   "EXCLUDED_ISSUES": {
     "repo-name": ["ISSUE_KEY_TO_IGNORE", "*"]
-  }
+  },
+  "EXCLUDED_KNIP_PACKAGES": {
+    "repo-name": ["package-name-to-ignore"]
+  },
+  "EXCLUDED_KNIP_SCAN": ["repo-name-to-skip-knip"],
+  "EXCLUDED_OUTDATED_SCAN": ["repo-name-to-skip-outdated-check"]
 }
 ```
 - `EXCLUDED_PROJECTS`: List of repository names to skip entirely during bulk scans.
 - `EXCLUDED_PATHS`: Mapping of repository names to specific file paths that should not be reported as "local changes".
 - `EXCLUDED_ISSUES`: Mapping of repository names to specific issue keys (from `src/utils/issues.ts`) to ignore. Use `"*"` to ignore all issues for a repository.
+- `EXCLUDED_KNIP_PACKAGES`: Mapping of repository names to specific package names that should be ignored in the Knip report.
+- `EXCLUDED_KNIP_SCAN`: List of repository names to skip Knip validation entirely.
+- `EXCLUDED_OUTDATED_SCAN`: List of repository names to skip the outdated dependencies check.
 
 ## Usage
 

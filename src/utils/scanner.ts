@@ -6,7 +6,13 @@ import latestVersion from 'latest-version';
 import semver from 'semver';
 import { getLocalRepoPath } from '../settings.js';
 import { Severity, ISSUES, IssueKey } from './issues.js';
-import { getExcludedPaths, isIssueExcluded } from './excludes.js';
+import {
+  getExcludedPaths,
+  isIssueExcluded,
+  isKnipScanExcluded,
+  getExcludedKnipPackages,
+  isOutdatedScanExcluded,
+} from './excludes.js';
 import {
   parseGitHubUrl,
   getRepoMetadata,
@@ -198,7 +204,14 @@ export class Scanner {
       // Ignore test scan errors
     }
 
-    // 13. GitHub Metadata Scan
+    // 13. Knip Scan (Unused dependencies/exports)
+    try {
+      this.scanKnip(repoPath);
+    } catch {
+      // Ignore knip scan errors
+    }
+
+    // 14. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(
@@ -214,6 +227,89 @@ export class Scanner {
 
     const result = this.getResult(repo.name);
     return result;
+  }
+
+  private scanKnip(repoPath: string): void {
+    if (isKnipScanExcluded(this.currentRepoName)) return;
+
+    const pkg = this.readPkg(repoPath);
+    if (!pkg.name) return;
+
+    const isPnpm = existsSync(path.join(repoPath, 'pnpm-lock.yaml'));
+    const baseCommand = isPnpm ? 'pnpm dlx knip' : 'npx --yes knip';
+
+    // Use --directory to point to the repo path and run from current directory
+    const relativePath = path.relative(process.cwd(), repoPath);
+    const command = `${baseCommand} --directory "${relativePath}"`;
+
+    const result = this.runCmd(command, process.cwd());
+
+    // Knip output parsing - focus on unused/unlisted items
+    if (result.stdout.trim().length > 0) {
+      const excludedPackages = getExcludedKnipPackages(this.currentRepoName);
+      const lines = result.stdout.split('\n');
+      const issues: string[] = [];
+      let currentHeader = '';
+      let categoryIssues: string[] = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const isHeader =
+          trimmed.includes('Unused') ||
+          trimmed.includes('Unlisted') ||
+          trimmed.includes('Duplicate');
+
+        if (isHeader) {
+          // If we were already capturing, push the previous category's issues
+          if (currentHeader && categoryIssues.length > 0) {
+            issues.push(currentHeader);
+            issues.push(...categoryIssues.map((i) => `  ${i}`));
+          }
+          currentHeader = trimmed;
+          categoryIssues = [];
+        } else {
+          // Check if line contains any excluded package
+          const isExcluded = excludedPackages.some((pkgName) =>
+            trimmed.includes(pkgName)
+          );
+          if (isExcluded) continue;
+
+          if (
+            currentHeader &&
+            (trimmed.startsWith('-') || line.startsWith(' '))
+          ) {
+            // Capture the specific item
+            categoryIssues.push(trimmed);
+          } else if (currentHeader && !isHeader && trimmed) {
+            // If it's not a header and doesn't look like a list item,
+            // but we have a header, it might be a detail line without a dash
+            categoryIssues.push(trimmed);
+          }
+        }
+
+        // Limit total lines to avoid massive reports
+        if (issues.length + categoryIssues.length >= 40) break;
+      }
+
+      // Push the last category
+      if (currentHeader && categoryIssues.length > 0) {
+        issues.push(currentHeader);
+        issues.push(...categoryIssues.map((i) => `  ${i}`));
+      }
+
+      if (issues.length > 0) {
+        this.logIssue('KNIP_ISSUES', {
+          issues: issues.map((i) => `  - ${i}`).join('\n'),
+        });
+      }
+    } else if (
+      result.combined.toLowerCase().includes('error') &&
+      !result.combined.includes('No issues found')
+    ) {
+      this.logIssue('KNIP_COMMAND_FAILED', { command });
+    }
   }
 
   private logToReport(
@@ -504,15 +600,17 @@ export class Scanner {
           }
         }
       }
+      const skipOutdated = isOutdatedScanExcluded(this.currentRepoName);
+
       if (!pkg.dependencies) {
         this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES');
-      } else {
+      } else if (!skipOutdated) {
         await this.checkDependenciesVersion(pkg.dependencies);
       }
 
       if (!pkg.devDependencies) {
         this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES');
-      } else {
+      } else if (!skipOutdated) {
         await this.checkDependenciesVersion(pkg.devDependencies);
       }
 
