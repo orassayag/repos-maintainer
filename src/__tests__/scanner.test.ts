@@ -25,6 +25,7 @@ vi.mock('../utils/excludes.js', () => ({
   getExcludedPaths: vi.fn(() => []),
   isIssueExcluded: vi.fn(() => false),
   isKnipScanExcluded: vi.fn(() => false),
+  isKnipUnusedDepsExcluded: vi.fn(() => false),
   getExcludedKnipPackages: vi.fn(() => []),
   getExcludedKnipPaths: vi.fn(() => []),
   isOutdatedScanExcluded: vi.fn(() => false),
@@ -47,11 +48,13 @@ describe('Scanner', () => {
   beforeEach(async () => {
     const {
       isKnipScanExcluded,
+      isKnipUnusedDepsExcluded,
       getExcludedKnipPackages,
       getExcludedKnipPaths,
       isOutdatedScanExcluded,
     } = await import('../utils/excludes.js');
     vi.mocked(isKnipScanExcluded).mockReturnValue(false);
+    vi.mocked(isKnipUnusedDepsExcluded).mockReturnValue(false);
     vi.mocked(getExcludedKnipPackages).mockReturnValue([]);
     vi.mocked(getExcludedKnipPaths).mockReturnValue([]);
     vi.mocked(isOutdatedScanExcluded).mockReturnValue(false);
@@ -421,6 +424,24 @@ describe('Scanner', () => {
       expect(
         result.issues.some((i) => i.message.includes('Knip found unused'))
       ).toBe(false);
+    });
+
+    it('should add --no-dependencies flag if knip unused deps are excluded', async () => {
+      const { isKnipUnusedDepsExcluded } = await import('../utils/excludes.js');
+      vi.mocked(isKnipUnusedDepsExcluded).mockReturnValue(true);
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+
+      await scanner.scanRepo(mockRepo);
+
+      const knipCall = vi
+        .mocked(spawnSync)
+        .mock.calls.find((call) => call[0].toString().includes('knip'));
+      expect(knipCall![0].toString()).toContain('--no-dependencies');
     });
 
     it('should filter out excluded packages from knip output', async () => {

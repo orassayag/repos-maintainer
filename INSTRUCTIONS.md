@@ -340,6 +340,7 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
     "my-project": ["@eslint/js", "lodash"]
   },
   "EXCLUDED_KNIP_SCAN": ["legacy-ui-project"],
+  "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["top-packages"],
   "EXCLUDED_OUTDATED_SCAN": ["frozen-dependency-project"]
 }
 ```
@@ -351,6 +352,7 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 - **EXCLUDED_ISSUES**: Specific issue keys to ignore for a project. Issue keys can be found in `src/utils/issues.ts`. Using `"*"` will ignore all issues for a repository.
 - **EXCLUDED_KNIP_PACKAGES**: List of package names to ignore in Knip reports for specific repositories. Useful for ignoring packages that Knip incorrectly identifies as unused.
 - **EXCLUDED_KNIP_SCAN**: List of repository names to skip Knip validation entirely.
+- **EXCLUDED_KNIP_UNUSED_DEPS_SCAN**: List of repository names to skip Knip validation for unused dependencies (using `--no-dependencies` flag).
 - **EXCLUDED_OUTDATED_SCAN**: List of repository names to skip the check for outdated dependencies. Useful for projects that must stay on specific versions of packages.
 
 ## Best Practices

@@ -8,6 +8,7 @@ import {
   getExcludedKnipPackages,
   getExcludedKnipPaths,
   isKnipScanExcluded,
+  isKnipUnusedDepsExcluded,
   isOutdatedScanExcluded,
 } from '../utils/excludes.js';
 
@@ -66,6 +67,10 @@ describe('excludes', () => {
 
   it('should check if knip scan is excluded', () => {
     expect(isKnipScanExcluded('some-repo')).toBe(false);
+  });
+
+  it('should check if knip unused deps scan is excluded', () => {
+    expect(isKnipUnusedDepsExcluded('some-repo')).toBe(false);
   });
 
   it('should check if outdated scan is excluded', () => {

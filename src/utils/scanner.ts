@@ -9,9 +9,10 @@ import { Severity, ISSUES, IssueKey } from './issues.js';
 import {
   getExcludedPaths,
   isIssueExcluded,
-  isKnipScanExcluded,
   getExcludedKnipPackages,
   getExcludedKnipPaths,
+  isKnipScanExcluded,
+  isKnipUnusedDepsExcluded,
   isOutdatedScanExcluded,
 } from './excludes.js';
 import {
@@ -262,6 +263,10 @@ export class Scanner {
     // Use --directory to point to the repo path and run from current directory
     const relativePath = path.relative(process.cwd(), repoPath);
     let command = `${baseCommand} --directory "${relativePath}"`;
+
+    if (isKnipUnusedDepsExcluded(this.currentRepoName)) {
+      command += ' --no-dependencies';
+    }
 
     const excludedPaths = getExcludedKnipPaths(this.currentRepoName);
     if (excludedPaths.length > 0) {

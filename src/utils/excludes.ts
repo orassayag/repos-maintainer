@@ -12,6 +12,7 @@ export interface Excludes {
   EXCLUDED_KNIP_PACKAGES: Record<string, string[]>;
   EXCLUDED_KNIP_PATHS: Record<string, string[]>;
   EXCLUDED_KNIP_SCAN: string[];
+  EXCLUDED_KNIP_UNUSED_DEPS_SCAN: string[];
   EXCLUDED_OUTDATED_SCAN: string[];
 }
 
@@ -39,6 +40,7 @@ export function loadExcludes(): Excludes {
     EXCLUDED_KNIP_PACKAGES: {},
     EXCLUDED_KNIP_PATHS: {},
     EXCLUDED_KNIP_SCAN: [],
+    EXCLUDED_KNIP_UNUSED_DEPS_SCAN: [],
     EXCLUDED_OUTDATED_SCAN: [],
   };
 }
@@ -68,6 +70,10 @@ export function getExcludedKnipPaths(repoName: string): string[] {
 
 export function isKnipScanExcluded(repoName: string): boolean {
   return excludes.EXCLUDED_KNIP_SCAN.includes(repoName);
+}
+
+export function isKnipUnusedDepsExcluded(repoName: string): boolean {
+  return excludes.EXCLUDED_KNIP_UNUSED_DEPS_SCAN.includes(repoName);
 }
 
 export function isOutdatedScanExcluded(repoName: string): boolean {
