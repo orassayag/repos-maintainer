@@ -156,8 +156,21 @@ export class Scanner {
       // but in this project it should.
     }
 
+    const allRepoFiles = await this.getAllFiles(repoPath);
+    const hasTsFiles = allRepoFiles.some((f) => f.endsWith('.ts'));
+
     for (const file of templateFiles) {
       if (excludedPaths.includes(file)) continue;
+
+      // Skip TypeScript template files if no .ts files are found
+      const tsTemplateFiles = [
+        'tsconfig.json',
+        'tsconfig.node.json',
+        'vitest.config.ts',
+      ];
+      if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+        continue;
+      }
 
       const targetFilePath = path.join(repoPath, file);
       try {
@@ -216,8 +229,8 @@ export class Scanner {
     // 10. ESLint Config Scan
     this.scanEslintConfig(repoPath);
 
-    // 11. Vitest Config Scan
-    this.scanVitestConfig(repoPath);
+    // 11. TypeScript & Vitest Config Scan
+    this.scanTypeScriptRules(repoPath, hasTsFiles);
 
     // 12. Test Scan (via npx if node_modules missing)
     try {
@@ -849,10 +862,18 @@ export class Scanner {
     }
   }
 
-  private scanVitestConfig(repoPath: string): void {
-    const hasVitestConfig = existsSync(path.join(repoPath, 'vitest.config.ts'));
-    if (!hasVitestConfig) {
-      this.logIssue('VITEST_CONFIG_MISSING');
+  private scanTypeScriptRules(repoPath: string, hasTsFiles: boolean): void {
+    if (hasTsFiles) {
+      if (!existsSync(path.join(repoPath, 'tsconfig.json'))) {
+        this.logIssue('TSCONFIG_JSON_MISSING');
+      }
+      if (!existsSync(path.join(repoPath, 'tsconfig.node.json'))) {
+        this.logIssue('TSCONFIG_NODE_JSON_MISSING');
+      }
+      if (!existsSync(path.join(repoPath, 'vitest.config.ts'))) {
+        this.logIssue('VITEST_CONFIG_TEMPLATE_MISSING');
+        this.logIssue('VITEST_CONFIG_MISSING');
+      }
     }
   }
 
@@ -1152,12 +1173,20 @@ export class Scanner {
       const m = trimmedLine.match(/\[warn\]\s+(.+)$/);
       if (m && m[1] && !m[1].includes('Code style issues')) {
         const filePath = m[1].trim();
-        // Skip pnpm-lock.yaml (regardless to any path level)
-        if (
-          filePath === 'pnpm-lock.yaml' ||
-          filePath.endsWith('/pnpm-lock.yaml') ||
-          filePath.endsWith('\\pnpm-lock.yaml')
-        ) {
+        const excludedFiles = [
+          'pnpm-lock.yaml',
+          'pnpm-workspace.yaml',
+          'package-lock.json',
+        ];
+
+        const isExcluded = excludedFiles.some(
+          (excluded) =>
+            filePath === excluded ||
+            filePath.endsWith(`/${excluded}`) ||
+            filePath.endsWith(`\\${excluded}`)
+        );
+
+        if (isExcluded) {
           continue;
         }
         files.push(filePath);

@@ -1,5 +1,6 @@
 import { select } from './utils/prompts.js';
 import { addRepoCommand } from './commands/addRepo.js';
+import { syncRepoCommand } from './commands/syncRepo.js';
 import { scanReposCommand } from './commands/scanRepos.js';
 import { scanRepoCommand } from './commands/scanRepo.js';
 
@@ -12,6 +13,10 @@ export async function showMainMenu(): Promise<void> {
       {
         name: '🔄 Add Repo          - Add and fully standardize a new GitHub repository',
         value: 'add',
+      },
+      {
+        name: '🔁 Sync Repo         - Sync the project and fix whatever can automatically',
+        value: 'sync-repo',
       },
       {
         name: '🔎 Scan Repo         - Scan a repository and generate a report',
@@ -28,6 +33,9 @@ export async function showMainMenu(): Promise<void> {
   switch (action) {
     case 'add':
       await addRepoCommand();
+      break;
+    case 'sync-repo':
+      await syncRepoCommand();
       break;
     case 'scan':
       await scanRepoCommand();

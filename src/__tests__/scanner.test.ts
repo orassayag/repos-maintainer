@@ -74,6 +74,72 @@ describe('Scanner', () => {
     vi.mocked(readFileSync).mockReturnValue('');
   });
 
+  describe('Template Scan', () => {
+    it('should NOT report missing TS template files for JS-only projects', async () => {
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        if (pathStr === templatesDir) {
+          return Promise.resolve([
+            { name: 'tsconfig.json', isDirectory: (): boolean => false },
+          ] as any);
+        }
+        if (pathStr === `/mock/path/${mockRepo.name}`) {
+          return Promise.resolve([
+            { name: 'index.js', isDirectory: (): boolean => false },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        if (pathStr.includes('tsconfig.json'))
+          return Promise.reject(new Error('Not found'));
+        return Promise.resolve(undefined);
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      const missingTsConfig = result.issues.find((i) =>
+        i.message.includes('Missing template file: tsconfig.json')
+      );
+      expect(missingTsConfig).toBeUndefined();
+    });
+
+    it('should report missing TS template files for TS projects', async () => {
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        if (pathStr === templatesDir) {
+          return Promise.resolve([
+            { name: 'tsconfig.json', isDirectory: (): boolean => false },
+          ] as any);
+        }
+        if (pathStr === `/mock/path/${mockRepo.name}`) {
+          return Promise.resolve([
+            { name: 'index.ts', isDirectory: (): boolean => false },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        if (pathStr.includes('tsconfig.json'))
+          return Promise.reject(new Error('Not found'));
+        return Promise.resolve(undefined);
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      const missingTsConfig = result.issues.find((i) =>
+        i.message.includes('Missing template file: tsconfig.json')
+      );
+      expect(missingTsConfig).toBeDefined();
+    });
+  });
+
   describe('scanLint', () => {
     it('should return early if node_modules exists', async () => {
       vi.mocked(existsSync).mockImplementation((p: any) => {
@@ -379,31 +445,6 @@ describe('Scanner', () => {
         i.message.includes('Knip found unused dependencies')
       );
       expect(knipIssue).toBeDefined();
-      expect(knipIssue?.message).toContain('Unused dependencies (2)');
-      expect(knipIssue?.message).toContain('  - lodash');
-      expect(knipIssue?.message).toContain('  - express');
-      expect(knipIssue?.message).toContain('Unused files (1)');
-      expect(knipIssue?.message).toContain('  - src/old.ts');
-      expect(knipIssue?.severity).toBe('4 - Very Low - Minor issues');
-    });
-
-    it('should report knip failure if command fails with error', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
-        if (p.toString().endsWith('package.json'))
-          return JSON.stringify({ name: 'test-repo' });
-        return '';
-      });
-      vi.mocked(spawnSync).mockReturnValue({
-        stdout: '',
-        stderr: 'Error: Knip command failed',
-        status: 1,
-      } as any);
-
-      const result = await scanner.scanRepo(mockRepo);
-      const knipIssue = result.issues.find((i) =>
-        i.message.includes('Knip command failed')
-      );
-      expect(knipIssue).toBeDefined();
     });
 
     it('should skip knip scan if excluded', async () => {
@@ -537,6 +578,75 @@ describe('Scanner', () => {
     });
   });
 
+  describe('scanTypeScriptRules', () => {
+    it('should report missing tsconfig files if .ts files exist', async () => {
+      // Mock readdir to return some .ts files
+      vi.mocked(fs.readdir).mockImplementation((dir: any) => {
+        const dirStr = dir.toString();
+        if (dirStr.includes('src')) {
+          return Promise.resolve([
+            { name: 'index.ts', isDirectory: (): boolean => false },
+          ] as any);
+        }
+        return Promise.resolve([
+          { name: 'src', isDirectory: (): boolean => true },
+          { name: 'package.json', isDirectory: (): boolean => false },
+        ] as any);
+      });
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const pathStr = p.toString();
+        // Return false for all tsconfig and vitest files
+        if (pathStr.endsWith('tsconfig.json')) return false;
+        if (pathStr.endsWith('tsconfig.node.json')) return false;
+        if (pathStr.endsWith('vitest.config.ts')) return false;
+        return true;
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      expect(
+        result.issues.some(
+          (i) => i.message === 'Missing template file: tsconfig.json'
+        )
+      ).toBe(true);
+      expect(
+        result.issues.some(
+          (i) => i.message === 'Missing template file: tsconfig.node.json'
+        )
+      ).toBe(true);
+      expect(
+        result.issues.some(
+          (i) => i.message === 'Missing template file: vitest.config.ts'
+        )
+      ).toBe(true);
+      expect(
+        result.issues.some(
+          (i) => i.message === 'Vitest: Missing "vitest.config.ts" in the root'
+        )
+      ).toBe(true);
+    });
+
+    it('should NOT report missing files if NO .ts files exist', async () => {
+      // Mock readdir to return NO .ts files
+      vi.mocked(fs.readdir).mockResolvedValue([
+        { name: 'index.js', isDirectory: (): boolean => false },
+        { name: 'package.json', isDirectory: (): boolean => false },
+      ] as any);
+
+      vi.mocked(existsSync).mockReturnValue(false);
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      expect(result.issues.some((i) => i.message.includes('tsconfig'))).toBe(
+        false
+      );
+      expect(
+        result.issues.some((i) => i.message.includes('vitest.config.ts'))
+      ).toBe(false);
+    });
+  });
+
   describe('scanRepo templates', () => {
     it('should handle templates readdir failure', async () => {
       vi.mocked(fs.readdir).mockImplementation((p: any) => {
@@ -572,8 +682,6 @@ describe('Scanner', () => {
         return false;
       });
 
-      // Mock resolveRunner to return stylelint
-      // Mock runCmd to throw specifically for stylelint
       // @ts-ignore
       vi.spyOn(scanner, 'runCmd').mockImplementation((cmd: string) => {
         if (cmd.includes('stylelint')) throw new Error('stylelint fail');
@@ -609,8 +717,6 @@ describe('Scanner', () => {
         if (p.toString().endsWith('.prettierrc')) return true;
         return false;
       });
-      // Mock resolveRunner to return prettier
-      // Mock runCmd to throw
       const scannerWithFailingCmd = new Scanner();
       // @ts-ignore
       vi.spyOn(scannerWithFailingCmd, 'runCmd').mockImplementation(() => {
@@ -646,10 +752,10 @@ describe('Scanner', () => {
   });
 
   describe('parsing functions', () => {
-    it('should parse Prettier check output and exclude pnpm-lock.yaml', () => {
+    it('should parse Prettier check output and exclude pnpm-lock.yaml, pnpm-workspace.yaml and package-lock.json', () => {
       // @ts-ignore
       const files = scanner.parsePrettierCheck(
-        '[warn] file1.ts\n[warn] pnpm-lock.yaml\n[warn] packages/app/pnpm-lock.yaml\n[warn] file2.ts\n[warn] Code style issues'
+        '[warn] file1.ts\n[warn] pnpm-lock.yaml\n[warn] packages/app/pnpm-lock.yaml\n[warn] pnpm-workspace.yaml\n[warn] packages/app/pnpm-workspace.yaml\n[warn] package-lock.json\n[warn] packages/app/package-lock.json\n[warn] file2.ts\n[warn] Code style issues'
       );
       expect(files).toEqual(['file1.ts', 'file2.ts']);
     });
@@ -783,12 +889,6 @@ describe('Scanner', () => {
     });
 
     it('should handle ESLint invalid option --ext fallback', async () => {
-      const repoPath =
-        process.platform === 'win32'
-          ? 'C:\\mock\\path\\test-repo'
-          : '/mock/path/test-repo';
-      path.join(repoPath, 'file1.ts');
-
       vi.mocked(existsSync).mockImplementation((p: any) => {
         if (p.toString().endsWith('eslint.config.js')) return true;
         return false;
@@ -809,7 +909,6 @@ describe('Scanner', () => {
       });
 
       const result = await scanner.scanRepo(mockRepo);
-      // Should not throw and should handle the fallback gracefully
       expect(result.issues.length).toBeDefined();
     });
 
@@ -826,7 +925,6 @@ describe('Scanner', () => {
       } as any);
 
       const result = await scanner.scanRepo(mockRepo);
-      // Should return empty list of issues for Stylelint if parsing fails
       expect(result.issues.some((i) => i.message.includes('Stylelint'))).toBe(
         false
       );

@@ -238,6 +238,18 @@ export const ISSUES = {
     message: 'Vitest: Missing "vitest.config.ts" in the root',
     severity: Severity.MEDIUM,
   },
+  TSCONFIG_JSON_MISSING: {
+    message: 'Missing template file: tsconfig.json',
+    severity: Severity.MEDIUM,
+  },
+  TSCONFIG_NODE_JSON_MISSING: {
+    message: 'Missing template file: tsconfig.node.json',
+    severity: Severity.MEDIUM,
+  },
+  VITEST_CONFIG_TEMPLATE_MISSING: {
+    message: 'Missing template file: vitest.config.ts',
+    severity: Severity.MEDIUM,
+  },
   TEST_ISSUES: {
     message: 'Test issues found:\n{issues}',
     severity: Severity.LOW,
