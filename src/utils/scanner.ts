@@ -11,6 +11,7 @@ import {
   isIssueExcluded,
   isKnipScanExcluded,
   getExcludedKnipPackages,
+  getExcludedKnipPaths,
   isOutdatedScanExcluded,
 } from './excludes.js';
 import {
@@ -21,7 +22,7 @@ import {
   getRulesets,
   RepoMetadata,
 } from '../github.js';
-import { normalizeToTitle } from './stringUtils.js';
+import { normalizeToTitle, stripAnsi } from './stringUtils.js';
 
 export interface ScanIssue {
   severity: Severity;
@@ -56,6 +57,25 @@ export class Scanner {
     }
 
     this.logToReport(message, issueDef.severity);
+  }
+
+  private async getAllFiles(
+    dir: string,
+    baseDir: string = dir
+  ): Promise<string[]> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const files = await Promise.all(
+      entries.map(async (entry) => {
+        const res = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules' || entry.name === '.git') return [];
+          return await this.getAllFiles(res, baseDir);
+        } else {
+          return [path.relative(baseDir, res)];
+        }
+      })
+    );
+    return files.flat();
   }
 
   async scanRepo(repo: { name: string; url: string }): Promise<RepoScanResult> {
@@ -129,14 +149,13 @@ export class Scanner {
     const templatesDir = path.join(process.cwd(), 'src', 'templates');
     let templateFiles: string[] = [];
     try {
-      templateFiles = await fs.readdir(templatesDir);
+      templateFiles = await this.getAllFiles(templatesDir);
     } catch {
       // templates dir might not exist in some contexts (e.g. built app)
       // but in this project it should.
     }
 
     for (const file of templateFiles) {
-      if (file === 'node_modules') continue;
       if (excludedPaths.includes(file)) continue;
 
       const targetFilePath = path.join(repoPath, file);
@@ -240,14 +259,22 @@ export class Scanner {
 
     // Use --directory to point to the repo path and run from current directory
     const relativePath = path.relative(process.cwd(), repoPath);
-    const command = `${baseCommand} --directory "${relativePath}"`;
+    let command = `${baseCommand} --directory "${relativePath}"`;
+
+    const excludedPaths = getExcludedKnipPaths(this.currentRepoName);
+    if (excludedPaths.length > 0) {
+      for (const p of excludedPaths) {
+        command += ` --ignore "${p}"`;
+      }
+    }
 
     const result = this.runCmd(command, process.cwd());
 
     // Knip output parsing - focus on unused/unlisted items
     if (result.stdout.trim().length > 0) {
       const excludedPackages = getExcludedKnipPackages(this.currentRepoName);
-      const lines = result.stdout.split('\n');
+      const cleanStdout = stripAnsi(result.stdout);
+      const lines = cleanStdout.split('\n');
       const issues: string[] = [];
       let currentHeader = '';
       let categoryIssues: string[] = [];
@@ -271,10 +298,26 @@ export class Scanner {
           categoryIssues = [];
         } else {
           // Check if line contains any excluded package
-          const isExcluded = excludedPackages.some((pkgName) =>
+          const isPkgExcluded = excludedPackages.some((pkgName) =>
             trimmed.includes(pkgName)
           );
-          if (isExcluded) continue;
+          if (isPkgExcluded) continue;
+
+          // Check if line contains any excluded path
+          const isPathExcluded = excludedPaths.some((p) => {
+            const normalizedPath = p.replace(/\\/g, '/');
+            // Remove leading dash or spaces if present to check the path correctly
+            const cleanTrimmed = trimmed.startsWith('-')
+              ? trimmed.substring(1).trim()
+              : trimmed;
+            const normalizedTrimmed = cleanTrimmed.replace(/\\/g, '/');
+            return (
+              normalizedTrimmed === normalizedPath ||
+              normalizedTrimmed.startsWith(normalizedPath + '/') ||
+              normalizedTrimmed.includes('/' + normalizedPath + '/')
+            );
+          });
+          if (isPathExcluded) continue;
 
           if (
             currentHeader &&
@@ -346,12 +389,11 @@ export class Scanner {
     const targetContent = await fs.readFile(targetPath, 'utf-8');
     const templateContent = await fs.readFile(templatePath, 'utf-8');
 
-    if (
-      fileName === '.gitignore' ||
-      fileName === 'CHANGELOG.md' ||
+    if (fileName === '.gitignore') {
+      this.validateGitignore(targetContent, templateContent);
+    } else if (
       fileName === 'CODE_OF_CONDUCT.md' ||
-      fileName === 'SECURITY.md' ||
-      fileName === 'INSTRUCTIONS.md'
+      fileName === 'SECURITY.md'
     ) {
       if (!targetContent.includes(templateContent.trim())) {
         this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
@@ -363,6 +405,35 @@ export class Scanner {
       if (!targetNoYear.includes(templateNoYear.trim())) {
         this.logIssue('LICENSE_CONTENT_MISMATCH');
       }
+    }
+  }
+
+  private validateGitignore(
+    targetContent: string,
+    templateContent: string
+  ): void {
+    const targetLines = new Set(
+      targetContent
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('#'))
+    );
+    const templateLines = templateContent
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+
+    const missingLines: string[] = [];
+    for (const line of templateLines) {
+      if (!targetLines.has(line)) {
+        missingLines.push(line);
+      }
+    }
+
+    if (missingLines.length > 0) {
+      this.logIssue('GITIGNORE_MISSING_LINES', {
+        lines: missingLines.map((l) => `  - ${l}`).join('\n'),
+      });
     }
   }
 
@@ -664,8 +735,9 @@ export class Scanner {
       result.combined.toLowerCase().includes('error') ||
       result.combined.toLowerCase().includes('failed')
     ) {
-      // Look for specific ERROR lines (e.g. coverage thresholds)
-      const issues = result.combined
+      // Strip ANSI codes and look for specific ERROR lines
+      const cleanCombined = stripAnsi(result.combined);
+      const issues = cleanCombined
         .split('\n')
         .filter(
           (line) =>
@@ -693,7 +765,6 @@ export class Scanner {
     if (existsSync(nodeModulesPath)) return;
 
     // Run lint command via npx
-    // Note: We use --yes to bypass the npx installation prompt
     const cmd = `npx --yes ${pkg.scripts.lint}`;
     const result = this.runCmd(cmd, repoPath);
 
@@ -701,18 +772,18 @@ export class Scanner {
       result.combined.toLowerCase().includes('error') ||
       result.combined.toLowerCase().includes('failed')
     ) {
-      // Check if it's a real lint issue or just a command failure
-      const issues = result.combined
+      // Strip ANSI codes and check if it's a real lint issue
+      const cleanCombined = stripAnsi(result.combined);
+      const issues = cleanCombined
         .split('\n')
         .filter((line) => line.includes('error') || line.includes('warning'))
-        .slice(0, 5); // Limit to first 5 issues to keep report concise
+        .slice(0, 5); // Limit to first 5 issues
 
       if (issues.length > 0) {
         this.logIssue('LINT_ISSUES', {
           issues: issues.map((i) => `  - ${i.trim()}`).join('\n'),
         });
       } else {
-        // If no specific lines found but command failed, report the failure
         this.logIssue('LINT_COMMAND_FAILED');
       }
     }
@@ -799,7 +870,7 @@ export class Scanner {
     if (rulesets.length === 0) {
       this.logIssue('GITHUB_NO_RULESETS');
     } else {
-      const requiredRulesets = ['Main Branch Protection'];
+      const requiredRulesets = ['Protect main branch'];
       for (const name of requiredRulesets) {
         const ruleset = rulesets.find((r) => r.name === name);
         if (!ruleset) {
@@ -1022,13 +1093,22 @@ export class Scanner {
 
   private parsePrettierCheck(output: string): string[] {
     const files: string[] = [];
-    const cleanOutput = output.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    const cleanOutput = stripAnsi(output);
     for (const line of cleanOutput.split(/\r?\n/)) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
       const m = trimmedLine.match(/\[warn\]\s+(.+)$/);
       if (m && m[1] && !m[1].includes('Code style issues')) {
-        files.push(m[1].trim());
+        const filePath = m[1].trim();
+        // Skip pnpm-lock.yaml (regardless to any path level)
+        if (
+          filePath === 'pnpm-lock.yaml' ||
+          filePath.endsWith('/pnpm-lock.yaml') ||
+          filePath.endsWith('\\pnpm-lock.yaml')
+        ) {
+          continue;
+        }
+        files.push(filePath);
       }
     }
     return files;
@@ -1036,12 +1116,20 @@ export class Scanner {
 
   private parseEslintOutput(output: string, repoDir: string): string[] {
     const files = new Set<string>();
-    const cleanOutput = output.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    const cleanOutput = stripAnsi(output);
     for (const line of cleanOutput.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith(' ') || line.startsWith(' ')) continue;
       if (trimmed.match(/^([A-Za-z]:\\|\/)/)) {
         const rel = path.relative(repoDir, trimmed);
+        // Skip coverage folder (regardless to any path level)
+        if (
+          rel.split(path.sep).includes('coverage') ||
+          rel.split('/').includes('coverage') ||
+          rel.split('\\').includes('coverage')
+        ) {
+          continue;
+        }
         if (!rel.startsWith('..') && existsSync(trimmed)) {
           files.add(rel);
         }

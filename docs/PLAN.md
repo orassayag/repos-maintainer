@@ -4,10 +4,11 @@
 
 ## Goal
 
-Build a reliable personal tool to maintain high structural standards across all my GitHub repositories.  
+Build a reliable personal tool to maintain high structural standards across all my GitHub repositories.
 It serves as both a quick “Add Repo” assistant and a powerful automatic crawler that keeps existing repos clean and consistent.
 
 Core principles:
+
 - Do as much as possible automatically
 - Never stop on individual failures (run all steps)
 - Prioritize safety and idempotency
@@ -35,8 +36,8 @@ Core principles:
 
 ### Flow:
 
-1. Prompt for GitHub repository URL  
-   - Validate it is a proper GitHub URL  
+1. Prompt for GitHub repository URL
+   - Validate it is a proper GitHub URL
    - Allow retry on invalid input
 
 2. Verify the repository exists via GitHub API
@@ -44,7 +45,6 @@ Core principles:
 3. Add or update entry in `project-repos-names.txt` (keep list alphabetically sorted)
 
 4. **Standardization Phase** – Execute all steps (continue even if some fail):
-
    - **Git step**:
      - If local folder does not exist → clone the repository
      - If folder exists → verify `git remote get-url origin` matches the expected URL
@@ -103,24 +103,25 @@ Core principles:
 - If a change is complex or risky → write suggested changes to `~/Desktop/repos-maintainer-changes.txt` instead of auto-applying
 - Output a nice summary table at the end (repo | changes | status)
 
-**Auto mode**:  
+**Auto mode**:
 `pnpm run sync` or `pnpm run start --auto` → runs Repos Sync without menu
 
 ## File Overwrite Policy
 
-| File                  | Policy                          | Reason |
-|-----------------------|---------------------------------|--------|
-| `LICENSE`             | Overwrite if missing or different | Should be identical |
-| `SECURITY.md`         | Overwrite if missing            | Safety first, but allow custom contact if needed later |
-| `CODE_OF_CONDUCT.md`  | Overwrite if missing            | Consistency |
-| `CONTRIBUTING.md`     | Overwrite only if missing       | May contain repo-specific info |
-| `CHANGELOG.md`        | Create if missing, never overwrite | Content is repo-specific |
-| `README.md`           | Only append/fix Author + License section (idempotent) | Never replace whole file |
-| `.gitignore`          | Overwrite if missing            | Base template |
+| File                 | Policy                                                | Reason                                                 |
+| -------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| `LICENSE`            | Overwrite if missing or different                     | Should be identical                                    |
+| `SECURITY.md`        | Overwrite if missing                                  | Safety first, but allow custom contact if needed later |
+| `CODE_OF_CONDUCT.md` | Overwrite if missing                                  | Consistency                                            |
+| `CONTRIBUTING.md`    | Overwrite only if missing                             | May contain repo-specific info                         |
+| `CHANGELOG.md`       | Create if missing, never overwrite                    | Content is repo-specific                               |
+| `README.md`          | Only append/fix Author + License section (idempotent) | Never replace whole file                               |
+| `.gitignore`         | Overwrite if missing                                  | Base template                                          |
 
 ## Idempotency Requirement
 
 All fixers must be **idempotent**:
+
 - Running the tool 10 times on the same repo produces the same result with no duplicate sections or noisy changes.
 - Check before adding (e.g., don’t append Author section if it already exists).
 
@@ -136,6 +137,7 @@ All fixers must be **idempotent**:
 ## Configuration (`settings.ts`)
 
 Centralized and cross-platform:
+
 - `PROJECTS_ROOT` (supports `REPOS_ROOT` env var)
 - `REPOS_LIST_FILE`
 - `TEMPLATES_DIR`
@@ -199,4 +201,3 @@ src/
 3. Core `standardizer.ts` + idempotent fixers
 4. `addRepo.ts` and `reposSync.ts`
 5. Implement commit strategy + dry-run
-

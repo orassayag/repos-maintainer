@@ -55,6 +55,8 @@ describe('readmeFixer', () => {
 
     expect(result).toBe(false);
     expect(fs.writeFile).not.toHaveBeenCalled();
-    expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[DRY RUN]'));
+    expect(Logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('[DRY RUN]')
+    );
   });
 });

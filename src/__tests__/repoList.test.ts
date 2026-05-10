@@ -45,14 +45,19 @@ repo3
   describe('addOrUpdateRepoInList', () => {
     it('should add a new repo to an empty list', async () => {
       vi.mocked(fs.readFile).mockResolvedValue('');
-      await addOrUpdateRepoInList('new-repo', 'https://github.com/user/new-repo');
+      await addOrUpdateRepoInList(
+        'new-repo',
+        'https://github.com/user/new-repo'
+      );
 
       expect(fs.writeFile).toHaveBeenCalledWith(
         mockFilePath,
         'new-repo: https://github.com/user/new-repo\n',
         'utf-8'
       );
-      expect(Logger.success).toHaveBeenCalledWith(expect.stringContaining('new-repo'));
+      expect(Logger.success).toHaveBeenCalledWith(
+        expect.stringContaining('new-repo')
+      );
     });
 
     it('should update an existing repo and keep it sorted', async () => {
@@ -61,13 +66,14 @@ repo3
 
       await addOrUpdateRepoInList('repo-c', 'url-c');
 
-      const expectedContent = [
-        'repo-a: url-a',
-        'repo-b: url-b',
-        'repo-c: url-c',
-      ].join('\n') + '\n';
+      const expectedContent =
+        ['repo-a: url-a', 'repo-b: url-b', 'repo-c: url-c'].join('\n') + '\n';
 
-      expect(fs.writeFile).toHaveBeenCalledWith(mockFilePath, expectedContent, 'utf-8');
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        mockFilePath,
+        expectedContent,
+        'utf-8'
+      );
     });
 
     it('should handle updates for existing names (case-insensitive)', async () => {
@@ -90,7 +96,11 @@ repo3
       await addOrUpdateRepoInList('repo-new', 'url-new');
 
       const expectedContent = 'repo-legacy\nrepo-new: url-new\n';
-      expect(fs.writeFile).toHaveBeenCalledWith(mockFilePath, expectedContent, 'utf-8');
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        mockFilePath,
+        expectedContent,
+        'utf-8'
+      );
     });
   });
 });

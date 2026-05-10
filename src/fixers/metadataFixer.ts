@@ -89,7 +89,9 @@ export async function fixMetadata(
       await updateRepoMetadata(owner, repo, {
         homepage: settings.DEFAULT_HOMEPAGE,
       });
-      Logger.success(`Set homepage for ${repo} to ${settings.DEFAULT_HOMEPAGE}`);
+      Logger.success(
+        `Set homepage for ${repo} to ${settings.DEFAULT_HOMEPAGE}`
+      );
     }
     changes.push(`Homepage: Set to ${settings.DEFAULT_HOMEPAGE}`);
   } else {

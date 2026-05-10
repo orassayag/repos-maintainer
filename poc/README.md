@@ -26,12 +26,12 @@ Create a `formatter.config.json` in the project root (or pass `--config <path>`)
 }
 ```
 
-| Field | Description | Default |
-|---|---|---|
-| `reposRoot` | Directory that contains all your repos | required |
-| `include` | Only process these repo names (optional) | all |
-| `exclude` | Skip these repo names | `[]` |
-| `depth` | How deep to search for repos inside `reposRoot` | `1` |
+| Field       | Description                                     | Default  |
+| ----------- | ----------------------------------------------- | -------- |
+| `reposRoot` | Directory that contains all your repos          | required |
+| `include`   | Only process these repo names (optional)        | all      |
+| `exclude`   | Skip these repo names                           | `[]`     |
+| `depth`     | How deep to search for repos inside `reposRoot` | `1`      |
 
 ---
 
@@ -60,15 +60,15 @@ npm start -- --config /path/to/my.config.json
 
 The tool **auto-detects** which formatter each repo uses — no manual config needed.
 
-| Formatter | Detection |
-|---|---|
-| **Prettier** | `.prettierrc*`, `prettier.config.*`, or `"prettier"` in `package.json` |
-| **ESLint** (--fix) | `.eslintrc*`, `eslint.config.*`, or `"eslint"` in `package.json` |
-| **Biome** | `biome.json` / `biome.jsonc` |
-| **Stylelint** | `.stylelintrc*`, `stylelint.config.*`, or `"stylelint"` in `package.json` |
-| **rustfmt** | `Cargo.toml` |
-| **gofmt** | `go.mod` |
-| **Black** (Python) | `pyproject.toml` with `[tool.black]` section |
+| Formatter          | Detection                                                                 |
+| ------------------ | ------------------------------------------------------------------------- |
+| **Prettier**       | `.prettierrc*`, `prettier.config.*`, or `"prettier"` in `package.json`    |
+| **ESLint** (--fix) | `.eslintrc*`, `eslint.config.*`, or `"eslint"` in `package.json`          |
+| **Biome**          | `biome.json` / `biome.jsonc`                                              |
+| **Stylelint**      | `.stylelintrc*`, `stylelint.config.*`, or `"stylelint"` in `package.json` |
+| **rustfmt**        | `Cargo.toml`                                                              |
+| **gofmt**          | `go.mod`                                                                  |
+| **Black** (Python) | `pyproject.toml` with `[tool.black]` section                              |
 
 Multiple formatters can apply to the same repo (e.g. Prettier + ESLint).
 

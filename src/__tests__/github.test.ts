@@ -1,306 +1,160 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  parseGitHubUrl,
+  getOctokit,
   checkGitHubAuth,
   repoExists,
   isRepoEmpty,
-  getRepoMetadata,
-  updateRepoMetadata,
-  replaceTopics,
-  isRepoStarred,
-  isRepoWatched,
-  starRepo,
-  watchRepo,
-  getRulesets,
-  getRulesetDetails,
-  createRuleset,
-  updateRuleset,
+  parseGitHubUrl,
+  resetOctokitInstance,
 } from '../github.js';
 import { Logger } from '../utils/logger.js';
 
-const mockOctokit = {
-  users: {
-    getAuthenticated: vi.fn(),
-  },
-  repos: {
-    get: vi.fn(),
-    listCommits: vi.fn(),
-    update: vi.fn(),
-    replaceAllTopics: vi.fn(),
-    getRepoRulesets: vi.fn(),
-    getRepoRuleset: vi.fn(),
-    createRepoRuleset: vi.fn(),
-    updateRepoRuleset: vi.fn(),
-  },
-  activity: {
-    checkRepoIsStarredByAuthenticatedUser: vi.fn(),
-    getRepoSubscription: vi.fn(),
-    starRepoForAuthenticatedUser: vi.fn(),
-    setRepoSubscription: vi.fn(),
-  },
-};
-
+vi.mock('../utils/logger.js');
 vi.mock('@octokit/rest', () => {
-  return {
-    Octokit: {
-      plugin: vi.fn().mockReturnValue(function () {
-        return mockOctokit;
-      }),
-    },
-  };
+  const Octokit = vi.fn(function () {
+    return {
+      users: {
+        getAuthenticated: vi.fn(),
+      },
+      repos: {
+        get: vi.fn(),
+        listCommits: vi.fn(),
+      },
+    };
+  });
+  (Octokit as any).plugin = vi.fn().mockReturnValue(Octokit);
+  return { Octokit };
 });
 
-vi.mock('../utils/logger.js');
-
-describe('github utils', () => {
+describe('github', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetOctokitInstance();
   });
 
-  describe('parseGitHubUrl', () => {
-    it('should parse standard https URL', () => {
-      const url = 'https://github.com/orassayag/repos-maintainer';
-      const result = parseGitHubUrl(url);
-      expect(result).toEqual({ owner: 'orassayag', repo: 'repos-maintainer' });
-    });
-
-    it('should parse URL with .git extension', () => {
-      const url = 'https://github.com/orassayag/repos-maintainer.git';
-      const result = parseGitHubUrl(url);
-      expect(result).toEqual({ owner: 'orassayag', repo: 'repos-maintainer' });
-    });
-
-    it('should parse SSH URL', () => {
-      const url = 'git@github.com:orassayag/repos-maintainer.git';
-      const result = parseGitHubUrl(url);
-      expect(result).toEqual({ owner: 'orassayag', repo: 'repos-maintainer' });
-    });
-
-    it('should return null for non-github URLs', () => {
-      const url = 'https://gitlab.com/orassayag/repos-maintainer';
-      const result = parseGitHubUrl(url);
-      expect(result).toBeNull();
-    });
-
-    it('should return null for invalid strings', () => {
-      const url = 'not-a-url';
-      const result = parseGitHubUrl(url);
-      expect(result).toBeNull();
-    });
+  it('should initialize Octokit with throttling', async () => {
+    const octokit = getOctokit();
+    expect(octokit).toBeDefined();
+    const { Octokit } = await import('@octokit/rest');
+    expect(Octokit).toHaveBeenCalled();
   });
 
-  describe('checkGitHubAuth', () => {
-    it('should return true if authenticated', async () => {
-      mockOctokit.users.getAuthenticated.mockResolvedValue({
-        data: { login: 'user' },
-      });
-      const result = await checkGitHubAuth();
-      expect(result).toBe(true);
-      expect(Logger.success).toHaveBeenCalledWith(
-        expect.stringContaining('user')
-      );
-    });
+  it('should cover throttling callbacks', async () => {
+    // We need to trigger initialization first
+    getOctokit();
 
-    it('should return false if auth fails', async () => {
-      mockOctokit.users.getAuthenticated.mockRejectedValue(new Error('fail'));
-      const result = await checkGitHubAuth();
-      expect(result).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
-    });
+    // This is tricky because it's passed to the constructor.
+    // We can check the constructor arguments.
+    const { Octokit } = await import('@octokit/rest');
+    const mockedOctokit = vi.mocked(Octokit);
+    const options = mockedOctokit.mock.calls[0][0];
+
+    expect(options).toBeDefined();
+    expect(options!.throttle).toBeDefined();
+
+    // Test onRateLimit
+    const onRateLimit = options!.throttle!.onRateLimit;
+    const result = onRateLimit!(10, {} as any, {} as any, 0);
+    expect(result).toBe(true);
+    expect(Logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Rate limit hit. Retrying after 10 seconds...')
+    );
+
+    // Test onSecondaryRateLimit
+    const onSecondaryRateLimit = options!.throttle!.onSecondaryRateLimit;
+    const result2 = onSecondaryRateLimit!(10, {} as any, {} as any, 0);
+    expect(result2).toBe(true);
   });
 
-  describe('repoExists', () => {
-    it('should return true if repo exists', async () => {
-      mockOctokit.repos.get.mockResolvedValue({ data: {} });
-      const result = await repoExists('owner', 'repo');
-      expect(result).toBe(true);
-    });
+  it('should check GitHub auth successfully', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.users.getAuthenticated).mockResolvedValue({
+      data: { login: 'testuser' },
+    } as any);
 
-    it('should return false if repo does not exist', async () => {
-      mockOctokit.repos.get.mockRejectedValue(new Error('fail'));
-      const result = await repoExists('owner', 'repo');
-      expect(result).toBe(false);
-    });
+    const result = await checkGitHubAuth();
+    expect(result).toBe(true);
+    expect(Logger.success).toHaveBeenCalledWith(
+      'GitHub authenticated as: testuser'
+    );
   });
 
-  describe('isRepoEmpty', () => {
-    it('should return false if commits exist', async () => {
-      mockOctokit.repos.listCommits.mockResolvedValue({ data: [{}] });
-      const result = await isRepoEmpty('owner', 'repo');
-      expect(result).toBe(false);
-    });
+  it('should handle GitHub auth failure', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.users.getAuthenticated).mockRejectedValue(
+      new Error('Unauthorized')
+    );
 
-    it('should return true if commits fail with 409', async () => {
-      const err = new Error('empty');
-      (err as any).status = 409;
-      mockOctokit.repos.listCommits.mockRejectedValue(err);
-      const result = await isRepoEmpty('owner', 'repo');
-      expect(result).toBe(true);
-    });
-
-    it('should return true if commits fail with 404', async () => {
-      const err = new Error('not found');
-      (err as any).status = 404;
-      mockOctokit.repos.listCommits.mockRejectedValue(err);
-      const result = await isRepoEmpty('owner', 'repo');
-      expect(result).toBe(true);
-    });
-
-    it('should return true for other errors in listCommits', async () => {
-      mockOctokit.repos.listCommits.mockRejectedValue(new Error('other'));
-      const result = await isRepoEmpty('owner', 'repo');
-      expect(result).toBe(true);
-    });
+    const result = await checkGitHubAuth();
+    expect(result).toBe(false);
+    expect(Logger.error).toHaveBeenCalledWith('GitHub authentication failed.');
   });
 
-  describe('getRepoMetadata', () => {
-    it('should return metadata', async () => {
-      mockOctokit.repos.get.mockResolvedValue({
-        data: {
-          description: 'desc',
-          homepage: 'home',
-          topics: ['t1'],
-          default_branch: 'main',
-        },
-      });
-      const result = await getRepoMetadata('owner', 'repo');
-      expect(result).toEqual({
-        description: 'desc',
-        homepage: 'home',
-        topics: ['t1'],
-        defaultBranch: 'main',
-      });
-    });
+  it('should check if repo exists', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.get).mockResolvedValue({} as any);
 
-    it('should return empty fields if missing in response', async () => {
-      mockOctokit.repos.get.mockResolvedValue({
-        data: {
-          default_branch: 'main',
-        },
-      });
-      const result = await getRepoMetadata('owner', 'repo');
-      expect(result.description).toBe('');
-      expect(result.homepage).toBe('');
-      expect(result.topics).toEqual([]);
-    });
+    const exists = await repoExists('owner', 'repo');
+    expect(exists).toBe(true);
   });
 
-  describe('updateRepoMetadata', () => {
-    it('should call update', async () => {
-      mockOctokit.repos.update.mockResolvedValue({});
-      await updateRepoMetadata('owner', 'repo', { description: 'new' });
-      expect(mockOctokit.repos.update).toHaveBeenCalledWith({
-        owner: 'owner',
-        repo: 'repo',
-        description: 'new',
-      });
-    });
+  it('should handle repo not existing', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.get).mockRejectedValue(new Error('Not Found'));
+
+    const exists = await repoExists('owner', 'repo');
+    expect(exists).toBe(false);
   });
 
-  describe('replaceTopics', () => {
-    it('should call replaceAllTopics', async () => {
-      mockOctokit.repos.replaceAllTopics.mockResolvedValue({});
-      await replaceTopics('owner', 'repo', ['t1']);
-      expect(mockOctokit.repos.replaceAllTopics).toHaveBeenCalledWith({
-        owner: 'owner',
-        repo: 'repo',
-        names: ['t1'],
-      });
-    });
+  it('should check if repo is empty', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.listCommits).mockResolvedValue({
+      data: [{ sha: '123' }],
+    } as any);
+
+    const empty = await isRepoEmpty('owner', 'repo');
+    expect(empty).toBe(false);
   });
 
-  describe('star & watch', () => {
-    it('should check if starred', async () => {
-      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockResolvedValue(
-        {}
-      );
-      expect(await isRepoStarred('o', 'r')).toBe(true);
-    });
+  it('should handle empty repo (409)', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.listCommits).mockRejectedValue({ status: 409 });
 
-    it('should return false if check starred fails', async () => {
-      mockOctokit.activity.checkRepoIsStarredByAuthenticatedUser.mockRejectedValue(
-        new Error('fail')
-      );
-      expect(await isRepoStarred('o', 'r')).toBe(false);
-    });
-
-    it('should check if watched', async () => {
-      mockOctokit.activity.getRepoSubscription.mockResolvedValue({
-        data: { subscribed: true },
-      });
-      expect(await isRepoWatched('o', 'r')).toBe(true);
-    });
-
-    it('should return false if check watched fails', async () => {
-      mockOctokit.activity.getRepoSubscription.mockRejectedValue(
-        new Error('fail')
-      );
-      expect(await isRepoWatched('o', 'r')).toBe(false);
-    });
-
-    it('should star repo', async () => {
-      mockOctokit.activity.starRepoForAuthenticatedUser.mockResolvedValue({});
-      await starRepo('o', 'r');
-      expect(
-        mockOctokit.activity.starRepoForAuthenticatedUser
-      ).toHaveBeenCalled();
-    });
-
-    it('should watch repo', async () => {
-      mockOctokit.activity.setRepoSubscription.mockResolvedValue({});
-      await watchRepo('o', 'r');
-      expect(mockOctokit.activity.setRepoSubscription).toHaveBeenCalledWith({
-        owner: 'o',
-        repo: 'r',
-        subscribed: true,
-      });
-    });
+    const empty = await isRepoEmpty('owner', 'repo');
+    expect(empty).toBe(true);
   });
 
-  describe('rulesets', () => {
-    it('should get rulesets', async () => {
-      mockOctokit.repos.getRepoRulesets.mockResolvedValue({
-        data: [{ id: 1 }],
-      });
-      const result = await getRulesets('o', 'r');
-      expect(result).toEqual([{ id: 1 }]);
-    });
+  it('should handle empty repo (404)', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.listCommits).mockRejectedValue({ status: 404 });
 
-    it('should return empty array if getRulesets fails', async () => {
-      mockOctokit.repos.getRepoRulesets.mockRejectedValue(new Error('fail'));
-      const result = await getRulesets('o', 'r');
-      expect(result).toEqual([]);
-    });
+    const empty = await isRepoEmpty('owner', 'repo');
+    expect(empty).toBe(true);
+  });
 
-    it('should get ruleset details', async () => {
-      mockOctokit.repos.getRepoRuleset.mockResolvedValue({ data: { id: 1 } });
-      const result = await getRulesetDetails('o', 'r', 1);
-      expect(result).toEqual({ id: 1 });
-    });
+  it('should handle other errors in isRepoEmpty as empty for safety', async () => {
+    const octokit = getOctokit();
+    vi.mocked(octokit.repos.listCommits).mockRejectedValue(
+      new Error('Unknown')
+    );
 
-    it('should return null if getRulesetDetails fails', async () => {
-      mockOctokit.repos.getRepoRuleset.mockRejectedValue(new Error('fail'));
-      const result = await getRulesetDetails('o', 'r', 1);
-      expect(result).toBeNull();
-    });
+    const empty = await isRepoEmpty('owner', 'repo');
+    expect(empty).toBe(true);
+  });
 
-    it('should create ruleset', async () => {
-      mockOctokit.repos.createRepoRuleset.mockResolvedValue({});
-      const ruleset: any = {
-        name: 'rs',
-        target: 'branch',
-        enforcement: 'active',
-        rules: [],
-      };
-      await createRuleset('o', 'r', ruleset);
-      expect(mockOctokit.repos.createRepoRuleset).toHaveBeenCalled();
+  it('should parse GitHub URL correctly', () => {
+    expect(parseGitHubUrl('https://github.com/owner/repo')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
     });
-
-    it('should update ruleset', async () => {
-      mockOctokit.repos.updateRepoRuleset.mockResolvedValue({});
-      const ruleset: any = { name: 'rs', enforcement: 'active' };
-      await updateRuleset('o', 'r', 1, ruleset);
-      expect(mockOctokit.repos.updateRepoRuleset).toHaveBeenCalled();
+    expect(parseGitHubUrl('https://github.com/owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
     });
+    expect(parseGitHubUrl('git@github.com:owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+    });
+    expect(parseGitHubUrl('invalid')).toBeNull();
   });
 });

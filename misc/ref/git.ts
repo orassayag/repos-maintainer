@@ -5,7 +5,10 @@ import { getLocalRepoPath } from '../settings';
 
 const git = simpleGit();
 
-export async function ensureRepoCloned(repoUrl: string, repoName: string): Promise<boolean> {
+export async function ensureRepoCloned(
+  repoUrl: string,
+  repoName: string
+): Promise<boolean> {
   const localPath = getLocalRepoPath(repoName);
 
   try {
@@ -13,11 +16,13 @@ export async function ensureRepoCloned(repoUrl: string, repoName: string): Promi
     // Folder exists - verify remote
     const repoGit = simpleGit(localPath);
     const remotes = await repoGit.getRemotes(true);
-    const origin = remotes.find(r => r.name === 'origin');
+    const origin = remotes.find((r) => r.name === 'origin');
 
     if (origin && origin.refs.fetch.includes(repoName)) {
       console.log(`✅ Repo already cloned: ${repoName}`);
-      await repoGit.pull('origin', 'main').catch(() => repoGit.pull('origin', 'master'));
+      await repoGit
+        .pull('origin', 'main')
+        .catch(() => repoGit.pull('origin', 'master'));
       return true;
     } else {
       console.warn(`⚠️  Local folder exists but remote mismatch: ${repoName}`);

@@ -5,11 +5,6 @@ export enum Severity {
   VERY_LOW = '4 - Very Low - Minor issues',
 }
 
-export interface IssueDefinition {
-  message: string;
-  severity: Severity;
-}
-
 export const ISSUES = {
   PROJECT_NOT_FOUND: {
     message: 'Project NOT found locally at {repoPath}',
@@ -38,6 +33,10 @@ export const ISSUES = {
   },
   FILE_CONTENT_MISMATCH: {
     message: "{file} content is incomplete or doesn't match template.",
+    severity: Severity.MEDIUM,
+  },
+  GITIGNORE_MISSING_LINES: {
+    message: '.gitignore is missing required lines from template:\n{lines}',
     severity: Severity.MEDIUM,
   },
   LICENSE_CONTENT_MISMATCH: {

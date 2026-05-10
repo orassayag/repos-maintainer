@@ -18,16 +18,16 @@
  *   { "ignoreCodes": ["KEYWORDS_MISSING", "AUTHOR_MISSING"] }
  */
 
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import semver from "semver";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import semver from 'semver';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Severity = "critical" | "important" | "warning" | "info";
+export type Severity = 'critical' | 'important' | 'warning' | 'info';
 
 export interface ValidationIssue {
   severity: Severity;
@@ -79,41 +79,96 @@ interface PackageJson {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SPDX_COMMON = new Set([
-  "MIT", "ISC", "Apache-2.0", "GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0",
-  "BSD-2-Clause", "BSD-3-Clause", "MPL-2.0", "CDDL-1.0", "EPL-2.0",
-  "AGPL-3.0", "Unlicense", "CC0-1.0", "WTFPL", "0BSD",
+  'MIT',
+  'ISC',
+  'Apache-2.0',
+  'GPL-2.0',
+  'GPL-3.0',
+  'LGPL-2.1',
+  'LGPL-3.0',
+  'BSD-2-Clause',
+  'BSD-3-Clause',
+  'MPL-2.0',
+  'CDDL-1.0',
+  'EPL-2.0',
+  'AGPL-3.0',
+  'Unlicense',
+  'CC0-1.0',
+  'WTFPL',
+  '0BSD',
 ]);
 
 const KNOWN_DEV_TOOLS = new Set([
-  "typescript", "eslint", "prettier", "vitest", "jest", "tsx", "ts-node",
-  "ts-jest", "esbuild", "rollup", "vite", "webpack", "babel", "@babel/core",
-  "mocha", "chai", "sinon", "nyc", "c8", "husky", "lint-staged",
-  "cross-env", "rimraf", "nodemon", "concurrently",
-  "@eslint/js", "typescript-eslint",
-  "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser",
-  "eslint-config-prettier", "eslint-plugin-prettier",
-  "@vitest/coverage-istanbul", "@vitest/ui",
+  'typescript',
+  'eslint',
+  'prettier',
+  'vitest',
+  'jest',
+  'tsx',
+  'ts-node',
+  'ts-jest',
+  'esbuild',
+  'rollup',
+  'vite',
+  'webpack',
+  'babel',
+  '@babel/core',
+  'mocha',
+  'chai',
+  'sinon',
+  'nyc',
+  'c8',
+  'husky',
+  'lint-staged',
+  'cross-env',
+  'rimraf',
+  'nodemon',
+  'concurrently',
+  '@eslint/js',
+  'typescript-eslint',
+  '@typescript-eslint/eslint-plugin',
+  '@typescript-eslint/parser',
+  'eslint-config-prettier',
+  'eslint-plugin-prettier',
+  '@vitest/coverage-istanbul',
+  '@vitest/ui',
 ]);
 
 const LOCK_FILE_TO_PM: Record<string, string> = {
-  "pnpm-lock.yaml": "pnpm",
-  "yarn.lock": "yarn",
-  "package-lock.json": "npm",
-  "bun.lockb": "bun",
+  'pnpm-lock.yaml': 'pnpm',
+  'yarn.lock': 'yarn',
+  'package-lock.json': 'npm',
+  'bun.lockb': 'bun',
 };
 
 // Files that should never be published to npm
 const FILES_BLOCKLIST = new Set([
-  ".vscode", ".idea",
-  "pnpm-lock.yaml", "yarn.lock", "package-lock.json", "bun.lockb",
-  ".env", ".env.local", ".env.development", ".env.production",
-  "node_modules", ".DS_Store",
+  '.vscode',
+  '.idea',
+  'pnpm-lock.yaml',
+  'yarn.lock',
+  'package-lock.json',
+  'bun.lockb',
+  '.env',
+  '.env.local',
+  '.env.development',
+  '.env.production',
+  'node_modules',
+  '.DS_Store',
 ]);
 
 // Directories to never recurse into
 const SKIP_DIRS = new Set([
-  "node_modules", ".git", "dist", "build", ".next", ".nuxt",
-  "coverage", ".turbo", ".cache", "out",
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.next',
+  '.nuxt',
+  'coverage',
+  '.turbo',
+  '.cache',
+  'out',
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,7 +179,7 @@ function issue(
   severity: Severity,
   code: string,
   message: string,
-  field?: string,
+  field?: string
 ): ValidationIssue {
   return { severity, code, message, field };
 }
@@ -150,19 +205,19 @@ function fileExists(filePath: string): boolean {
 // npm supports shorthand strings like "github:user/repo" or "user/repo"
 function isValidRepositoryString(value: string): boolean {
   return (
-    value.startsWith("http://") ||
-    value.startsWith("https://") ||
-    value.startsWith("git://") ||
-    value.startsWith("git+") ||
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('git://') ||
+    value.startsWith('git+') ||
     /^[a-z0-9-]+:[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value) || // github:user/repo
-    /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value)                // user/repo shorthand
+    /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value) // user/repo shorthand
   );
 }
 
 async function loadConfig(repoPath: string): Promise<ValidatorConfig> {
-  const configPath = path.join(repoPath, ".repos-maintainer.json");
+  const configPath = path.join(repoPath, '.repos-maintainer.json');
   try {
-    const content = await fs.promises.readFile(configPath, "utf-8");
+    const content = await fs.promises.readFile(configPath, 'utf-8');
     return JSON.parse(content) as ValidatorConfig;
   } catch {
     return {};
@@ -177,17 +232,28 @@ async function loadConfig(repoPath: string): Promise<ValidatorConfig> {
 
 function checkName(pkg: PackageJson): ValidationIssue[] {
   if (!pkg.name) {
-    return [issue("critical", "NAME_MISSING", 'Missing "name" field.', "name")];
+    return [issue('critical', 'NAME_MISSING', 'Missing "name" field.', 'name')];
   }
-  if (typeof pkg.name !== "string") {
-    return [issue("critical", "NAME_INVALID_TYPE", '"name" must be a string.', "name")];
+  if (typeof pkg.name !== 'string') {
+    return [
+      issue(
+        'critical',
+        'NAME_INVALID_TYPE',
+        '"name" must be a string.',
+        'name'
+      ),
+    ];
   }
   // Proper npm name regex — handles scoped packages (@scope/name)
-  if (!/^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(pkg.name)) {
+  if (
+    !/^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(pkg.name)
+  ) {
     return [
-      issue("critical", "NAME_INVALID",
+      issue(
+        'critical',
+        'NAME_INVALID',
         `"name" value "${pkg.name}" is not a valid npm package name (must be lowercase, no spaces).`,
-        "name",
+        'name'
       ),
     ];
   }
@@ -196,16 +262,32 @@ function checkName(pkg: PackageJson): ValidationIssue[] {
 
 function checkVersion(pkg: PackageJson): ValidationIssue[] {
   if (!pkg.version) {
-    return [issue("critical", "VERSION_MISSING", 'Missing "version" field.', "version")];
+    return [
+      issue(
+        'critical',
+        'VERSION_MISSING',
+        'Missing "version" field.',
+        'version'
+      ),
+    ];
   }
-  if (typeof pkg.version !== "string") {
-    return [issue("critical", "VERSION_INVALID_TYPE", '"version" must be a string.', "version")];
+  if (typeof pkg.version !== 'string') {
+    return [
+      issue(
+        'critical',
+        'VERSION_INVALID_TYPE',
+        '"version" must be a string.',
+        'version'
+      ),
+    ];
   }
   if (!isValidSemver(pkg.version)) {
     return [
-      issue("critical", "VERSION_INVALID",
+      issue(
+        'critical',
+        'VERSION_INVALID',
         `"version" value "${pkg.version}" is not valid semver (expected x.y.z).`,
-        "version",
+        'version'
       ),
     ];
   }
@@ -213,8 +295,19 @@ function checkVersion(pkg: PackageJson): ValidationIssue[] {
 }
 
 function checkDescription(pkg: PackageJson): ValidationIssue[] {
-  if (!pkg.description || typeof pkg.description !== "string" || pkg.description.trim() === "") {
-    return [issue("critical", "DESCRIPTION_MISSING", 'Missing or empty "description" field.', "description")];
+  if (
+    !pkg.description ||
+    typeof pkg.description !== 'string' ||
+    pkg.description.trim() === ''
+  ) {
+    return [
+      issue(
+        'critical',
+        'DESCRIPTION_MISSING',
+        'Missing or empty "description" field.',
+        'description'
+      ),
+    ];
   }
   return [];
 }
@@ -223,39 +316,52 @@ function checkLicense(pkg: PackageJson): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   if (!pkg.license) {
-    issues.push(issue("critical", "LICENSE_MISSING", 'Missing "license" field.', "license"));
+    issues.push(
+      issue(
+        'critical',
+        'LICENSE_MISSING',
+        'Missing "license" field.',
+        'license'
+      )
+    );
     return issues;
   }
 
-  if (typeof pkg.license === "string") {
+  if (typeof pkg.license === 'string') {
     // Standard modern form: "license": "MIT"
-    if (!SPDX_COMMON.has(pkg.license) && pkg.license !== "UNLICENSED") {
+    if (!SPDX_COMMON.has(pkg.license) && pkg.license !== 'UNLICENSED') {
       issues.push(
-        issue("warning", "LICENSE_UNKNOWN_SPDX",
+        issue(
+          'warning',
+          'LICENSE_UNKNOWN_SPDX',
           `"license" value "${pkg.license}" is not a recognized common SPDX identifier.`,
-          "license",
-        ),
+          'license'
+        )
       );
     }
-  } else if (typeof pkg.license === "object") {
+  } else if (typeof pkg.license === 'object') {
     // Deprecated object form: "license": { "type": "MIT", "url": "..." }
     // Still valid per the old npm CommonJS spec — handled without a cast
     // since the interface now correctly types this branch.
     const licType = pkg.license.type;
-    if (!licType || (!SPDX_COMMON.has(licType) && licType !== "UNLICENSED")) {
+    if (!licType || (!SPDX_COMMON.has(licType) && licType !== 'UNLICENSED')) {
       issues.push(
-        issue("warning", "LICENSE_UNKNOWN_SPDX",
-          `"license.type" value "${licType ?? "(missing)"}" is not a recognized common SPDX identifier.`,
-          "license.type",
-        ),
+        issue(
+          'warning',
+          'LICENSE_UNKNOWN_SPDX',
+          `"license.type" value "${licType ?? '(missing)'}" is not a recognized common SPDX identifier.`,
+          'license.type'
+        )
       );
     }
   } else {
     issues.push(
-      issue("critical", "LICENSE_INVALID_TYPE",
+      issue(
+        'critical',
+        'LICENSE_INVALID_TYPE',
         '"license" must be a string (e.g. "MIT") or an object { type, url? }.',
-        "license",
-      ),
+        'license'
+      )
     );
   }
 
@@ -265,14 +371,22 @@ function checkLicense(pkg: PackageJson): ValidationIssue[] {
 function checkEntryPoint(pkg: PackageJson): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!pkg.main && !pkg.exports) {
-    issues.push(issue("critical", "ENTRYPOINT_MISSING", 'Missing both "main" and "exports". At least one entry point is required.'));
-  }
-  if (typeof pkg.main === "string" && pkg.main.endsWith(".ts")) {
     issues.push(
-      issue("critical", "MAIN_POINTS_TO_TS",
+      issue(
+        'critical',
+        'ENTRYPOINT_MISSING',
+        'Missing both "main" and "exports". At least one entry point is required.'
+      )
+    );
+  }
+  if (typeof pkg.main === 'string' && pkg.main.endsWith('.ts')) {
+    issues.push(
+      issue(
+        'critical',
+        'MAIN_POINTS_TO_TS',
         `"main" points to a TypeScript source file ("${pkg.main}"). It should point to compiled output (e.g. "dist/index.js").`,
-        "main",
-      ),
+        'main'
+      )
     );
   }
   return issues;
@@ -283,17 +397,21 @@ function checkEntryPoint(pkg: PackageJson): ValidationIssue[] {
 function checkType(pkg: PackageJson): ValidationIssue[] {
   if (pkg.type === undefined) {
     return [
-      issue("important", "TYPE_MISSING",
+      issue(
+        'important',
+        'TYPE_MISSING',
         'Missing "type" field. Declare "module" or "commonjs" explicitly to avoid ambiguity.',
-        "type",
+        'type'
       ),
     ];
   }
-  if (pkg.type !== "module" && pkg.type !== "commonjs") {
+  if (pkg.type !== 'module' && pkg.type !== 'commonjs') {
     return [
-      issue("important", "TYPE_INVALID",
+      issue(
+        'important',
+        'TYPE_INVALID',
         `"type" must be "module" or "commonjs", got "${pkg.type}".`,
-        "type",
+        'type'
       ),
     ];
   }
@@ -303,9 +421,11 @@ function checkType(pkg: PackageJson): ValidationIssue[] {
 function checkPrivate(pkg: PackageJson): ValidationIssue[] {
   if (pkg.private === undefined) {
     return [
-      issue("important", "PRIVATE_MISSING",
+      issue(
+        'important',
+        'PRIVATE_MISSING',
         '"private" field is not declared. Set to true for apps/internal tools, false for published packages.',
-        "private",
+        'private'
       ),
     ];
   }
@@ -314,7 +434,9 @@ function checkPrivate(pkg: PackageJson): ValidationIssue[] {
 
 function checkAuthor(pkg: PackageJson): ValidationIssue[] {
   if (!pkg.author) {
-    return [issue("important", "AUTHOR_MISSING", 'Missing "author" field.', "author")];
+    return [
+      issue('important', 'AUTHOR_MISSING', 'Missing "author" field.', 'author'),
+    ];
   }
   return [];
 }
@@ -322,28 +444,51 @@ function checkAuthor(pkg: PackageJson): ValidationIssue[] {
 function checkRepository(pkg: PackageJson): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!pkg.repository) {
-    issues.push(issue("important", "REPOSITORY_MISSING", 'Missing "repository" field.', "repository"));
+    issues.push(
+      issue(
+        'important',
+        'REPOSITORY_MISSING',
+        'Missing "repository" field.',
+        'repository'
+      )
+    );
     return issues;
   }
-  if (typeof pkg.repository === "string") {
+  if (typeof pkg.repository === 'string') {
     // Accept npm shorthand formats (github:user/repo, user/repo) and full URLs
     if (!isValidRepositoryString(pkg.repository)) {
       issues.push(
-        issue("warning", "REPOSITORY_INVALID_STRING",
+        issue(
+          'warning',
+          'REPOSITORY_INVALID_STRING',
           `"repository" string "${pkg.repository}" is not a recognized URL or npm shorthand format.`,
-          "repository",
-        ),
+          'repository'
+        )
       );
     }
     return issues;
   }
-  if (typeof pkg.repository === "object" && pkg.repository !== null) {
+  if (typeof pkg.repository === 'object' && pkg.repository !== null) {
     const repo = pkg.repository as Record<string, unknown>;
     if (!repo.type) {
-      issues.push(issue("warning", "REPOSITORY_NO_TYPE", '"repository.type" is missing (e.g. "git").', "repository.type"));
+      issues.push(
+        issue(
+          'warning',
+          'REPOSITORY_NO_TYPE',
+          '"repository.type" is missing (e.g. "git").',
+          'repository.type'
+        )
+      );
     }
     if (!repo.url) {
-      issues.push(issue("warning", "REPOSITORY_NO_URL", '"repository.url" is missing.', "repository.url"));
+      issues.push(
+        issue(
+          'warning',
+          'REPOSITORY_NO_URL',
+          '"repository.url" is missing.',
+          'repository.url'
+        )
+      );
     }
   }
   return issues;
@@ -352,31 +497,43 @@ function checkRepository(pkg: PackageJson): ValidationIssue[] {
 function checkEngines(pkg: PackageJson): ValidationIssue[] {
   if (!pkg.engines?.node) {
     return [
-      issue("important", "ENGINES_NODE_MISSING",
+      issue(
+        'important',
+        'ENGINES_NODE_MISSING',
         'Missing "engines.node". Declare minimum Node.js version (e.g. ">=20.0.0").',
-        "engines.node",
+        'engines.node'
       ),
     ];
   }
-  if (typeof pkg.engines.node === "string" && !isValidSemverRange(pkg.engines.node)) {
+  if (
+    typeof pkg.engines.node === 'string' &&
+    !isValidSemverRange(pkg.engines.node)
+  ) {
     return [
-      issue("important", "ENGINES_NODE_INVALID",
+      issue(
+        'important',
+        'ENGINES_NODE_INVALID',
         `"engines.node" value "${pkg.engines.node}" is not a valid semver range.`,
-        "engines.node",
+        'engines.node'
       ),
     ];
   }
   return [];
 }
 
-function checkPackageManager(pkg: PackageJson, repoPath: string): ValidationIssue[] {
+function checkPackageManager(
+  pkg: PackageJson,
+  repoPath: string
+): ValidationIssue[] {
   if (pkg.packageManager) return [];
   for (const [lockFile, pm] of Object.entries(LOCK_FILE_TO_PM)) {
     if (fileExists(path.join(repoPath, lockFile))) {
       return [
-        issue("important", "PACKAGE_MANAGER_MISSING",
+        issue(
+          'important',
+          'PACKAGE_MANAGER_MISSING',
           `Lock file "${lockFile}" detected but "packageManager" field is missing. Add e.g. "packageManager": "${pm}@x.x.x".`,
-          "packageManager",
+          'packageManager'
         ),
       ];
     }
@@ -388,10 +545,12 @@ function checkDependencyMisplacement(pkg: PackageJson): ValidationIssue[] {
   return Object.keys(pkg.dependencies ?? {})
     .filter((dep) => KNOWN_DEV_TOOLS.has(dep))
     .map((dep) =>
-      issue("important", "DEV_TOOL_IN_DEPS",
+      issue(
+        'important',
+        'DEV_TOOL_IN_DEPS',
         `"${dep}" is a dev tool but is listed in "dependencies". Move it to "devDependencies".`,
-        `dependencies.${dep}`,
-      ),
+        `dependencies.${dep}`
+      )
     );
 }
 
@@ -409,14 +568,14 @@ function checkPeerDependencies(pkg: PackageJson): ValidationIssue[] {
       const isOptional = peerMeta[dep]?.optional === true;
       issues.push(
         issue(
-          isOptional ? "info" : "important",
-          "PEER_DEP_IN_DEPS",
-          `"${dep}" is declared as a peerDependency but also appears in "dependencies". `
-          + (isOptional
-            ? "Since it is marked optional this may be intentional, but verify it won't cause version conflicts for consumers."
-            : "This forces a specific version on consumers and may cause duplicate installs."),
-          `dependencies.${dep}`,
-        ),
+          isOptional ? 'info' : 'important',
+          'PEER_DEP_IN_DEPS',
+          `"${dep}" is declared as a peerDependency but also appears in "dependencies". ` +
+            (isOptional
+              ? "Since it is marked optional this may be intentional, but verify it won't cause version conflicts for consumers."
+              : 'This forces a specific version on consumers and may cause duplicate installs.'),
+          `dependencies.${dep}`
+        )
       );
     }
   }
@@ -428,10 +587,24 @@ function checkPeerDependencies(pkg: PackageJson): ValidationIssue[] {
 
 function checkKeywords(pkg: PackageJson): ValidationIssue[] {
   if (!pkg.keywords) {
-    return [issue("warning", "KEYWORDS_MISSING", 'Missing "keywords" array.', "keywords")];
+    return [
+      issue(
+        'warning',
+        'KEYWORDS_MISSING',
+        'Missing "keywords" array.',
+        'keywords'
+      ),
+    ];
   }
   if (!Array.isArray(pkg.keywords) || pkg.keywords.length === 0) {
-    return [issue("warning", "KEYWORDS_EMPTY", '"keywords" array is empty.', "keywords")];
+    return [
+      issue(
+        'warning',
+        'KEYWORDS_EMPTY',
+        '"keywords" array is empty.',
+        'keywords'
+      ),
+    ];
   }
   return [];
 }
@@ -440,13 +613,34 @@ function checkScripts(pkg: PackageJson, repoPath: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const scripts = pkg.scripts ?? {};
   if (!scripts.test) {
-    issues.push(issue("warning", "SCRIPT_TEST_MISSING", 'No "scripts.test" defined.', "scripts.test"));
+    issues.push(
+      issue(
+        'warning',
+        'SCRIPT_TEST_MISSING',
+        'No "scripts.test" defined.',
+        'scripts.test'
+      )
+    );
   }
   if (!scripts.lint) {
-    issues.push(issue("warning", "SCRIPT_LINT_MISSING", 'No "scripts.lint" defined.', "scripts.lint"));
+    issues.push(
+      issue(
+        'warning',
+        'SCRIPT_LINT_MISSING',
+        'No "scripts.lint" defined.',
+        'scripts.lint'
+      )
+    );
   }
-  if (fileExists(path.join(repoPath, "tsconfig.json")) && !scripts.build) {
-    issues.push(issue("warning", "SCRIPT_BUILD_MISSING", '"tsconfig.json" found but no "scripts.build" defined.', "scripts.build"));
+  if (fileExists(path.join(repoPath, 'tsconfig.json')) && !scripts.build) {
+    issues.push(
+      issue(
+        'warning',
+        'SCRIPT_BUILD_MISSING',
+        '"tsconfig.json" found but no "scripts.build" defined.',
+        'scripts.build'
+      )
+    );
   }
   return issues;
 }
@@ -455,20 +649,24 @@ function checkFiles(pkg: PackageJson): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (pkg.private === false && !pkg.files) {
     issues.push(
-      issue("warning", "FILES_MISSING",
+      issue(
+        'warning',
+        'FILES_MISSING',
         '"private" is false (publishable package) but "files" field is missing. Define what gets published.',
-        "files",
-      ),
+        'files'
+      )
     );
   }
   if (Array.isArray(pkg.files)) {
     for (const entry of pkg.files) {
-      if (typeof entry === "string" && FILES_BLOCKLIST.has(entry)) {
+      if (typeof entry === 'string' && FILES_BLOCKLIST.has(entry)) {
         issues.push(
-          issue("warning", "FILES_INCLUDES_BLOCKED",
+          issue(
+            'warning',
+            'FILES_INCLUDES_BLOCKED',
             `"files" includes "${entry}" which should not be published.`,
-            "files",
-          ),
+            'files'
+          )
         );
       }
     }
@@ -476,71 +674,95 @@ function checkFiles(pkg: PackageJson): ValidationIssue[] {
   return issues;
 }
 
-function checkExportsAndTypes(pkg: PackageJson, repoPath: string): ValidationIssue[] {
+function checkExportsAndTypes(
+  pkg: PackageJson,
+  repoPath: string
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const isPublic = pkg.private === false;
   const hasBuildScript = !!pkg.scripts?.build;
-  const isTypeScript = fileExists(path.join(repoPath, "tsconfig.json"));
+  const isTypeScript = fileExists(path.join(repoPath, 'tsconfig.json'));
 
-  if (pkg.type === "module" && isPublic && !pkg.exports) {
+  if (pkg.type === 'module' && isPublic && !pkg.exports) {
     issues.push(
-      issue("warning", "EXPORTS_MISSING",
+      issue(
+        'warning',
+        'EXPORTS_MISSING',
         'ESM package ("type": "module") that is public should define an "exports" field instead of relying on "main" alone.',
-        "exports",
-      ),
+        'exports'
+      )
     );
   }
 
   // If exports is defined, validate its structure
-  if (pkg.exports !== undefined && pkg.exports !== null && typeof pkg.exports === "object") {
+  if (
+    pkg.exports !== undefined &&
+    pkg.exports !== null &&
+    typeof pkg.exports === 'object'
+  ) {
     const exp = pkg.exports as Record<string, unknown>;
     const keys = Object.keys(exp);
 
     // An exports map with named sub-paths but no root "." entry means
     // direct package imports (`import "pkg"`) will fail for consumers.
-    const hasSubPaths = keys.some((k) => k.startsWith(".") && k !== ".");
-    const hasConditionsOnly = keys.some((k) => !k.startsWith("."));
-    const hasRootEntry = "." in exp || hasConditionsOnly; // bare conditions = root shorthand
+    const hasSubPaths = keys.some((k) => k.startsWith('.') && k !== '.');
+    const hasConditionsOnly = keys.some((k) => !k.startsWith('.'));
+    const hasRootEntry = '.' in exp || hasConditionsOnly; // bare conditions = root shorthand
 
     if (hasSubPaths && !hasRootEntry) {
       issues.push(
-        issue("important", "EXPORTS_ROOT_MISSING",
+        issue(
+          'important',
+          'EXPORTS_ROOT_MISSING',
           '"exports" defines sub-path entries but is missing a root (".") entry. Direct package imports will fail for consumers.',
-          "exports",
-        ),
+          'exports'
+        )
       );
     }
 
     // "types" condition should come before "import"/"require" so TypeScript
     // finds it first under moduleResolution: bundler / nodenext.
-    const rootExport = (exp["."] ?? pkg.exports) as Record<string, unknown> | null;
-    if (rootExport && typeof rootExport === "object") {
+    const rootExport = (exp['.'] ?? pkg.exports) as Record<
+      string,
+      unknown
+    > | null;
+    if (rootExport && typeof rootExport === 'object') {
       const conditionKeys = Object.keys(rootExport);
-      const typesIdx   = conditionKeys.indexOf("types");
-      const importIdx  = conditionKeys.indexOf("import");
-      const requireIdx = conditionKeys.indexOf("require");
+      const typesIdx = conditionKeys.indexOf('types');
+      const importIdx = conditionKeys.indexOf('import');
+      const requireIdx = conditionKeys.indexOf('require');
       const hasTypesAfterRuntime =
         typesIdx !== -1 &&
         ((importIdx !== -1 && typesIdx > importIdx) ||
-         (requireIdx !== -1 && typesIdx > requireIdx));
+          (requireIdx !== -1 && typesIdx > requireIdx));
 
       if (hasTypesAfterRuntime) {
         issues.push(
-          issue("warning", "EXPORTS_TYPES_ORDER",
+          issue(
+            'warning',
+            'EXPORTS_TYPES_ORDER',
             '"types" condition in "exports" should be listed before "import"/"require" so TypeScript resolves it correctly under moduleResolution: bundler/nodenext.',
-            "exports.types",
-          ),
+            'exports.types'
+          )
         );
       }
     }
   }
 
-  if (isPublic && isTypeScript && hasBuildScript && !pkg.types && !pkg.typings) {
+  if (
+    isPublic &&
+    isTypeScript &&
+    hasBuildScript &&
+    !pkg.types &&
+    !pkg.typings
+  ) {
     issues.push(
-      issue("warning", "TYPES_MISSING",
+      issue(
+        'warning',
+        'TYPES_MISSING',
         'Public TypeScript package with a build script is missing a "types" or "typings" field pointing to compiled declarations.',
-        "types",
-      ),
+        'types'
+      )
     );
   }
   return issues;
@@ -551,10 +773,12 @@ function checkDuplicateDependencies(pkg: PackageJson): ValidationIssue[] {
   return Object.keys(pkg.devDependencies ?? {})
     .filter((dep) => deps.has(dep))
     .map((dep) =>
-      issue("warning", "DUPLICATE_DEPENDENCY",
+      issue(
+        'warning',
+        'DUPLICATE_DEPENDENCY',
         `"${dep}" appears in both "dependencies" and "devDependencies".`,
-        `devDependencies.${dep}`,
-      ),
+        `devDependencies.${dep}`
+      )
     );
 }
 
@@ -563,8 +787,8 @@ function checkDuplicateDependencies(pkg: PackageJson): ValidationIssue[] {
 function checkVersionPinningConsistency(pkg: PackageJson): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const [section, deps] of [
-    ["dependencies", pkg.dependencies ?? {}],
-    ["devDependencies", pkg.devDependencies ?? {}],
+    ['dependencies', pkg.dependencies ?? {}],
+    ['devDependencies', pkg.devDependencies ?? {}],
   ] as [string, Record<string, string>][]) {
     const entries = Object.entries(deps);
     if (entries.length < 2) continue;
@@ -572,10 +796,12 @@ function checkVersionPinningConsistency(pkg: PackageJson): ValidationIssue[] {
     const hasRanged = entries.some(([, v]) => /^[^0-9]/.test(v));
     if (pinned.length > 0 && hasRanged) {
       issues.push(
-        issue("info", "PINNING_INCONSISTENCY",
-          `"${section}" mixes hard-pinned and range versions. Pinned: ${pinned.join(", ")}.`,
-          section,
-        ),
+        issue(
+          'info',
+          'PINNING_INCONSISTENCY',
+          `"${section}" mixes hard-pinned and range versions. Pinned: ${pinned.join(', ')}.`,
+          section
+        )
       );
     }
   }
@@ -587,14 +813,31 @@ function checkVersionPinningConsistency(pkg: PackageJson): ValidationIssue[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function calculateScore(issues: ValidationIssue[]): number {
-  const PENALTY: Record<Severity, number> = { critical: 25, important: 10, warning: 5, info: 1 };
-  const CAPS: Record<Severity, number>    = { critical: 50, important: 30, warning: 15, info: 5 };
+  const PENALTY: Record<Severity, number> = {
+    critical: 25,
+    important: 10,
+    warning: 5,
+    info: 1,
+  };
+  const CAPS: Record<Severity, number> = {
+    critical: 50,
+    important: 30,
+    warning: 15,
+    info: 5,
+  };
 
-  const totals: Record<Severity, number> = { critical: 0, important: 0, warning: 0, info: 0 };
+  const totals: Record<Severity, number> = {
+    critical: 0,
+    important: 0,
+    warning: 0,
+    info: 0,
+  };
   for (const i of issues) totals[i.severity] += PENALTY[i.severity];
 
-  const penalty = (Object.keys(totals) as Severity[])
-    .reduce((sum, s) => sum + Math.min(totals[s], CAPS[s]), 0);
+  const penalty = (Object.keys(totals) as Severity[]).reduce(
+    (sum, s) => sum + Math.min(totals[s], CAPS[s]),
+    0
+  );
 
   return Math.max(0, 100 - penalty);
 }
@@ -603,28 +846,44 @@ function calculateScore(issues: ValidationIssue[]): number {
 // Main validator — async throughout, per-repo config support
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function validatePackageJson(repoPath: string): Promise<ValidationResult> {
-  const pkgPath = path.join(repoPath, "package.json");
+export async function validatePackageJson(
+  repoPath: string
+): Promise<ValidationResult> {
+  const pkgPath = path.join(repoPath, 'package.json');
 
   try {
     await fs.promises.access(pkgPath);
   } catch {
     return {
-      repoPath, packageName: null,
-      issues: [issue("critical", "FILE_NOT_FOUND", `No package.json found at: ${pkgPath}`)],
-      score: 0, hasCritical: true, hasImportant: false,
+      repoPath,
+      packageName: null,
+      issues: [
+        issue(
+          'critical',
+          'FILE_NOT_FOUND',
+          `No package.json found at: ${pkgPath}`
+        ),
+      ],
+      score: 0,
+      hasCritical: true,
+      hasImportant: false,
     };
   }
 
   let pkg: PackageJson;
   try {
-    const content = await fs.promises.readFile(pkgPath, "utf-8");
+    const content = await fs.promises.readFile(pkgPath, 'utf-8');
     pkg = JSON.parse(content) as PackageJson;
   } catch {
     return {
-      repoPath, packageName: null,
-      issues: [issue("critical", "PARSE_ERROR", "package.json contains invalid JSON.")],
-      score: 0, hasCritical: true, hasImportant: false,
+      repoPath,
+      packageName: null,
+      issues: [
+        issue('critical', 'PARSE_ERROR', 'package.json contains invalid JSON.'),
+      ],
+      score: 0,
+      hasCritical: true,
+      hasImportant: false,
     };
   }
 
@@ -660,11 +919,11 @@ export async function validatePackageJson(repoPath: string): Promise<ValidationR
 
   return {
     repoPath,
-    packageName: typeof pkg.name === "string" ? pkg.name : null,
+    packageName: typeof pkg.name === 'string' ? pkg.name : null,
     issues: allIssues,
     score,
-    hasCritical: allIssues.some((i) => i.severity === "critical"),
-    hasImportant: allIssues.some((i) => i.severity === "important"),
+    hasCritical: allIssues.some((i) => i.severity === 'critical'),
+    hasImportant: allIssues.some((i) => i.severity === 'important'),
   };
 }
 
@@ -679,7 +938,7 @@ async function findPackageJsonDirs(dir: string): Promise<string[]> {
   // Handles both the single-repo case (pointing directly at a repo root)
   // and monorepo roots (root package.json + workspace packages/).
   try {
-    await fs.promises.access(path.join(dir, "package.json"));
+    await fs.promises.access(path.join(dir, 'package.json'));
     results.push(dir);
   } catch {
     // No package.json at this level — keep going
@@ -718,23 +977,24 @@ export async function scanRepos(rootDir: string): Promise<ValidationResult[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SEVERITY_ICON: Record<Severity, string> = {
-  critical:  "🔴",
-  important: "🟠",
-  warning:   "🟡",
-  info:      "🔵",
+  critical: '🔴',
+  important: '🟠',
+  warning: '🟡',
+  info: '🔵',
 };
 
 export function printReport(results: ValidationResult[]): void {
-  const total      = results.length;
+  const total = results.length;
   const withIssues = results.filter((r) => r.issues.length > 0).length;
-  const clean      = total - withIssues;
-  const avgScore   = total > 0
-    ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / total)
-    : 0;
+  const clean = total - withIssues;
+  const avgScore =
+    total > 0
+      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / total)
+      : 0;
 
-  console.log("\n══════════════════════════════════════════════════════");
-  console.log("  📦  repos-maintainer — package.json Audit Report   ");
-  console.log("══════════════════════════════════════════════════════\n");
+  console.log('\n══════════════════════════════════════════════════════');
+  console.log('  📦  repos-maintainer — package.json Audit Report   ');
+  console.log('══════════════════════════════════════════════════════\n');
   console.log(`  Repos scanned  : ${total}`);
   console.log(`  ✅ Clean        : ${clean}`);
   console.log(`  ⚠️  With issues  : ${withIssues}`);
@@ -748,30 +1008,33 @@ export function printReport(results: ValidationResult[]): void {
   });
 
   for (const result of sorted) {
-    const label      = result.packageName ?? path.basename(result.repoPath);
-    const statusIcon = result.hasCritical   ? "🔴"
-                     : result.hasImportant  ? "🟠"
-                     : result.issues.length ? "🟡"
-                     : "✅";
+    const label = result.packageName ?? path.basename(result.repoPath);
+    const statusIcon = result.hasCritical
+      ? '🔴'
+      : result.hasImportant
+        ? '🟠'
+        : result.issues.length
+          ? '🟡'
+          : '✅';
 
-    console.log("──────────────────────────────────────────────────────");
+    console.log('──────────────────────────────────────────────────────');
     console.log(`  ${statusIcon}  ${label}  (score: ${result.score}/100)`);
     console.log(`       ${result.repoPath}`);
 
     if (result.issues.length === 0) {
-      console.log("       No issues found.\n");
+      console.log('       No issues found.\n');
       continue;
     }
 
     for (const i of result.issues) {
-      const field = i.field ? ` [${i.field}]` : "";
+      const field = i.field ? ` [${i.field}]` : '';
       console.log(`\n       ${SEVERITY_ICON[i.severity]} ${i.code}${field}`);
       console.log(`          ${i.message}`);
     }
     console.log();
   }
 
-  console.log("══════════════════════════════════════════════════════\n");
+  console.log('══════════════════════════════════════════════════════\n');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -796,11 +1059,13 @@ if (isMain) {
   // us a single .catch() for any unhandled fatal error.
   (async () => {
     const args = process.argv.slice(2);
-    const jsonMode = args.includes("--json");
-    const dir = args.find((a) => !a.startsWith("--"));
+    const jsonMode = args.includes('--json');
+    const dir = args.find((a) => !a.startsWith('--'));
 
     if (!dir) {
-      console.error("Usage: tsx packageJsonValidator.ts <path/to/repos> [--json]");
+      console.error(
+        'Usage: tsx packageJsonValidator.ts <path/to/repos> [--json]'
+      );
       process.exit(3);
     }
 
@@ -818,14 +1083,14 @@ if (isMain) {
       printReport(results);
     }
 
-    const hasCritical  = results.some((r) => r.hasCritical);
+    const hasCritical = results.some((r) => r.hasCritical);
     const hasImportant = results.some((r) => r.hasImportant);
 
-    if (hasCritical)       process.exit(1);
+    if (hasCritical) process.exit(1);
     else if (hasImportant) process.exit(2);
-    else                   process.exit(0);
+    else process.exit(0);
   })().catch((err: unknown) => {
-    console.error("❌ Fatal error:", err);
+    console.error('❌ Fatal error:', err);
     process.exit(3);
   });
 }

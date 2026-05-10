@@ -85,6 +85,7 @@ The tool uses several important paths that can be configured in `src/settings.ts
 You can exclude specific projects, paths, or issues from being reported by creating an `excludes/exclude.json` file. This file is ignored by git.
 
 Structure of `exclude.json`:
+
 ```json
 {
   "EXCLUDED_PROJECTS": ["repo-name-to-ignore"],
@@ -101,6 +102,7 @@ Structure of `exclude.json`:
   "EXCLUDED_OUTDATED_SCAN": ["repo-name-to-skip-outdated-check"]
 }
 ```
+
 - `EXCLUDED_PROJECTS`: List of repository names to skip entirely during bulk scans.
 - `EXCLUDED_PATHS`: Mapping of repository names to specific file paths that should not be reported as "local changes".
 - `EXCLUDED_ISSUES`: Mapping of repository names to specific issue keys (from `src/utils/issues.ts`) to ignore. Use `"*"` to ignore all issues for a repository.
@@ -153,6 +155,38 @@ Interactive wizard to onboard a new repository. You provide a GitHub URL, and th
 ### Repos Sync
 
 The "crawler" mode that ensures your entire portfolio is up to date:
+
+- Reads your repository list file.
+- Iterates through each repository.
+- Performs a `git pull` or `git clone`.
+- Applies all standardization fixers.
+- Synchronizes GitHub metadata (description, topics).
+- Reports a summary of changes and issues encountered.
+
+## Available Scripts
+
+### Add Repo
+
+Interactive wizard to onboard a new repository. You provide a GitHub URL, and the tool performs the following:
+
+- Validates the URL format (HTTPS or SSH).
+- Verifies the repository exists on GitHub.
+- Clones the repository if it's missing locally.
+- Runs full standardization across all fixers.
+- Commits and pushes changes if updates were made.
+
+### Scan Repo
+
+Scan a specific repository and generate a report of issues and required fixes without applying changes.
+
+- Checks documentation consistency.
+- Validates package.json fields.
+- Checks GitHub metadata.
+- Reports missing files or configuration errors.
+
+### Scan Repos (Crawler)
+
+The bulk "crawler" mode that ensures your entire portfolio is up to date:
 
 - Reads your repository list file.
 - Iterates through each repository.
@@ -272,6 +306,13 @@ src/
 - **Facade Pattern**: `Standardizer` provides a simple interface to complex fixer logic.
 - **Wrapper Pattern**: `Git` and `GitHub` classes wrap external libraries with domain-specific logic.
 
+## Best Practices
+
+1. **Test Before Bulk Sync**: Always run **Add Repo** on a single project first to verify your changes before running a full **Scan Repos**.
+2. **Review Changes**: Use `git diff` in your project folders to review what the tool changed before pushing if you are running in a manual mode.
+3. **Keep Token Secure**: Never commit your `env` file. It is already added to `.gitignore`, but stay vigilant.
+4. **Regular Backups**: Since the tool modifies files, ensure your repositories have their work committed before running the maintainer.
+
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](src/templates/CONTRIBUTING.md) for guidelines.
@@ -279,6 +320,13 @@ We welcome contributions! Please see [CONTRIBUTING.md](src/templates/CONTRIBUTIN
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](src/templates/LICENSE) file for details.
+
+## Support
+
+For questions, issues, or contributions:
+
+- **GitHub Issues**: [https://github.com/orassayag/repos-maintainer/issues](https://github.com/orassayag/repos-maintainer/issues)
+- **Email**: orassayag@gmail.com
 
 ## Author
 

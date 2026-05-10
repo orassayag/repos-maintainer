@@ -38,7 +38,7 @@ export interface CheckContext {
   lines: string[];
   repoDir: string;
   readmePath: string; // absolute path to the README file itself
-  readmeDir: string;  // directory containing the README; use this to resolve relative links
+  readmeDir: string; // directory containing the README; use this to resolve relative links
 }
 
 /**
@@ -89,7 +89,13 @@ const PLACEHOLDER_PATTERNS: RegExp[] = [
  * Uses `isFile()` to guard against directories named "README.md".
  */
 async function findReadme(repoDir: string): Promise<string | null> {
-  const candidates = ['README.md', 'readme.md', 'Readme.md', 'README', 'README.txt'];
+  const candidates = [
+    'README.md',
+    'readme.md',
+    'Readme.md',
+    'README',
+    'README.txt',
+  ];
   for (const name of candidates) {
     const full = path.join(repoDir, name);
     try {
@@ -135,7 +141,7 @@ function buildCodeBlockLineSet(fenceLineNumbers: number[]): Set<number> {
  * GitHub's algorithm:
  *   1. Lowercase everything
  *   2. Strip all characters that are not letters, digits, spaces, or hyphens
- *      (this also removes underscores, matching GitHub's behaviour)
+ *      (this also removes underscores, matching GitHub's behavior)
  *   3. Replace spaces with hyphens
  *
  * Example: "What's New?" → "whats-new"
@@ -144,7 +150,7 @@ function headingToSlug(heading: string): string {
   return heading
     .toLowerCase()
     .replace(/[^\w\s-]/g, '') // strip punctuation; keeps letters, digits, _, spaces, hyphens
-    .replace(/_/g, '')        // GitHub strips underscores too
+    .replace(/_/g, '') // GitHub strips underscores too
     .trim()
     .replace(/\s+/g, '-');
 }
@@ -153,11 +159,17 @@ function headingToSlug(heading: string): string {
  * Builds the set of all valid anchor slugs present in the document.
  * Headings inside code blocks are excluded.
  */
-function buildHeadingSlugSet(lines: string[], insideCodeBlock: Set<number>): Set<string> {
+function buildHeadingSlugSet(
+  lines: string[],
+  insideCodeBlock: Set<number>
+): Set<string> {
   return new Set(
     lines
       .map((l, i) => ({ text: l, lineNo: i + 1 }))
-      .filter(({ lineNo, text }) => !insideCodeBlock.has(lineNo) && /^#{1,6}\s/.test(text))
+      .filter(
+        ({ lineNo, text }) =>
+          !insideCodeBlock.has(lineNo) && /^#{1,6}\s/.test(text)
+      )
       .map(({ text }) => headingToSlug(text.replace(/^#{1,6}\s+/, '')))
   );
 }
@@ -185,7 +197,10 @@ function checkRequiredSections({ lines }: CheckContext): ValidationIssue[] {
   // Only consider lines that are actual markdown headings outside code blocks
   const headingLines = lines
     .map((l, i) => ({ text: l, lineNo: i + 1 }))
-    .filter(({ lineNo, text }) => !insideCodeBlock.has(lineNo) && /^#{1,6}\s/.test(text))
+    .filter(
+      ({ lineNo, text }) =>
+        !insideCodeBlock.has(lineNo) && /^#{1,6}\s/.test(text)
+    )
     .map(({ text }) => text.toLowerCase());
 
   for (const { label, patterns } of REQUIRED_SECTIONS) {
@@ -208,7 +223,9 @@ function checkRequiredSections({ lines }: CheckContext): ValidationIssue[] {
   return issues;
 }
 
-function checkUnclosedCodeBlocks({ lines }: CheckContext): ValidationIssue | null {
+function checkUnclosedCodeBlocks({
+  lines,
+}: CheckContext): ValidationIssue | null {
   const fenceLineNumbers = getFenceLines(lines);
 
   if (fenceLineNumbers.length % 2 !== 0) {
@@ -233,7 +250,11 @@ function checkUnclosedCodeBlocks({ lines }: CheckContext): ValidationIssue | nul
  * Severity stays 'warning' throughout — a broken link doesn't make the README's
  * core content invalid the way a missing License section does.
  */
-function checkLinksAndAnchors({ content, lines, readmeDir }: CheckContext): ValidationIssue[] {
+function checkLinksAndAnchors({
+  content,
+  lines,
+  readmeDir,
+}: CheckContext): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   const fenceLines = getFenceLines(lines);
@@ -253,8 +274,8 @@ function checkLinksAndAnchors({ content, lines, readmeDir }: CheckContext): Vali
 
     const hashIdx = rawTarget.indexOf('#');
 
-    const filePart   = hashIdx === -1 ? rawTarget : rawTarget.slice(0, hashIdx);
-    const anchorPart = hashIdx === -1 ? null       : rawTarget.slice(hashIdx + 1);
+    const filePart = hashIdx === -1 ? rawTarget : rawTarget.slice(0, hashIdx);
+    const anchorPart = hashIdx === -1 ? null : rawTarget.slice(hashIdx + 1);
 
     if (!filePart && anchorPart !== null) {
       // Case 1: pure anchor link — e.g. [see setup](#setup)
@@ -292,8 +313,13 @@ function checkEmptySections({ lines }: CheckContext): ValidationIssue[] {
     if (!line.startsWith('##')) continue;
 
     const sectionLines = lines.slice(i + 1);
-    const nextHeadingIdx = sectionLines.findIndex((l) => /^#{1,6}\s/.test(l.trim()));
-    const body = nextHeadingIdx === -1 ? sectionLines : sectionLines.slice(0, nextHeadingIdx);
+    const nextHeadingIdx = sectionLines.findIndex((l) =>
+      /^#{1,6}\s/.test(l.trim())
+    );
+    const body =
+      nextHeadingIdx === -1
+        ? sectionLines
+        : sectionLines.slice(0, nextHeadingIdx);
 
     const hasContent = body.some((l) => {
       const t = l.trim();
@@ -313,7 +339,10 @@ function checkEmptySections({ lines }: CheckContext): ValidationIssue[] {
   return issues;
 }
 
-function checkPlaceholders({ content, lines }: CheckContext): ValidationIssue[] {
+function checkPlaceholders({
+  content,
+  lines,
+}: CheckContext): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const seen = new Set<string>();
 
@@ -349,11 +378,16 @@ function checkPlaceholders({ content, lines }: CheckContext): ValidationIssue[] 
   return issues;
 }
 
-function checkMissingDescription({ lines }: CheckContext): ValidationIssue | null {
+function checkMissingDescription({
+  lines,
+}: CheckContext): ValidationIssue | null {
   const firstH1 = lines.findIndex((l) => /^# /.test(l));
   if (firstH1 === -1) return null;
 
-  const linesAfterH1 = lines.slice(firstH1 + 1).map((l) => l.trim()).filter(Boolean);
+  const linesAfterH1 = lines
+    .slice(firstH1 + 1)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const firstContent = linesAfterH1[0] ?? '';
 
   if (firstContent.startsWith('#')) {
@@ -366,7 +400,9 @@ function checkMissingDescription({ lines }: CheckContext): ValidationIssue | nul
   return null;
 }
 
-function checkAuthorOrContact({ content }: CheckContext): ValidationIssue | null {
+function checkAuthorOrContact({
+  content,
+}: CheckContext): ValidationIssue | null {
   const lower = content.toLowerCase();
   const hasContact =
     lower.includes('## author') ||
@@ -396,7 +432,7 @@ const CHECKS: Check[] = [
   checkMinimumLength,
   checkRequiredSections,
   checkUnclosedCodeBlocks,
-  checkLinksAndAnchors,   // unified: covers both broken relative links and dead anchors
+  checkLinksAndAnchors, // unified: covers both broken relative links and dead anchors
   checkEmptySections,
   checkPlaceholders,
   checkMissingDescription,
@@ -419,7 +455,9 @@ function runChecks(ctx: CheckContext): ValidationIssue[] {
 // ─── Stats collector ──────────────────────────────────────────────────────────
 
 function collectStats(content: string, lines: string[]): ReadmeStats {
-  const sections = lines.filter((l) => /^#{1,6}\s/.test(l.trim())).map((l) => l.trim());
+  const sections = lines
+    .filter((l) => /^#{1,6}\s/.test(l.trim()))
+    .map((l) => l.trim());
   const fenceCount = lines.filter((l) => /^```/.test(l.trim())).length;
   const linkCount = (content.match(/\[.*?\]\(.*?\)/g) ?? []).length;
 
@@ -480,7 +518,9 @@ export async function findAllGitRepos(rootDir: string): Promise<string[]> {
 /**
  * Validates the README of a single repository directory.
  */
-export async function validateReadme(repoDir: string): Promise<ValidationResult> {
+export async function validateReadme(
+  repoDir: string
+): Promise<ValidationResult> {
   const readmePath = await findReadme(repoDir);
 
   if (!readmePath) {
@@ -495,7 +535,13 @@ export async function validateReadme(repoDir: string): Promise<ValidationResult>
           message: 'No README file found in the repository root.',
         },
       ],
-      stats: { totalLines: 0, nonEmptyLines: 0, sections: [], codeBlockCount: 0, linkCount: 0 },
+      stats: {
+        totalLines: 0,
+        nonEmptyLines: 0,
+        sections: [],
+        codeBlockCount: 0,
+        linkCount: 0,
+      },
     };
   }
 
@@ -507,12 +553,20 @@ export async function validateReadme(repoDir: string): Promise<ValidationResult>
       repoPath: repoDir,
       readmePath,
       isValid: false,
-      issues: [{
-        id: 'readme_read_error',
-        severity: 'error',
-        message: `Cannot read README: ${(err as Error).message}`,
-      }],
-      stats: { totalLines: 0, nonEmptyLines: 0, sections: [], codeBlockCount: 0, linkCount: 0 },
+      issues: [
+        {
+          id: 'readme_read_error',
+          severity: 'error',
+          message: `Cannot read README: ${(err as Error).message}`,
+        },
+      ],
+      stats: {
+        totalLines: 0,
+        nonEmptyLines: 0,
+        sections: [],
+        codeBlockCount: 0,
+        linkCount: 0,
+      },
     };
   }
   const lines = content.split('\n');
@@ -560,11 +614,15 @@ export async function validateAllReadmes(repoDirs: string[]): Promise<void> {
       continue;
     }
 
-    const errors   = result.issues.filter((i) => i.severity === 'error');
+    const errors = result.issues.filter((i) => i.severity === 'error');
     const warnings = result.issues.filter((i) => i.severity === 'warning');
-    const infos    = result.issues.filter((i) => i.severity === 'info');
+    const infos = result.issues.filter((i) => i.severity === 'info');
 
-    const printGroup = (label: string, icon: string, items: ValidationIssue[]) => {
+    const printGroup = (
+      label: string,
+      icon: string,
+      items: ValidationIssue[]
+    ) => {
       if (items.length === 0) return;
       console.log(`\n   ${icon}  ${label} (${items.length})`);
       for (const issue of items) {
@@ -573,15 +631,15 @@ export async function validateAllReadmes(repoDirs: string[]): Promise<void> {
       }
     };
 
-    printGroup('Errors',   '🔴', errors);
+    printGroup('Errors', '🔴', errors);
     printGroup('Warnings', '🟡', warnings);
-    printGroup('Info',     '🔵', infos);
+    printGroup('Info', '🔵', infos);
 
     console.log(
       `\n   📊 Stats: ${result.stats.nonEmptyLines} lines · ` +
-      `${result.stats.sections.length} sections · ` +
-      `${result.stats.codeBlockCount} code blocks · ` +
-      `${result.stats.linkCount} links`
+        `${result.stats.sections.length} sections · ` +
+        `${result.stats.codeBlockCount} code blocks · ` +
+        `${result.stats.linkCount} links`
     );
     console.log();
   }

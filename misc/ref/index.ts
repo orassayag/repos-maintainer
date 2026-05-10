@@ -15,7 +15,9 @@ async function preFlightValidation(): Promise<boolean> {
       throw new Error('Projects directory is empty');
     }
   } catch (err) {
-    console.error(`❌ Projects root not found or empty: ${settings.PROJECTS_ROOT}`);
+    console.error(
+      `❌ Projects root not found or empty: ${settings.PROJECTS_ROOT}`
+    );
     console.error('   Make sure the directory exists and contains your repos.');
     return false;
   }

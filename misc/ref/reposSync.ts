@@ -41,16 +41,17 @@ export async function reposSyncCommand(): Promise<void> {
   for (const result of results) {
     const status = result.success ? '✅' : '⚠️';
     console.log(`\n${status}  ${result.repoName}`);
-    
+
     if (result.changes.length > 0) {
       console.log('   Changes:');
-      result.changes.slice(0, 5).forEach(c => console.log(`     • ${c}`)); // limit output
-      if (result.changes.length > 5) console.log(`     ... and ${result.changes.length - 5} more`);
+      result.changes.slice(0, 5).forEach((c) => console.log(`     • ${c}`)); // limit output
+      if (result.changes.length > 5)
+        console.log(`     ... and ${result.changes.length - 5} more`);
     }
 
     if (result.errors.length > 0) {
       console.log('   Issues:');
-      result.errors.forEach(e => console.log(`     • ${e}`));
+      result.errors.forEach((e) => console.log(`     • ${e}`));
     }
   }
 

@@ -128,133 +128,127 @@ export async function addRepoCommand(): Promise<void> {
   const repoName = parsed.repo;
   const repoPath = getLocalRepoPath(repoName);
 
-  // 1. Clone/Pull Repo
-  const cloned = await ensureRepoCloned(repoUrl, repoName);
-  if (!cloned) {
-    Logger.error(`Failed to clone/pull repository: ${repoName}`);
-    return;
-  }
-
-  // 2. Update Repo List
-  await addOrUpdateRepoInList(repoName, repoUrl);
-
-  // 3. Template Injection
-  Logger.log('📄 Injecting standard templates...');
-  const templates = [
-    'LICENSE',
-    'SECURITY.md',
-    'CODE_OF_CONDUCT.md',
-    'CONTRIBUTING.md',
-    'CHANGELOG.md',
-    '.gitignore',
-    'README.md',
-    'INSTRUCTIONS.md',
-    '.prettierrc',
-    'eslint.config.mjs',
-    'tsconfig.json',
-    'tsconfig.node.json',
-    'vitest.config.ts',
-    '.github/rulesets/main-protection.json',
-    '.vscode/settings.json',
-  ];
-
-  for (const template of templates) {
-    await ensureTemplateFile(repoPath, template, true);
-  }
-
-  // Create empty misc and src folders
   try {
-    await fs.mkdir(path.join(repoPath, 'misc'), { recursive: true });
-    await fs.mkdir(path.join(repoPath, 'src'), { recursive: true });
-    // Create empty index.ts in src
-    const indexPath = path.join(repoPath, 'src', 'index.ts');
-    try {
-      await fs.access(indexPath);
-    } catch {
-      await fs.writeFile(indexPath, '', 'utf-8');
+    // 1. Clone/Pull Repo
+    const cloned = await ensureRepoCloned(repoUrl, repoName);
+    if (!cloned) {
+      Logger.error(`Failed to clone/pull repository: ${repoName}`);
+      return;
     }
-  } catch (err) {
-    Logger.warn(
-      `Failed to create misc/src folders or index.ts: ${(err as Error).message}`
-    );
-  }
 
-  Logger.success('Created all the template files and folders');
+    // 2. Update Repo List
+    await addOrUpdateRepoInList(repoName, repoUrl);
 
-  // 4. package.json Injection
-  const pkgInjected = await injectPackageJson(
-    repoPath,
-    repoName,
-    packageDesc,
-    keywords
-  );
-  if (!pkgInjected) {
-    Logger.error('Failed to inject package.json');
-    return;
-  }
+    // 3. Template Injection
+    Logger.log('📄 Injecting standard templates...');
+    const templates = [
+      'LICENSE',
+      'SECURITY.md',
+      'CODE_OF_CONDUCT.md',
+      'CONTRIBUTING.md',
+      'CHANGELOG.md',
+      '.gitignore',
+      'README.md',
+      'INSTRUCTIONS.md',
+      '.prettierrc',
+      'eslint.config.mjs',
+      'tsconfig.json',
+      'tsconfig.node.json',
+      'vitest.config.ts',
+      '.github/rulesets/main-protection.json',
+      '.vscode/settings.json',
+    ];
 
-  // 5. pnpm install
-  const pnpmSuccess = await runPnpmInstall(repoPath);
-  if (!pnpmSuccess) {
-    Logger.error('pnpm install failed');
-    return;
-  }
+    for (const template of templates) {
+      await ensureTemplateFile(repoPath, template, true);
+    }
 
-  // 6. Fix README.md (Author/License section)
-  await fixReadme(repoPath);
-
-  // 7. GitHub Metadata Updates
-  Logger.log('🌐 Updating GitHub repository metadata...');
-  if (!settings.DRY_RUN) {
+    // Create empty misc and src folders
     try {
-      await updateRepoMetadata(parsed.owner, parsed.repo, {
-        description: githubDesc,
-        homepage: settings.DEFAULT_HOMEPAGE,
-      });
-      await replaceTopics(parsed.owner, parsed.repo, keywords);
-      Logger.success('GitHub metadata updated');
+      await fs.mkdir(path.join(repoPath, 'misc'), { recursive: true });
+      await fs.mkdir(path.join(repoPath, 'src'), { recursive: true });
+      // Create empty index.ts in src
+      const indexPath = path.join(repoPath, 'src', 'index.ts');
+      try {
+        await fs.access(indexPath);
+      } catch {
+        await fs.writeFile(indexPath, '', 'utf-8');
+      }
     } catch (err) {
-      Logger.error(
-        `Failed to update GitHub metadata: ${(err as Error).message}`
+      Logger.warn(
+        `Failed to create misc/src folders or index.ts: ${(err as Error).message}`
       );
     }
-  }
 
-  // 8. Fix Rulesets
-  await fixRulesets(parsed.owner, parsed.repo);
+    Logger.success('Created all the template files and folders');
 
-  // 9. Star & Watch
-  if (!settings.DRY_RUN) {
+    // 4. package.json Injection
+    const pkgInjected = await injectPackageJson(
+      repoPath,
+      repoName,
+      packageDesc,
+      keywords
+    );
+    if (!pkgInjected) {
+      Logger.error('Failed to inject package.json');
+      return;
+    }
+
+    // 5. pnpm install
+    const pnpmSuccess = await runPnpmInstall(repoPath);
+    if (!pnpmSuccess) {
+      Logger.error('pnpm install failed');
+      return;
+    }
+
+    // 6. fix README
+    await fixReadme(repoPath);
+
+    // 7. Update GitHub Metadata
+    Logger.log('🌐 Updating GitHub repository metadata...');
+    await updateRepoMetadata(parsed.owner, parsed.repo, {
+      description: githubDesc,
+      homepage: settings.DEFAULT_HOMEPAGE,
+    });
+    await replaceTopics(parsed.owner, parsed.repo, keywords);
+
+    // 8. fix Rulesets
+    await fixRulesets(parsed.owner, parsed.repo);
+
+    // 9. Star & Watch
     try {
       await starRepo(parsed.owner, parsed.repo);
       await watchRepo(parsed.owner, parsed.repo);
-      Logger.log('⭐ Starred and watched repository');
-    } catch {
-      // Ignore failures for star/watch
+    } catch (err) {
+      Logger.warn(`Failed to star/watch repo: ${(err as Error).message}`);
     }
-  }
 
-  // 10. Git Clean
-  if (settings.GIT_CLEAN_ENABLED) {
-    await runGitClean(repoPath);
-  }
+    // 10. Final Commit & Push
+    const commitMsg = (await getChangelogCommitMessage(repoPath)) ?? undefined;
+    const pushed = await commitAndPush(repoPath, commitMsg);
 
-  // 11. Git Commit & Push
-  Logger.log('📤 Committing and pushing changes...');
+    // 11. Git clean (if enabled)
+    if (settings.GIT_CLEAN_ENABLED) {
+      try {
+        await runGitClean(repoPath);
+      } catch (err) {
+        Logger.warn(`Git clean failed: ${(err as Error).message}`);
+      }
+    }
 
-  const commitMessage =
-    (await getChangelogCommitMessage(repoPath)) ||
-    'chore(maintainer): standardize repository structure';
-
-  const pushed = await commitAndPush(repoPath, commitMessage);
-  if (pushed) {
-    Logger.log(
-      `\n✨ Repo '${repoName}' created and standardized successfully!\n`
-    );
-    Logger.log(
-      `⚠️ Please replace the README.md file and the INSTRUCTIONS.md with real files (Ask your AI to generate ones according to the current structure).`
-    );
-  } else {
-    Logger.warn('\n⚠️  Standardization complete, but could not push changes.');
+    if (pushed) {
+      Logger.log(
+        `\n✨ Repo '${repoName}' created and standardized successfully!\n`
+      );
+      Logger.log(
+        `⚠️ Please replace the README.md file and the INSTRUCTIONS.md with real files (Ask your AI to generate ones according to the current structure).`
+      );
+    } else {
+      Logger.warn(
+        '\n⚠️  Standardization complete, but could not push changes.'
+      );
+    }
+  } catch (err) {
+    Logger.error(`An unexpected error occurred: ${(err as Error).message}`);
   }
 }

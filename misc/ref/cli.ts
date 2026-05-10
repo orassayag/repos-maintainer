@@ -11,8 +11,14 @@ export async function showMainMenu(): Promise<void> {
       name: 'action',
       message: 'Select a script to run (ESC to exit):',
       choices: [
-        { name: '🔄 Add Repo          - Add the initial features missing for a GitHub project', value: 'add' },
-        { name: '♻️  Repos Sync        - Syncs and standardizes all the repos', value: 'sync' },
+        {
+          name: '🔄 Add Repo          - Add the initial features missing for a GitHub project',
+          value: 'add',
+        },
+        {
+          name: '♻️  Repos Sync        - Syncs and standardizes all the repos',
+          value: 'sync',
+        },
         { name: '🚪 Exit', value: 'exit' },
       ],
     },

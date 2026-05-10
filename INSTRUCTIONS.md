@@ -7,11 +7,16 @@
 3. [GitHub Authentication](#github-authentication)
 4. [Environment Management](#environment-management)
 5. [Available Commands](#available-commands)
-6. [Script Usage Guide](#script-usage-guide)
-7. [Troubleshooting](#troubleshooting)
-8. [Advanced Configuration](#advanced-configuration)
-9. [Exclusions Guide](#exclusions-guide)
-10. [Best Practices](#best-practices)
+6. [Running Scripts](#running-scripts)
+7. [Script Usage Guide](#script-usage-guide)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Configuration](#advanced-configuration)
+10. [Extending the Application](#extending-the-application)
+11. [Exclusions Guide](#exclusions-guide)
+12. [Best Practices](#best-practices)
+13. [Documentation](#documentation)
+14. [External Resources](#external-resources)
+15. [Author](#author)
 
 ## Prerequisites
 
@@ -150,6 +155,37 @@ pnpm build
 pnpm start
 ```
 
+## Running Scripts
+
+### Interactive Menu (Recommended)
+
+Start the main menu to select and run maintenance tasks:
+
+```bash
+pnpm start
+```
+
+### Direct Script Execution
+
+You can also run specific scripts directly using environment variables or command-line flags:
+
+```bash
+# Run with live mode (DRY_MODE=false)
+pnpm start:live
+
+# Run without cache
+pnpm start:no-cache
+
+# Run in auto mode (bulk sync)
+pnpm sync
+```
+
+### Command-Line Flags
+
+- `--no-cache`: Bypass the local cache and fetch fresh data from GitHub.
+- `--auto`: Run the bulk synchronization script immediately without the menu.
+- `DRY_MODE=false`: Enable live mode to push changes to GitHub.
+
 ## Script Usage Guide
 
 ### Add Repo
@@ -263,6 +299,20 @@ export const REPOS_LIST_FILENAME = 'project-repos-names.txt';
 2. Implement the `fix` method to handle your specific logic.
 3. Register the new fixer in `src/fixers/standardizer.ts`.
 
+## Extending the Application
+
+### Adding New Fixers
+
+1. Create a new fixer file in `src/fixers/` (e.g., `licenseFixer.ts`).
+2. Implement the logic to detect and fix repository issues.
+3. Register the new fixer in `src/fixers/standardizer.ts` within the `Standardizer` class.
+
+### Adding New Commands
+
+1. Create a new command file in `src/commands/`.
+2. Implement the command logic and user interaction.
+3. Register the command in `src/cli.ts` to add it to the interactive menu.
+
 ## Exclusions Guide
 
 The tool allows you to suppress specific warnings or skip projects entirely using the `excludes/exclude.json` file.
@@ -298,7 +348,7 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 
 - **EXCLUDED_PROJECTS**: Projects listed here will be skipped by the "Repos Sync" and "Add Repo" commands.
 - **EXCLUDED_PATHS**: Files or directories that should be ignored when checking for "local changes". This is useful for database files or logs that change frequently but shouldn't be committed.
-- **EXCLUDED_ISSUES**: Specific issue keys to ignore for a project. Issue keys can be found in `src/utils/issues.ts`. Using `"*"` will ignore all issues for that repository.
+- **EXCLUDED_ISSUES**: Specific issue keys to ignore for a project. Issue keys can be found in `src/utils/issues.ts`. Using `"*"` will ignore all issues for a repository.
 - **EXCLUDED_KNIP_PACKAGES**: List of package names to ignore in Knip reports for specific repositories. Useful for ignoring packages that Knip incorrectly identifies as unused.
 - **EXCLUDED_KNIP_SCAN**: List of repository names to skip Knip validation entirely.
 - **EXCLUDED_OUTDATED_SCAN**: List of repository names to skip the check for outdated dependencies. Useful for projects that must stay on specific versions of packages.
@@ -309,3 +359,31 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 2. **Review Changes**: Use `git diff` in your project folders to review what the tool changed before pushing if you are running in a manual mode.
 3. **Keep Token Secure**: Never commit your `env` file. It is already added to `.gitignore`, but stay vigilant.
 4. **Regular Backups**: Since the tool modifies files, ensure your repositories have their work committed before running the maintainer.
+
+## Documentation
+
+- [README.md](README.md) - Project overview and features
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+- [PLAN.md](docs/PLAN.md) - Initial project roadmap
+
+## External Resources
+
+- [GitHub REST API Documentation](https://docs.github.com/en/rest)
+- [Octokit/rest.js Documentation](https://octokit.github.io/rest.js/)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Vitest Documentation](https://vitest.dev/guide/)
+
+## Author
+
+**Or Assayag**
+
+- Email: orassayag@gmail.com
+- GitHub: [@orassayag](https://github.com/orassayag)
+- StackOverflow: [or-assayag](https://stackoverflow.com/users/4442606/or-assayag)
+- LinkedIn: [orassayag](https://linkedin.com/in/orassayag)
+
+---
+
+**Last Updated**: May 2026
+**Version**: 1.0.0

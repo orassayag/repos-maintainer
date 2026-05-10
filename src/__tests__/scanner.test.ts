@@ -26,6 +26,7 @@ vi.mock('../utils/excludes.js', () => ({
   isIssueExcluded: vi.fn(() => false),
   isKnipScanExcluded: vi.fn(() => false),
   getExcludedKnipPackages: vi.fn(() => []),
+  getExcludedKnipPaths: vi.fn(() => []),
   isOutdatedScanExcluded: vi.fn(() => false),
 }));
 vi.mock('../github.js', () => ({
@@ -47,10 +48,12 @@ describe('Scanner', () => {
     const {
       isKnipScanExcluded,
       getExcludedKnipPackages,
+      getExcludedKnipPaths,
       isOutdatedScanExcluded,
     } = await import('../utils/excludes.js');
     vi.mocked(isKnipScanExcluded).mockReturnValue(false);
     vi.mocked(getExcludedKnipPackages).mockReturnValue([]);
+    vi.mocked(getExcludedKnipPaths).mockReturnValue([]);
     vi.mocked(isOutdatedScanExcluded).mockReturnValue(false);
 
     vi.clearAllMocks();
@@ -446,6 +449,71 @@ describe('Scanner', () => {
       expect(knipIssue?.message).toContain('express');
       expect(knipIssue?.message).toContain('@eslint/js');
     });
+
+    it('should filter out excluded paths from knip output and add --ignore flag', async () => {
+      const { getExcludedKnipPaths } = await import('../utils/excludes.js');
+      vi.mocked(getExcludedKnipPaths).mockReturnValue(['misc', 'poc']);
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout:
+          'Unused files (3):\n- src/main.ts\n- misc/old.ts\n- poc/test.ts',
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      // Verify --ignore flags were added
+      const knipCall = vi
+        .mocked(spawnSync)
+        .mock.calls.find((call) => call[0].toString().includes('knip'));
+      expect(knipCall![0].toString()).toContain('--ignore "misc"');
+      expect(knipCall![0].toString()).toContain('--ignore "poc"');
+
+      const knipIssue = result.issues.find((i) =>
+        i.message.includes('Knip found unused dependencies')
+      );
+      expect(knipIssue).toBeDefined();
+      expect(knipIssue?.message).toContain('src/main.ts');
+      expect(knipIssue?.message).not.toContain('misc/old.ts');
+      expect(knipIssue?.message).not.toContain('poc/test.ts');
+    });
+
+    it('should handle multiple headers and limit issues in knip output', async () => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ name: 'test-repo' });
+        return '';
+      });
+
+      let stdout = 'Unused dependencies (1):\n- dep1\n';
+      stdout += 'Unlisted dependencies (1):\n- dep2\n';
+      stdout += 'Duplicate dependencies (1):\n- dep3\n';
+      for (let i = 0; i < 50; i++) {
+        stdout += `- extra${i}\n`;
+      }
+
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout,
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const knipIssue = result.issues.find((i) =>
+        i.message.includes('Knip found unused dependencies')
+      );
+      expect(knipIssue).toBeDefined();
+      expect(knipIssue?.message).toContain('Unused dependencies');
+      expect(knipIssue?.message).toContain('Unlisted dependencies');
+      expect(knipIssue?.message).toContain('Duplicate dependencies');
+    });
   });
 
   describe('scanRepo templates', () => {
@@ -557,25 +625,41 @@ describe('Scanner', () => {
   });
 
   describe('parsing functions', () => {
-    it('should parse Prettier check output', () => {
+    it('should parse Prettier check output and exclude pnpm-lock.yaml', () => {
       // @ts-ignore
       const files = scanner.parsePrettierCheck(
-        '[warn] file1.ts\n[warn] file2.ts\n[warn] Code style issues'
+        '[warn] file1.ts\n[warn] pnpm-lock.yaml\n[warn] packages/app/pnpm-lock.yaml\n[warn] file2.ts\n[warn] Code style issues'
       );
       expect(files).toEqual(['file1.ts', 'file2.ts']);
     });
 
-    it('should parse ESLint output', () => {
+    it('should parse ESLint output and exclude coverage folder', () => {
       const repoDir = process.platform === 'win32' ? 'C:\\repo' : '/repo';
       const file1 = path.join(repoDir, 'file1.ts');
-      vi.mocked(existsSync).mockImplementation((p: any) => p === file1);
+      const coverageFile = path.join(repoDir, 'coverage', 'sorter.js');
+      const nestedCoverageFile = path.join(
+        repoDir,
+        'packages',
+        'app',
+        'coverage',
+        'prettify.js'
+      );
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const pStr = p.toString();
+        return (
+          pStr === file1 || pStr === coverageFile || pStr === nestedCoverageFile
+        );
+      });
 
       // @ts-ignore
       const files = scanner.parseEslintOutput(
-        `${file1}\n  1:1 error msg`,
+        `${file1}\n  1:1 error\n${coverageFile}\n  1:1 error\n${nestedCoverageFile}\n  1:1 error`,
         repoDir
       );
-      expect(files).toContain(path.relative(repoDir, file1));
+      expect(files).toEqual([path.relative(repoDir, file1)]);
+      expect(files).not.toContain(path.relative(repoDir, coverageFile));
+      expect(files).not.toContain(path.relative(repoDir, nestedCoverageFile));
     });
 
     it('should parse Biome output', () => {

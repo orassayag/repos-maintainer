@@ -6,96 +6,93 @@ import { Scanner } from '../utils/scanner.js';
 import { Severity } from '../utils/issues.js';
 import Enquirer from 'enquirer';
 import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
 
-const REPORT_PATH = path.join(os.homedir(), 'Desktop', 'SCAN_REPOS_REPORT.txt');
+const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
 export async function scanRepoCommand(): Promise<void> {
-  Logger.log('\nScan Repo:');
-  Logger.log('==========\n');
+  try {
+    Logger.log('\nScan Repo:');
+    Logger.log('==========\n');
 
-  const repoList = await readRepoList();
-  if (repoList.length === 0) {
-    Logger.error('No repos found in the list. Please add a repo first.');
-    return;
-  }
-
-  let selectedRepo: { name: string; url: string } | null = null;
-
-  while (!selectedRepo) {
-    // 1. Get Repo Selection
-    const repoNameOrUrl = await input({
-      message: 'Enter the repo name or the repo URL:',
-      validate: (val): string | boolean =>
-        val.trim() ? true : 'Repo name or URL is required',
-    });
-
-    // Try exact match
-    const parsedInput = parseGitHubUrl(repoNameOrUrl);
-    const inputName = parsedInput
-      ? parsedInput.repo
-      : repoNameOrUrl.toLowerCase();
-
-    for (const entry of repoList) {
-      const [name, url] = entry.includes(':')
-        ? entry.split(':').map((s) => s.trim())
-        : [entry.trim(), ''];
-
-      if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
-        selectedRepo = { name, url };
-        break;
-      }
+    const repoList = await readRepoList();
+    if (repoList.length === 0) {
+      Logger.error('No repos found in the list. Please add a repo first.');
+      return;
     }
 
-    if (!selectedRepo) {
-      // Try similar match (fuzzy)
-      const suggestions = repoList.filter((entry) => {
-        const name = entry.includes(':')
-          ? entry.split(':')[0].trim()
-          : entry.trim();
-        return name.toLowerCase().includes(inputName);
+    let selectedRepo: { name: string; url: string } | null = null;
+
+    while (!selectedRepo) {
+      // 1. Get Repo Selection
+      const repoNameOrUrl = await input({
+        message: 'Enter the repo name or the repo URL:',
+        validate: (val): string | boolean =>
+          val.trim() ? true : 'Repo name or URL is required',
       });
 
-      if (suggestions.length > 0) {
-        try {
-          const { AutoComplete } = Enquirer as any;
-          const prompt = new AutoComplete({
-            name: 'repo',
-            message: 'Repo not found. Did you mean one of these?',
-            choices: suggestions.map((s) =>
-              s.includes(':') ? s.split(':')[0].trim() : s.trim()
-            ),
-          });
+      // Try exact match
+      const parsedInput = parseGitHubUrl(repoNameOrUrl);
+      const inputName = parsedInput
+        ? parsedInput.repo
+        : repoNameOrUrl.toLowerCase();
 
-          const selectedName = (await prompt.run()) as string;
-          const entry = repoList.find(
-            (s) =>
-              (s.includes(':') ? s.split(':')[0].trim() : s.trim()) ===
-              selectedName
-          );
-          if (entry) {
-            const [name, url] = entry.includes(':')
-              ? entry.split(':').map((s) => s.trim())
-              : [entry.trim(), ''];
-            selectedRepo = { name, url };
-          }
-        } catch (_e) {
-          // User might have escaped AutoComplete, loop will continue to ask input
+      for (const entry of repoList) {
+        const [name, url] = entry.includes(':')
+          ? entry.split(':').map((s) => s.trim())
+          : [entry.trim(), ''];
+
+        if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
+          selectedRepo = { name, url };
+          break;
         }
+      }
+
+      if (!selectedRepo) {
+        // Try similar match (fuzzy)
+        const suggestions = repoList.filter((entry) => {
+          const name = entry.includes(':')
+            ? entry.split(':')[0].trim()
+            : entry.trim();
+          return name.toLowerCase().includes(inputName);
+        });
+
+        if (suggestions.length > 0) {
+          try {
+            const { AutoComplete } = Enquirer as any;
+            const prompt = new AutoComplete({
+              name: 'repo',
+              message: 'Repo not found. Did you mean one of these?',
+              choices: suggestions.map((s) =>
+                s.includes(':') ? s.split(':')[0].trim() : s.trim()
+              ),
+            });
+
+            const selectedName = (await prompt.run()) as string;
+            const entry = repoList.find(
+              (s) =>
+                (s.includes(':') ? s.split(':')[0].trim() : s.trim()) ===
+                selectedName
+            );
+            if (entry) {
+              const [name, url] = entry.includes(':')
+                ? entry.split(':').map((s) => s.trim())
+                : [entry.trim(), ''];
+              selectedRepo = { name, url };
+            }
+          } catch (_e) {
+            // User might have escaped AutoComplete, loop will continue to ask input
+          }
+        }
+      }
+
+      if (!selectedRepo) {
+        Logger.error('Repo not found in the list. Please try again.');
       }
     }
 
-    if (!selectedRepo) {
-      Logger.error('Repo not found in the list. Please try again.');
-    }
-  }
+    Logger.log(`\n🔍 Starting scan for ${selectedRepo.name}...\n`);
 
-  Logger.log(`\n🔍 Starting scan for ${selectedRepo.name}...\n`);
-
-  const scanner = new Scanner();
-
-  try {
+    const scanner = new Scanner();
     const result = await scanner.scanRepo(selectedRepo);
 
     // 2. Initialize Report

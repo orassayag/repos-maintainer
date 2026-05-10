@@ -25,7 +25,11 @@
     "test:ui": "vitest --ui",
     "build": "tsc"
   },
-  "author": "Or Assayag <orassayag@gmail.com>",
+  "author": {
+    "name": "Or Assayag",
+    "email": "orassayag@gmail.com",
+    "url": "https://github.com/orassayag"
+  },
   "contributors": [
     {
       "name": "Or Assayag",
@@ -52,8 +56,17 @@
     "vitest.config.ts"
   ],
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/orassayag/#REPO-NAME#/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/orassayag"
+  },
+  "homepage": "https://github.com/orassayag/#REPO-NAME##readme",
   "engines": {
-    "node": ""
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
   },
   "dependencies": {
     "dotenv": ""

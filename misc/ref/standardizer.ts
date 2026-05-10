@@ -21,10 +21,17 @@ export interface StandardizeResult {
 /**
  * Main standardization function - runs ALL steps and continues on failure
  */
-export async function standardizeRepo(repoUrl: string): Promise<StandardizeResult> {
+export async function standardizeRepo(
+  repoUrl: string
+): Promise<StandardizeResult> {
   const parsed = parseGitHubUrl(repoUrl);
   if (!parsed) {
-    return { repoName: 'unknown', success: false, changes: [], errors: ['Invalid GitHub URL'] };
+    return {
+      repoName: 'unknown',
+      success: false,
+      changes: [],
+      errors: ['Invalid GitHub URL'],
+    };
   }
 
   const { owner, repo: repoName } = parsed;
@@ -53,7 +60,14 @@ export async function standardizeRepo(repoUrl: string): Promise<StandardizeResul
     if (readmeChanged) changes.push('README.md: Added Author/License section');
 
     // 5. Standard files from templates
-    const templateFiles = ['LICENSE', 'CONTRIBUTING.md', 'CHANGELOG.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md', '.gitignore'];
+    const templateFiles = [
+      'LICENSE',
+      'CONTRIBUTING.md',
+      'CHANGELOG.md',
+      'CODE_OF_CONDUCT.md',
+      'SECURITY.md',
+      '.gitignore',
+    ];
     for (const file of templateFiles) {
       const created = await ensureTemplateFile(localPath, file);
       if (created) changes.push(`${file}: Created/updated`);
@@ -82,7 +96,6 @@ export async function standardizeRepo(repoUrl: string): Promise<StandardizeResul
 
     console.log(`✅ Finished standardizing ${repoName}`);
     return { repoName, success: errors.length === 0, changes, errors };
-
   } catch (err: any) {
     errors.push(`Critical error: ${err.message}`);
     return { repoName, success: false, changes, errors };

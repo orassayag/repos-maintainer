@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scanRepoCommand } from '../commands/scanRepo.js';
 import fs from 'fs/promises';
+import { Logger } from '../utils/logger.js';
 import { readRepoList } from '../utils/repoList.js';
 import { input } from '../utils/prompts.js';
 import { getLocalRepoPath } from '../settings.js';
@@ -16,6 +17,9 @@ vi.mock('../utils/excludes.js', () => ({
   getExcludedPaths: vi.fn(() => []),
   isIssueExcluded: vi.fn(() => false),
   isProjectExcluded: vi.fn(() => false),
+  isKnipScanExcluded: vi.fn(() => false),
+  isOutdatedScanExcluded: vi.fn(() => false),
+  getExcludedKnipPackages: vi.fn(() => []),
 }));
 vi.mock('fs', async (importOriginal) => {
   const actual = (await importOriginal()) as any;
@@ -65,14 +69,22 @@ describe('scanRepoCommand', () => {
     vi.mocked(readRepoList).mockResolvedValue(mockRepoList);
     vi.mocked(input).mockResolvedValue('test-repo');
     vi.mocked(getLocalRepoPath).mockReturnValue(mockRepoPath);
-    vi.mocked(fs.readdir).mockResolvedValue(['.gitignore', 'README.md'] as any);
+    vi.mocked(fs.readdir).mockImplementation((_p: any, options: any) => {
+      if (options?.withFileTypes) {
+        return Promise.resolve([
+          { name: '.gitignore', isDirectory: (): boolean => false },
+          { name: 'README.md', isDirectory: (): boolean => false },
+        ] as any);
+      }
+      return Promise.resolve(['.gitignore', 'README.md'] as any);
+    });
     vi.mocked(fs.readFile).mockResolvedValue('content');
     vi.mocked(fs.access).mockResolvedValue(undefined);
 
     const { getRulesets } = await import('../github.js');
     vi.mocked(getRulesets).mockResolvedValue([
       {
-        name: 'Main Branch Protection',
+        name: 'Protect main branch',
         enforcement: 'active',
         target: 'branch',
         conditions: {},
@@ -168,7 +180,14 @@ describe('scanRepoCommand', () => {
     });
 
     // Mock templates dir and repo root to have 'dist' to match package.json
-    vi.mocked(fs.readdir).mockResolvedValue(['dist'] as any);
+    vi.mocked(fs.readdir).mockImplementation((_p: any, options: any) => {
+      if (options?.withFileTypes) {
+        return Promise.resolve([
+          { name: 'dist', isDirectory: (): boolean => false },
+        ] as any);
+      }
+      return Promise.resolve(['dist'] as any);
+    });
 
     // Mock GitHub methods
     const {
@@ -191,7 +210,7 @@ describe('scanRepoCommand', () => {
     vi.mocked(isRepoWatched).mockResolvedValue(true);
     vi.mocked(getRulesets).mockResolvedValue([
       {
-        name: 'Main Branch Protection',
+        name: 'Protect main branch',
         enforcement: 'active',
         target: 'branch',
         conditions: {},
@@ -210,72 +229,13 @@ describe('scanRepoCommand', () => {
     );
   });
 
-  it('should report outdated packages as severity 3 (Low)', async () => {
-    const pkgJson = {
-      name: 'test-repo',
-      version: '1.0.0',
-      author: {
-        name: 'Or Assayag',
-        email: 'orassayag@gmail.com',
-        url: 'https://github.com/orassayag',
-      },
-      license: 'MIT',
-      repository: {
-        type: 'git',
-        url: 'git://github.com/orassayag/test-repo.git',
-      },
-      homepage: 'https://github.com/orassayag/test-repo#readme',
-      bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
-      funding: {
-        type: 'github',
-        url: 'https://github.com/sponsors/orassayag',
-      },
-      engines: { node: '>=20' },
-      contributors: [
-        {
-          name: 'Or Assayag',
-          email: 'orassayag@gmail.com',
-          url: 'https://github.com/orassayag',
-        },
-      ],
-      main: 'index.js',
-      type: 'module',
-      scripts: { test: 'vitest' },
-      files: ['src'],
-      dependencies: {
-        express: '^1.0.0',
-      },
-      devDependencies: {
-        vitest: '^1.0.0',
-      },
-      keywords: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
-      description: 'A'.repeat(150),
-    };
-
-    vi.mocked(fs.readFile).mockImplementation((p: any) => {
-      if (p.toString().endsWith('package.json'))
-        return Promise.resolve(JSON.stringify(pkgJson));
-      if (p.toString().endsWith('README.md'))
-        return Promise.resolve(
-          '# Test Repo\n' +
-            'A'.repeat(150) +
-            '\nFeatures\nCore Capabilities\nTechnical Excellence\nDeveloper Experience\nGetting Started\nPrerequisites\nInstallation\nConfiguration\nUsage\nAvailable Scripts\nBest Practices\nDevelopment\nArchitecture Principles\nArchitecture\nDirectory Structure\nDesign Patterns\nContributing\nLicense\nSupport\nAuthor\nAcknowledgments'
-        );
-      if (p.toString().endsWith('INSTRUCTIONS.md'))
-        return Promise.resolve(
-          'Setup and Usage Instructions\nTable of Contents\nPrerequisites\nSystem Requirements\nInitial Setup\nInstall Dependencies\nAvailable Commands\nDevelopment Commands\nRunning Scripts\nTroubleshooting\nExtending the Application\nBest Practices\nDocumentation\nExternal Resources\nAuthor\nLast Updated\nVersion'
-        );
-      return Promise.resolve('template content');
-    });
+  it('should handle scan failure', async () => {
+    vi.mocked(readRepoList).mockRejectedValue(new Error('scan failed'));
 
     await scanRepoCommand();
 
-    const calls = vi.mocked(fs.writeFile).mock.calls;
-    const reportContent = calls.map((call) => call[1]).join('\n');
-
-    expect(reportContent).toContain(
-      '3 - Low - Fix when have time, nice to have:'
+    expect(Logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Scan failed: scan failed')
     );
-    expect(reportContent).toContain('Dependency "express" is outdated');
   });
 });

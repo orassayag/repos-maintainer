@@ -264,7 +264,7 @@ const FORMATTERS: Formatter[] = [
           '.prettierrc.yml',
           'prettier.config.js',
           'prettier.config.ts',
-          'prettier.config.mjs',
+          'prettier.config.mjs'
         ) || hasDep(pkg, 'prettier')
       );
     },
@@ -301,7 +301,7 @@ const FORMATTERS: Formatter[] = [
           '.eslintrc.yml',
           'eslint.config.js',
           'eslint.config.ts',
-          'eslint.config.mjs',
+          'eslint.config.mjs'
         ) || hasDep(pkg, 'eslint')
       );
     },
@@ -318,7 +318,7 @@ const FORMATTERS: Formatter[] = [
       // We use --fix-dry-run which outputs a JSON of what would change.
       const r = runCmd(
         `${bin} --fix-dry-run --format json . --ext .js,.jsx,.ts,.tsx,.mjs,.cjs`,
-        dir,
+        dir
       );
       try {
         // eslint --fix-dry-run --format json outputs a JSON array
@@ -373,7 +373,7 @@ const FORMATTERS: Formatter[] = [
           '.stylelintrc.json',
           '.stylelintrc.yaml',
           '.stylelintrc.yml',
-          'stylelint.config.js',
+          'stylelint.config.js'
         ) || hasDep(pkg, 'stylelint')
       );
     },
@@ -488,7 +488,7 @@ function findRepos(cfg: Config): string[] {
       return [full];
     }
     console.error(
-      `${RED}Project path does not exist or is not a directory: ${cfg.projectPath}${RESET}`,
+      `${RED}Project path does not exist or is not a directory: ${cfg.projectPath}${RESET}`
     );
     return [];
   }
@@ -547,24 +547,24 @@ interface RepoResult {
 function printReport(results: RepoResult[], isDryRun: boolean) {
   const totalRepos = results.length;
   const reposWithChanges = results.filter((r) =>
-    r.formatters.some((f) => f.changed.length > 0),
+    r.formatters.some((f) => f.changed.length > 0)
   ).length;
   const totalFiles = results.reduce(
     (sum, r) => sum + r.formatters.reduce((s, f) => s + f.changed.length, 0),
-    0,
+    0
   );
 
   const verb = isDryRun ? 'would be reformatted' : 'reformatted';
 
   console.log();
   console.log(
-    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`,
+    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`
   );
   console.log(
-    `${BOLD}  Repo Formatter Report${isDryRun ? '  (DRY RUN)' : ''}${RESET}`,
+    `${BOLD}  Repo Formatter Report${isDryRun ? '  (DRY RUN)' : ''}${RESET}`
   );
   console.log(
-    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`,
+    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`
   );
   console.log();
 
@@ -581,17 +581,17 @@ function printReport(results: RepoResult[], isDryRun: boolean) {
 
     if (allChanged.length === 0) {
       console.log(
-        `${GREEN}✔ ${BOLD}${repoName}${RESET}  ${DIM}(no changes)${RESET}`,
+        `${GREEN}✔ ${BOLD}${repoName}${RESET}  ${DIM}(no changes)${RESET}`
       );
     } else {
       const label = isDryRun ? `${YELLOW}? ` : `${YELLOW}✎ `;
       console.log(
-        `${label}${BOLD}${repoName}${RESET}  ${DIM}${result.repo}${RESET}`,
+        `${label}${BOLD}${repoName}${RESET}  ${DIM}${result.repo}${RESET}`
       );
       for (const fmt of result.formatters) {
         if (fmt.changed.length === 0) continue;
         console.log(
-          `  ${CYAN}${fmt.name}${RESET} ${verb} ${BOLD}${fmt.changed.length}${RESET} file${fmt.changed.length !== 1 ? 's' : ''}:`,
+          `  ${CYAN}${fmt.name}${RESET} ${verb} ${BOLD}${fmt.changed.length}${RESET} file${fmt.changed.length !== 1 ? 's' : ''}:`
         );
         for (const f of fmt.changed) console.log(`    ${DIM}→${RESET} ${f}`);
       }
@@ -600,23 +600,23 @@ function printReport(results: RepoResult[], isDryRun: boolean) {
   }
 
   console.log(
-    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`,
+    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`
   );
   if (isDryRun) {
     console.log(
       `  ${BOLD}${totalRepos}${RESET} repos scanned  │  ` +
         `${BOLD}${reposWithChanges}${RESET} would have changes  │  ` +
-        `${BOLD}${totalFiles}${RESET} file${totalFiles !== 1 ? 's' : ''} would be reformatted`,
+        `${BOLD}${totalFiles}${RESET} file${totalFiles !== 1 ? 's' : ''} would be reformatted`
     );
   } else {
     console.log(
       `  ${BOLD}${totalRepos}${RESET} repos scanned  │  ` +
         `${BOLD}${reposWithChanges}${RESET} had changes  │  ` +
-        `${BOLD}${totalFiles}${RESET} file${totalFiles !== 1 ? 's' : ''} reformatted`,
+        `${BOLD}${totalFiles}${RESET} file${totalFiles !== 1 ? 's' : ''} reformatted`
     );
   }
   console.log(
-    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`,
+    `${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}`
   );
   console.log();
 }
@@ -665,7 +665,7 @@ async function main() {
     cfg = { reposRoot: rootOverride ?? process.cwd() };
   } else {
     console.error(
-      `${RED}No config file found at ${configPath}.\nCreate formatter.config.json or pass --root <dir> or --project <dir>${RESET}\n`,
+      `${RED}No config file found at ${configPath}.\nCreate formatter.config.json or pass --root <dir> or --project <dir>${RESET}\n`
     );
     printUsage();
     process.exit(1);
@@ -675,16 +675,16 @@ async function main() {
 
   if (cfg.projectPath) {
     console.log(
-      `\n${BOLD}Repo Formatter${RESET}  ${DIM}targeting project ${cfg.projectPath}${RESET}`,
+      `\n${BOLD}Repo Formatter${RESET}  ${DIM}targeting project ${cfg.projectPath}${RESET}`
     );
   } else {
     console.log(
-      `\n${BOLD}Repo Formatter${RESET}  ${DIM}scanning ${cfg.reposRoot}${RESET}`,
+      `\n${BOLD}Repo Formatter${RESET}  ${DIM}scanning ${cfg.reposRoot}${RESET}`
     );
   }
   if (dryRun)
     console.log(
-      `  ${YELLOW}[DRY RUN — showing what would change, no files touched]${RESET}`,
+      `  ${YELLOW}[DRY RUN — showing what would change, no files touched]${RESET}`
     );
   if (VERBOSE) console.log(`  ${YELLOW}[VERBOSE]${RESET}`);
   console.log();
@@ -710,7 +710,7 @@ async function main() {
     }
 
     process.stdout.write(
-      `  ${BOLD}${repoName}${RESET}  ${DIM}[${applicable.map((f) => f.name).join(', ')}]${RESET} … `,
+      `  ${BOLD}${repoName}${RESET}  ${DIM}[${applicable.map((f) => f.name).join(', ')}]${RESET} … `
     );
 
     const fmtResults: FormatterRun[] = [];
@@ -739,7 +739,7 @@ async function main() {
     if (dryRun && isGit && !errorMsg) {
       if (VERBOSE)
         console.log(
-          `  ${DIM}Restoring original state (git restore & clean)...${RESET}`,
+          `  ${DIM}Restoring original state (git restore & clean)...${RESET}`
         );
       runCmd('git restore .', repo);
       runCmd('git clean -fd', repo);
@@ -752,7 +752,7 @@ async function main() {
     } else if (totalChanged > 0) {
       const label = dryRun ? 'would change' : 'changed';
       process.stdout.write(
-        `${YELLOW}${totalChanged} file(s) ${label}${RESET}\n`,
+        `${YELLOW}${totalChanged} file(s) ${label}${RESET}\n`
       );
     } else {
       process.stdout.write(`${GREEN}clean${RESET}\n`);

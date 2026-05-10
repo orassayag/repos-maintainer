@@ -10,6 +10,14 @@ const MyOctokit = Octokit.plugin(throttling);
 
 let octokitInstance: any = null;
 
+/**
+ * Resets the Octokit singleton instance.
+ * @internal For testing purposes only.
+ */
+export function resetOctokitInstance(): void {
+  octokitInstance = null;
+}
+
 export function getOctokit(): any {
   if (!octokitInstance) {
     octokitInstance = new MyOctokit({
@@ -86,7 +94,7 @@ export async function isRepoEmpty(
     if (err.status === 409 || err.status === 404) {
       return true;
     }
-    // If it's some other error, we assume it's not empty or we can't tell, 
+    // If it's some other error, we assume it's not empty or we can't tell,
     // but for safety in this flow, we'll treat it as empty if we can't get commits.
     return true;
   }
@@ -142,20 +150,32 @@ export async function replaceTopics(
 // Star & Watch
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function isRepoStarred(owner: string, repo: string): Promise<boolean> {
+export async function isRepoStarred(
+  owner: string,
+  repo: string
+): Promise<boolean> {
   const octokit = getOctokit();
   try {
-    await octokit.activity.checkRepoIsStarredByAuthenticatedUser({ owner, repo });
+    await octokit.activity.checkRepoIsStarredByAuthenticatedUser({
+      owner,
+      repo,
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-export async function isRepoWatched(owner: string, repo: string): Promise<boolean> {
+export async function isRepoWatched(
+  owner: string,
+  repo: string
+): Promise<boolean> {
   const octokit = getOctokit();
   try {
-    const { data } = await octokit.activity.getRepoSubscription({ owner, repo });
+    const { data } = await octokit.activity.getRepoSubscription({
+      owner,
+      repo,
+    });
     return data.subscribed;
   } catch {
     return false;

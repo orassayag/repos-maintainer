@@ -7,9 +7,13 @@ vi.mock('enquirer', () => {
     default: {
       Select: function (config: any): {} {
         return {
-          run: vi.fn().mockResolvedValue(
-            config.result ? config.result(config.choices[0]) : config.choices[0]
-          ),
+          run: vi
+            .fn()
+            .mockResolvedValue(
+              config.result
+                ? config.result(config.choices[0])
+                : config.choices[0]
+            ),
         };
       },
       Input: function (): {} {

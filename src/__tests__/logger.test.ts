@@ -4,7 +4,9 @@ import { Logger } from '../utils/logger.js';
 describe('Logger', () => {
   const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleErrorSpy = vi
+    .spyOn(console, 'error')
+    .mockImplementation(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,14 +39,20 @@ describe('Logger', () => {
 
   it('should log section message', () => {
     Logger.section('section title');
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('section title'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('─'.repeat(60)));
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('section title')
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('─'.repeat(60))
+    );
   });
 
   it('should log suggest message', () => {
     Logger.suggest('test-repo', 'do something');
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Suggested change recorded for test-repo: do something')
+      expect.stringContaining(
+        'Suggested change recorded for test-repo: do something'
+      )
     );
   });
 });

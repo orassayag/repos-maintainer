@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type OverwritePolicy = 'always' | 'if-missing';
+type OverwritePolicy = 'always' | 'if-missing';
 
 export interface MaintainerSettings {
   // Paths

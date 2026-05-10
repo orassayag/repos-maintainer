@@ -7,3 +7,10 @@ export function normalizeToTitle(name: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
+
+/**
+ * Removes ANSI escape codes from a string
+ */
+export function stripAnsi(text: string): string {
+  return text.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+}

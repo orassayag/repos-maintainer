@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs';
-import { loadExcludes } from '../utils/excludes.js';
+import {
+  loadExcludes,
+  isProjectExcluded,
+  isIssueExcluded,
+  getExcludedPaths,
+  getExcludedKnipPackages,
+  getExcludedKnipPaths,
+  isKnipScanExcluded,
+  isOutdatedScanExcluded,
+} from '../utils/excludes.js';
 
 vi.mock('fs');
 
@@ -30,5 +39,36 @@ describe('excludes', () => {
     expect(result.EXCLUDED_PROJECTS).toEqual([]);
     expect(result.EXCLUDED_PATHS).toEqual({});
     expect(result.EXCLUDED_ISSUES).toEqual({});
+  });
+
+  it('should check if project is excluded', () => {
+    // Note: 'excludes' is initialized once.
+    // We can't easily change it here without reloading the module,
+    // but we can test the exported functions with the current state.
+    expect(isProjectExcluded('some-repo')).toBe(false);
+  });
+
+  it('should check if issue is excluded', () => {
+    expect(isIssueExcluded('some-repo', 'some-issue')).toBe(false);
+  });
+
+  it('should get excluded paths', () => {
+    expect(getExcludedPaths('some-repo')).toEqual([]);
+  });
+
+  it('should get excluded knip packages', () => {
+    expect(getExcludedKnipPackages('some-repo')).toEqual([]);
+  });
+
+  it('should get excluded knip paths', () => {
+    expect(getExcludedKnipPaths('some-repo')).toEqual([]);
+  });
+
+  it('should check if knip scan is excluded', () => {
+    expect(isKnipScanExcluded('some-repo')).toBe(false);
+  });
+
+  it('should check if outdated scan is excluded', () => {
+    expect(isOutdatedScanExcluded('some-repo')).toBe(false);
   });
 });

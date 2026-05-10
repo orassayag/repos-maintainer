@@ -21,14 +21,22 @@ describe('pnpm', () => {
   });
 
   it('should run pnpm install successfully', async () => {
-    vi.mocked(exec).mockImplementation(((_cmd: string, _opts: any, callback: any) => {
+    vi.mocked(exec).mockImplementation(((
+      _cmd: string,
+      _opts: any,
+      callback: any
+    ) => {
       callback(null, { stdout: 'done', stderr: '' });
     }) as any);
 
     const result = await runPnpmInstall('/mock/path');
 
     expect(result).toBe(true);
-    expect(exec).toHaveBeenCalledWith('pnpm install', { cwd: '/mock/path' }, expect.any(Function));
+    expect(exec).toHaveBeenCalledWith(
+      'pnpm install',
+      { cwd: '/mock/path' },
+      expect.any(Function)
+    );
     expect(Logger.success).toHaveBeenCalled();
   });
 
@@ -38,17 +46,25 @@ describe('pnpm', () => {
 
     expect(result).toBe(true);
     expect(exec).not.toHaveBeenCalled();
-    expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[DRY RUN]'));
+    expect(Logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('[DRY RUN]')
+    );
   });
 
   it('should return false if pnpm install fails', async () => {
-    vi.mocked(exec).mockImplementation(((_cmd: string, _opts: any, callback: any) => {
+    vi.mocked(exec).mockImplementation(((
+      _cmd: string,
+      _opts: any,
+      callback: any
+    ) => {
       callback(new Error('pnpm failed'), { stdout: '', stderr: 'error' });
     }) as any);
 
     const result = await runPnpmInstall('/mock/path');
 
     expect(result).toBe(false);
-    expect(Logger.error).toHaveBeenCalledWith(expect.stringContaining('pnpm failed'));
+    expect(Logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('pnpm failed')
+    );
   });
 });

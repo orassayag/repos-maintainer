@@ -32,23 +32,32 @@ describe('git', () => {
   describe('ensureRepoCloned', () => {
     it('should clone if folder does not exist', async () => {
       vi.mocked(fs.access).mockRejectedValue(new Error('not found'));
-      
+
       const result = await ensureRepoCloned('http://repo.git', 'repo');
-      
+
       expect(result).toBe(true);
-      expect(mockGit.clone).toHaveBeenCalledWith('http://repo.git', mockRepoPath);
-      expect(Logger.success).toHaveBeenCalledWith(expect.stringContaining('Cloned repo'));
+      expect(mockGit.clone).toHaveBeenCalledWith(
+        'http://repo.git',
+        mockRepoPath
+      );
+      expect(Logger.success).toHaveBeenCalledWith(
+        expect.stringContaining('Cloned repo')
+      );
     });
 
     it('should pull if folder exists and remote matches', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      mockGit.getRemotes.mockResolvedValue([{ name: 'origin', refs: { fetch: 'http://repo.git' } }]);
+      mockGit.getRemotes.mockResolvedValue([
+        { name: 'origin', refs: { fetch: 'http://repo.git' } },
+      ]);
       mockGit.pull.mockResolvedValue({});
 
       const result = await ensureRepoCloned('http://repo.git', 'repo');
 
       expect(result).toBe(true);
-      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'main', { '--rebase': null });
+      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'main', {
+        '--rebase': null,
+      });
     });
 
     it('should return false if no origin remote', async () => {
@@ -58,26 +67,32 @@ describe('git', () => {
       const result = await ensureRepoCloned('http://repo.git', 'repo');
 
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('No \'origin\' remote'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("No 'origin' remote")
+      );
     });
 
     it('should return false if remote mismatch', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      mockGit.getRemotes.mockResolvedValue([{ name: 'origin', refs: { fetch: 'http://other.git' } }]);
+      mockGit.getRemotes.mockResolvedValue([
+        { name: 'origin', refs: { fetch: 'http://other.git' } },
+      ]);
 
       const result = await ensureRepoCloned('http://repo.git', 'repo');
 
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('Remote mismatch'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Remote mismatch')
+      );
     });
   });
 
   describe('commitAndPush', () => {
     it('should return false if nothing to commit', async () => {
       mockGit.status.mockResolvedValue({ files: [] });
-      
+
       const result = await commitAndPush(mockRepoPath);
-      
+
       expect(result).toBe(false);
       expect(mockGit.commit).not.toHaveBeenCalled();
     });
@@ -101,7 +116,9 @@ describe('git', () => {
       const result = await commitAndPush(mockRepoPath, 'feat: update', true);
 
       expect(result).toBe(true);
-      expect(mockGit.push).toHaveBeenCalledWith('origin', undefined, { '--force-with-lease': null });
+      expect(mockGit.push).toHaveBeenCalledWith('origin', undefined, {
+        '--force-with-lease': null,
+      });
     });
   });
 

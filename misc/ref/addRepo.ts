@@ -14,7 +14,8 @@ export async function addRepoCommand(): Promise<void> {
       validate: (input: string) => {
         if (!input) return 'URL is required';
         const parsed = parseGitHubUrl(input);
-        if (!parsed) return 'Invalid GitHub URL (must be https://github.com/owner/repo)';
+        if (!parsed)
+          return 'Invalid GitHub URL (must be https://github.com/owner/repo)';
         return true;
       },
     },
@@ -28,13 +29,15 @@ export async function addRepoCommand(): Promise<void> {
 
   if (result.changes.length > 0) {
     console.log('✅ Changes made:');
-    result.changes.forEach(change => console.log(`   • ${change}`));
+    result.changes.forEach((change) => console.log(`   • ${change}`));
   }
 
   if (result.errors.length > 0) {
     console.log('\n⚠️  Issues encountered:');
-    result.errors.forEach(err => console.log(`   • ${err}`));
+    result.errors.forEach((err) => console.log(`   • ${err}`));
   }
 
-  console.log(`\n${result.success ? '🎉' : '⚠️'}  Standardization ${result.success ? 'completed successfully' : 'finished with issues'}`);
+  console.log(
+    `\n${result.success ? '🎉' : '⚠️'}  Standardization ${result.success ? 'completed successfully' : 'finished with issues'}`
+  );
 }

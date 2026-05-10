@@ -5,13 +5,15 @@ const MyOctokit = Octokit.plugin(throttling);
 
 let octokitInstance: Octokit | null = null;
 
-export function getOctokit(): Octokit {
+function getOctokit(): Octokit {
   if (!octokitInstance) {
     octokitInstance = new MyOctokit({
       auth: process.env.GITHUB_TOKEN,
       throttle: {
         onRateLimit: (retryAfter: number, options: any) => {
-          console.warn(`Rate limit hit. Retrying after ${retryAfter} seconds...`);
+          console.warn(
+            `Rate limit hit. Retrying after ${retryAfter} seconds...`
+          );
           return true;
         },
         onSecondaryRateLimit: () => true,
@@ -32,7 +34,10 @@ export async function checkGitHubAuth(): Promise<boolean> {
   }
 }
 
-export async function repoExists(owner: string, repo: string): Promise<boolean> {
+export async function repoExists(
+  owner: string,
+  repo: string
+): Promise<boolean> {
   try {
     const octokit = getOctokit();
     await octokit.repos.get({ owner, repo });
@@ -91,7 +96,11 @@ export async function getRulesets(owner: string, repo: string) {
   }
 }
 
-export async function updateRulesets(owner: string, repo: string, rulesets: any[]) {
+export async function updateRulesets(
+  owner: string,
+  repo: string,
+  rulesets: any[]
+) {
   const octokit = getOctokit();
   // GitHub API for rulesets is a bit special - this is simplified
   console.log(`🔧 Updating rulesets for ${owner}/${repo}`);

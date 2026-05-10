@@ -1,6 +1,6 @@
 import Enquirer from 'enquirer';
 
-export interface SelectChoice<T = string> {
+interface SelectChoice<T = string> {
   name: string;
   value: T;
 }

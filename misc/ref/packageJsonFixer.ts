@@ -12,7 +12,10 @@ export async function fixPackageJson(repoPath: string): Promise<boolean> {
     let changed = false;
 
     // Ensure author
-    if (!pkg.author || pkg.author !== `${settings.AUTHOR_NAME} <${settings.AUTHOR_EMAIL}>`) {
+    if (
+      !pkg.author ||
+      pkg.author !== `${settings.AUTHOR_NAME} <${settings.AUTHOR_EMAIL}>`
+    ) {
       pkg.author = `${settings.AUTHOR_NAME} <${settings.AUTHOR_EMAIL}>`;
       changed = true;
     }
@@ -21,13 +24,15 @@ export async function fixPackageJson(repoPath: string): Promise<boolean> {
     const expectedContributor = {
       name: settings.AUTHOR_NAME,
       email: settings.AUTHOR_EMAIL,
-      url: `https://github.com/${settings.AUTHOR_GITHUB}`
+      url: `https://github.com/${settings.AUTHOR_GITHUB}`,
     };
 
     if (!pkg.contributors || !Array.isArray(pkg.contributors)) {
       pkg.contributors = [expectedContributor];
       changed = true;
-    } else if (!pkg.contributors.some((c: any) => c.email === settings.AUTHOR_EMAIL)) {
+    } else if (
+      !pkg.contributors.some((c: any) => c.email === settings.AUTHOR_EMAIL)
+    ) {
       pkg.contributors.push(expectedContributor);
       changed = true;
     }

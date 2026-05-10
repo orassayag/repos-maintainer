@@ -1,6 +1,4 @@
 import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
 import ora from 'ora';
 import { Logger } from '../utils/logger.js';
 import { Scanner, RepoScanResult } from '../utils/scanner.js';
@@ -9,7 +7,7 @@ import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
 import { readRepoList } from '../utils/repoList.js';
 
-const REPORT_PATH = path.join(os.homedir(), 'Desktop', 'SCAN_REPOS_REPORT.txt');
+const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
 export async function scanReposCommand(): Promise<void> {
   Logger.log('\n🔎 Scan Repos — Starting full repository scan...\n');
