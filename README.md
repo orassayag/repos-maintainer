@@ -330,12 +330,11 @@ For questions, issues, or contributions:
 
 ## Author
 
-**Or Assayag**
-
-- Email: orassayag@gmail.com
-- GitHub: [@orassayag](https://github.com/orassayag)
-- StackOverflow: [or-assayag](https://stackoverflow.com/users/4442606/or-assayag)
-- LinkedIn: [orassayag](https://linkedin.com/in/orassayag)
+- **Or Assayag** - _Initial work_ - [orassayag](https://github.com/orassayag)
+- Or Assayag <orassayag@gmail.com>
+- GitHub: https://github.com/orassayag
+- StackOverflow: https://stackoverflow.com/users/4442606/or-assayag?tab=profile
+- LinkedIn: https://linkedin.com/in/orassayag
 
 ## Acknowledgments
 
