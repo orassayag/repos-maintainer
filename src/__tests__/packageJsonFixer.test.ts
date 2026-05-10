@@ -53,6 +53,46 @@ describe('packageJsonFixer', () => {
       expect(written.dependencies.pkg1).toBe('^1.0.0');
       expect(written.author).toContain('Or Assayag');
     });
+
+    it('should handle getLatestVersion failure', async () => {
+      const template = JSON.stringify({
+        name: '#REPO-NAME#',
+        dependencies: { pkg1: '' },
+      });
+      vi.mocked(fs.readFile).mockResolvedValue(template);
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('npm error');
+      });
+
+      const result = await injectPackageJson(repoPath, 'test-repo', 'desc', []);
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.dependencies.pkg1).toBe('');
+    });
+
+    it('should handle inject failure', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('File Error'));
+
+      const result = await injectPackageJson(repoPath, 'test-repo', 'desc', []);
+
+      expect(result).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
+    });
+
+    it('should handle dry run', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify({ name: 'test' })
+      );
+      settings.DRY_RUN = true;
+
+      const result = await injectPackageJson(repoPath, 'test-repo', 'desc', []);
+
+      expect(result).toBe(false);
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('fixPackageJson', () => {
@@ -74,7 +114,13 @@ describe('packageJsonFixer', () => {
     it('should return false if already correct', async () => {
       const pkg = JSON.stringify({
         author: 'Or Assayag <orassayag@gmail.com>',
-        contributors: [{ email: 'orassayag@gmail.com' }],
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
       });
       vi.mocked(fs.readFile).mockResolvedValue(pkg);
 
@@ -82,6 +128,30 @@ describe('packageJsonFixer', () => {
 
       expect(result).toBe(false);
       expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should add contributor if missing but array exists', async () => {
+      const pkg = JSON.stringify({
+        contributors: [{ email: 'other@gmail.com' }],
+      });
+      vi.mocked(fs.readFile).mockResolvedValue(pkg);
+
+      const result = await fixPackageJson(repoPath);
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.contributors).toHaveLength(2);
+    });
+
+    it('should handle read error', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Read Error'));
+
+      const result = await fixPackageJson(repoPath);
+
+      expect(result).toBe(false);
+      expect(Logger.warn).toHaveBeenCalled();
     });
 
     it('should handle dry run', async () => {

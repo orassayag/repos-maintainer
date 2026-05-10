@@ -55,7 +55,7 @@ export const ISSUES = {
   README_DESCRIPTION_LENGTH: {
     message:
       'README.md: Description length is {actualLen} (expected {min}-{max} chars)',
-    severity: Severity.LOW,
+    severity: Severity.MEDIUM,
   },
   README_MISSING_SECTION: {
     message: 'README.md: Missing section "{section}"',
@@ -125,7 +125,7 @@ export const ISSUES = {
   },
   PACKAGE_JSON_FILES_NOT_IDENTICAL: {
     message:
-      'package.json: "files" section is not identical to root level files and folders',
+      'package.json: "files" section is not identical to root level files and folders.\nMissing: {missing}\nExtra: {extra}',
     severity: Severity.LOW,
   },
   PACKAGE_JSON_FILES_NOT_SORTED: {
@@ -211,6 +211,10 @@ export const ISSUES = {
     message:
       'GitHub: Description length should be 340-350 chars (current: {actual})',
     severity: Severity.LOW,
+  },
+  GITHUB_METADATA_FETCH_FAILED: {
+    message: 'GitHub: Failed to fetch metadata: {error}',
+    severity: Severity.MEDIUM,
   },
   GITHUB_NO_RULESETS: {
     message: 'GitHub: No rulesets found for the repository',

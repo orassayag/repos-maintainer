@@ -184,11 +184,13 @@ export class Scanner {
 
     // 7. package.json deep scan
     let githubMetadata: RepoMetadata | null = null;
+    let metadataError: string | null = null;
     if (parsed) {
       try {
         githubMetadata = await getRepoMetadata(parsed.owner, parsed.repo);
-      } catch {
-        // Ignore metadata errors for now
+      } catch (err) {
+        metadataError = (err as Error).message;
+        this.logIssue('GITHUB_METADATA_FETCH_FAILED', { error: metadataError });
       }
     }
 
@@ -196,7 +198,7 @@ export class Scanner {
       await this.scanPackageJson(
         repoPath,
         repo.name,
-        githubMetadata?.topics || []
+        githubMetadata ? githubMetadata.topics : null
       );
     }
 
@@ -399,9 +401,9 @@ export class Scanner {
         this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
       }
     } else if (fileName === 'LICENSE') {
-      // Ignore year in LICENSE
+      // Ignore year in LICENSE. Target has 4-digit year, template has #YEAR#
       const targetNoYear = targetContent.replace(/\d{4}/g, 'YEAR');
-      const templateNoYear = templateContent.replace(/\d{4}/g, 'YEAR');
+      const templateNoYear = templateContent.replace(/#YEAR#/g, 'YEAR');
       if (!targetNoYear.includes(templateNoYear.trim())) {
         this.logIssue('LICENSE_CONTENT_MISMATCH');
       }
@@ -490,13 +492,30 @@ export class Scanner {
         });
       }
 
-      const description = lines[1]?.trim() || '';
+      // Extract description: everything between the first title and the next title (##)
+      let description = '';
+      let foundTitle = false;
+      const descLines: string[] = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('# ')) {
+          foundTitle = true;
+          continue;
+        }
+        if (foundTitle) {
+          if (trimmed.startsWith('## ')) break;
+          descLines.push(line);
+        }
+      }
+      description = descLines.join('\n').trim();
+
       const descLen = description.length;
-      if (descLen < 290 || descLen > 350) {
+      if (descLen < 300 || descLen > 600) {
         this.logIssue('README_DESCRIPTION_LENGTH', {
           actualLen: descLen,
-          min: 290,
-          max: 350,
+          min: 300,
+          max: 600,
         });
       }
 
@@ -537,7 +556,7 @@ export class Scanner {
   private async scanPackageJson(
     repoPath: string,
     repoName: string,
-    githubTopics: string[] = []
+    githubTopics: string[] | null = null
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -650,10 +669,23 @@ export class Scanner {
       if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {
         this.logIssue('PACKAGE_JSON_MISSING_FILES');
       } else {
-        const rootItems = (await fs.readdir(repoPath)).filter(
-          (item) => item !== '.git' && item !== 'node_modules'
-        );
-        const sortedRootItems = [...rootItems].sort();
+        const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
+        const rootItems = rootEntries
+          .filter((e) => e.name !== '.git' && e.name !== 'node_modules')
+          .map((e) => e.name);
+
+        const sortedRootItems = [...rootEntries]
+          .filter((e) => e.name !== '.git' && e.name !== 'node_modules')
+          .sort((a, b) => {
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.name.localeCompare(b.name, undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+          })
+          .map((e) => e.name);
+
         const pkgFiles = pkg.files;
 
         const isIdentical =
@@ -661,7 +693,17 @@ export class Scanner {
           pkgFiles.every((file: string) => rootItems.includes(file));
 
         if (!isIdentical) {
-          this.logIssue('PACKAGE_JSON_FILES_NOT_IDENTICAL');
+          const missing = rootItems
+            .filter((f: string) => !pkgFiles.includes(f))
+            .join(', ');
+          const extra = pkgFiles
+            .filter((f: string) => !rootItems.includes(f))
+            .join(', ');
+
+          this.logIssue('PACKAGE_JSON_FILES_NOT_IDENTICAL', {
+            missing: missing || 'none',
+            extra: extra || 'none',
+          });
         } else {
           const isSorted = pkgFiles.every(
             (file: string, index: number) => file === sortedRootItems[index]
@@ -693,7 +735,7 @@ export class Scanner {
       }
 
       // Keywords vs GitHub Topics Validation
-      if (keywords.length > 0) {
+      if (keywords.length > 0 && githubTopics !== null) {
         const sortedKeywords = [...keywords].sort();
         const sortedTopics = [...githubTopics].sort();
 
@@ -943,7 +985,12 @@ export class Scanner {
             }>;
             return results
               .filter((f) => f.output !== undefined)
-              .map((f) => path.relative(dir, f.filePath));
+              .map((f) => path.relative(dir, f.filePath))
+              .filter((rel) => {
+                // Skip coverage folder (regardless to any path level)
+                const parts = rel.split(/[\\/]/);
+                return !parts.includes('coverage');
+              });
           } catch {
             return this.parseEslintOutput(r.combined, dir);
           }
