@@ -5,18 +5,22 @@ import { selectRepo } from '../utils/repoSelector.js';
 import { ensureRepoCloned } from '../utils/git.js';
 import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
 import { settings, getLocalRepoPath } from '../settings.js';
+import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 
 /**
  * Syncs a repository's package.json with its GitHub metadata and local file system.
  * 1. Limits keywords to max 20 and syncs them to GitHub topics.
- * 2. Syncs the "files" section in package.json with the actual root-level files and folders.
+ * 2. Standardizes package.json fields (funding, engines, author, main, type, files).
  */
-export async function syncRepoCommand(): Promise<void> {
+export async function syncRepoCommand(): Promise<{
+  name: string;
+  url: string;
+} | null> {
   Logger.log('\nSync Repo:');
   Logger.log('==========\n');
 
   const selectedRepo = await selectRepo();
-  if (!selectedRepo) return;
+  if (!selectedRepo) return null;
 
   const repoPath = getLocalRepoPath(selectedRepo.name);
   let parsed = parseGitHubUrl(selectedRepo.url);
@@ -41,7 +45,7 @@ export async function syncRepoCommand(): Promise<void> {
     }
 
     const cloned = await ensureRepoCloned(repoUrl, selectedRepo.name);
-    if (!cloned) return;
+    if (!cloned) return null;
 
     const pkgPath = path.join(repoPath, 'package.json');
     let pkg;
@@ -50,12 +54,13 @@ export async function syncRepoCommand(): Promise<void> {
       pkg = JSON.parse(pkgContent);
     } catch (err) {
       Logger.error(`Could not read package.json: ${(err as Error).message}`);
-      return;
+      return null;
     }
 
+    // 2. Sync Keywords & Standardize package.json
     let changed = false;
 
-    // 2. Sync Keywords
+    // A. Keyword Sync (GitHub)
     if (pkg.keywords && Array.isArray(pkg.keywords)) {
       let keywords = pkg.keywords;
       if (keywords.length > 20) {
@@ -78,42 +83,18 @@ export async function syncRepoCommand(): Promise<void> {
       }
     }
 
-    // 3. Sync Files section
-    Logger.log(
-      '📁 Syncing package.json "files" section with root directory...'
-    );
-    const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
+    // B. Standardize package.json (funding, engines, contributors, author, main, type, files)
+    if (changed) {
+      // If keywords changed, write them first so fixPackageJson sees the update
+      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+    }
 
-    // Filtering out .git and node_modules, and sorting: folders first, then files, both alphabetically
-    const sortedRootItems = rootEntries
-      .filter((e) => e.name !== '.git' && e.name !== 'node_modules')
-      .sort((a, b) => {
-        if (a.isDirectory() && !b.isDirectory()) return -1;
-        if (!a.isDirectory() && b.isDirectory()) return 1;
-        return a.name.localeCompare(b.name, undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        });
-      })
-      .map((e) => e.name);
-
-    const pkgFiles = pkg.files || [];
-    const isIdentical =
-      pkgFiles.length === sortedRootItems.length &&
-      pkgFiles.every(
-        (file: string, index: number) => file === sortedRootItems[index]
-      );
-
-    if (!isIdentical) {
-      pkg.files = sortedRootItems;
+    const pkgFixed = await fixPackageJson(repoPath, selectedRepo.name);
+    if (pkgFixed) {
       changed = true;
-      Logger.info(`Updated "files" section in package.json`);
-    } else {
-      Logger.log('✅ "files" section is already synced and sorted.');
     }
 
     if (changed) {
-      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
       Logger.success('Updated package.json');
       Logger.log(
         '\n⚠️ Successfully sync the project, you should manually commit and push the changes on the project'
@@ -123,7 +104,9 @@ export async function syncRepoCommand(): Promise<void> {
     }
 
     Logger.success(`Sync completed for ${selectedRepo.name}!`);
+    return selectedRepo;
   } catch (err) {
     Logger.error(`Sync failed: ${(err as Error).message}`);
+    return null;
   }
 }

@@ -98,8 +98,10 @@ export async function standardizeRepo(
 
   // ── Step 3: package.json ───────────────────────────────────────────────
   try {
-    const pkgChanged = await fixPackageJson(localPath);
-    if (pkgChanged) changes.push('package.json: Fixed author/contributors');
+    const pkgFixed = await fixPackageJson(localPath, repoName);
+    if (pkgFixed) {
+      changes.push('package.json: Standardized (author, engines, type, etc.)');
+    }
   } catch (err) {
     const msg = `package.json: ${(err as Error).message}`;
     errors.push(msg);

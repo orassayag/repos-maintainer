@@ -80,8 +80,8 @@ describe('addRepoCommand', () => {
 
     await addRepoCommand();
 
-    expect(Logger.log).toHaveBeenCalledWith(
-      expect.stringContaining('successfully')
+    expect(Logger.success).toHaveBeenCalledWith(
+      expect.stringContaining('Successfully')
     );
     expect(commitAndPush).toHaveBeenCalled();
   });

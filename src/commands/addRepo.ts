@@ -28,7 +28,10 @@ import { fixRulesets } from '../fixers/rulesetsFixer.js';
  * Prompts for a GitHub URL, validates it, verifies the repo exists,
  * asks for descriptions and keywords, then runs full standardization.
  */
-export async function addRepoCommand(): Promise<void> {
+export async function addRepoCommand(): Promise<{
+  name: string;
+  url: string;
+} | null> {
   Logger.log('\nAdd Repo:');
   Logger.log('=========\n');
 
@@ -78,7 +81,7 @@ export async function addRepoCommand(): Promise<void> {
       Logger.error(`Repository ${parsed.owner}/${parsed.repo} is not empty!`);
       Logger.log('The "Add Repo" flow requires a fresh, empty repository.');
       Logger.log('Returning to main menu...\n');
-      return; // Back to main menu
+      return null; // Back to main menu
     }
 
     break;
@@ -133,7 +136,7 @@ export async function addRepoCommand(): Promise<void> {
     const cloned = await ensureRepoCloned(repoUrl, repoName);
     if (!cloned) {
       Logger.error(`Failed to clone/pull repository: ${repoName}`);
-      return;
+      return null;
     }
 
     // 2. Update Repo List
@@ -191,14 +194,14 @@ export async function addRepoCommand(): Promise<void> {
     );
     if (!pkgInjected) {
       Logger.error('Failed to inject package.json');
-      return;
+      return null;
     }
 
     // 5. pnpm install
     const pnpmSuccess = await runPnpmInstall(repoPath);
     if (!pnpmSuccess) {
       Logger.error('pnpm install failed');
-      return;
+      return null;
     }
 
     // 6. fix README
@@ -237,18 +240,19 @@ export async function addRepoCommand(): Promise<void> {
     }
 
     if (pushed) {
-      Logger.log(
-        `\n✨ Repo '${repoName}' created and standardized successfully!\n`
-      );
+      Logger.success(`Successfully added and standardized ${repoName}!`);
       Logger.log(
         `⚠️ Please replace the README.md file and the INSTRUCTIONS.md with real files (Ask your AI to generate ones according to the current structure).`
       );
+      return { name: repoName, url: repoUrl };
     } else {
       Logger.warn(
         '\n⚠️  Standardization complete, but could not push changes.'
       );
+      return null;
     }
   } catch (err) {
     Logger.error(`An unexpected error occurred: ${(err as Error).message}`);
+    return null;
   }
 }

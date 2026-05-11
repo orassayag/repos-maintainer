@@ -56,7 +56,9 @@ describe('standardizer', () => {
 
     expect(result.success).toBe(true);
     expect(result.repoName).toBe('test-repo');
-    expect(result.changes).toContain('package.json: Fixed author/contributors');
+    expect(result.changes).toContain(
+      'package.json: Standardized (author, engines, type, etc.)'
+    );
     expect(result.changes).toContain('Metadata: description updated');
     expect(result.changes).toContain('Git: Committed & pushed');
     expect(result.errors).toHaveLength(0);
@@ -84,7 +86,7 @@ describe('standardizer', () => {
 
     expect(result.success).toBe(true);
     expect(result.changes).not.toContain(
-      'package.json: Fixed author/contributors'
+      'package.json: Standardized (author, engines, type, etc.)'
     );
     expect(result.changes).not.toContain(
       'README.md: Added Author/License section'

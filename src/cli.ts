@@ -45,12 +45,20 @@ export async function showMainMenu(): Promise<void> {
   });
 
   switch (action) {
-    case 'add':
-      await addRepoCommand();
+    case 'add': {
+      const added = await addRepoCommand();
+      if (added) {
+        lastScannedRepo = added;
+      }
       break;
-    case 'sync-repo':
-      await syncRepoCommand();
+    }
+    case 'sync-repo': {
+      const synced = await syncRepoCommand();
+      if (synced) {
+        lastScannedRepo = synced;
+      }
       break;
+    }
     case 'scan': {
       const scanned = await scanRepoCommand();
       if (scanned) {

@@ -96,24 +96,52 @@ describe('packageJsonFixer', () => {
   });
 
   describe('fixPackageJson', () => {
-    it('should fix author and contributors if missing', async () => {
-      const pkg = JSON.stringify({ name: 'test' });
-      vi.mocked(fs.readFile).mockResolvedValue(pkg);
+    const template = JSON.stringify({
+      author: {
+        name: 'Or Assayag',
+        email: 'orassayag@gmail.com',
+        url: 'https://github.com/orassayag',
+      },
+      contributors: [
+        {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+      ],
+      funding: { type: 'github', url: 'https://github.com/sponsors/orassayag' },
+      type: 'module',
+      bugs: { url: 'https://github.com/orassayag/#REPO-NAME#/issues' },
+      homepage: 'https://github.com/orassayag/#REPO-NAME##readme',
+    });
 
-      const result = await fixPackageJson(repoPath);
+    beforeEach(() => {
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+    });
+
+    it('should fix author and contributors if missing', async () => {
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(template);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
 
       expect(result).toBe(true);
       const written = JSON.parse(
         vi.mocked(fs.writeFile).mock.calls[0][1] as string
       );
-      expect(written.author).toBe('Or Assayag <orassayag@gmail.com>');
+      expect(written.author.name).toBe('Or Assayag');
       expect(written.contributors).toHaveLength(1);
-      expect(written.contributors[0].name).toBe('Or Assayag');
     });
 
     it('should return false if already correct', async () => {
       const pkg = JSON.stringify({
-        author: 'Or Assayag <orassayag@gmail.com>',
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
         contributors: [
           {
             name: 'Or Assayag',
@@ -121,51 +149,94 @@ describe('packageJsonFixer', () => {
             url: 'https://github.com/orassayag',
           },
         ],
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
+        type: 'module',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        main: 'dist/index.js',
+        files: [],
       });
-      vi.mocked(fs.readFile).mockResolvedValue(pkg);
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(pkg)
+        .mockResolvedValueOnce(template);
 
-      const result = await fixPackageJson(repoPath);
+      const result = await fixPackageJson(repoPath, 'test-repo');
 
       expect(result).toBe(false);
       expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
-    it('should add contributor if missing but array exists', async () => {
-      const pkg = JSON.stringify({
-        contributors: [{ email: 'other@gmail.com' }],
-      });
-      vi.mocked(fs.readFile).mockResolvedValue(pkg);
-
-      const result = await fixPackageJson(repoPath);
-
-      expect(result).toBe(true);
-      const written = JSON.parse(
-        vi.mocked(fs.writeFile).mock.calls[0][1] as string
-      );
-      expect(written.contributors).toHaveLength(2);
-    });
-
     it('should handle read error', async () => {
       vi.mocked(fs.readFile).mockRejectedValue(new Error('Read Error'));
 
-      const result = await fixPackageJson(repoPath);
+      const result = await fixPackageJson(repoPath, 'test-repo');
 
       expect(result).toBe(false);
       expect(Logger.warn).toHaveBeenCalled();
     });
 
     it('should handle dry run', async () => {
-      const pkg = JSON.stringify({ name: 'test' });
-      vi.mocked(fs.readFile).mockResolvedValue(pkg);
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(template);
       settings.DRY_RUN = true;
 
-      const result = await fixPackageJson(repoPath);
+      const result = await fixPackageJson(repoPath, 'test-repo');
 
       expect(result).toBe(false);
       expect(fs.writeFile).not.toHaveBeenCalled();
       expect(Logger.info).toHaveBeenCalledWith(
         expect.stringContaining('[DRY RUN]')
       );
+    });
+
+    it('should sort files correctly: directories first, then files alphabetically', async () => {
+      const pkg = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
+        type: 'module',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        main: 'dist/index.js',
+        files: [],
+      });
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(pkg)
+        .mockResolvedValueOnce(template);
+
+      vi.mocked(fs.readdir).mockResolvedValue([
+        { name: 'b.txt', isDirectory: (): boolean => false },
+        { name: 'a_dir', isDirectory: (): boolean => true },
+        { name: 'a.txt', isDirectory: (): boolean => false },
+        { name: 'b_dir', isDirectory: (): boolean => true },
+      ] as any);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.files).toEqual(['a_dir', 'b_dir', 'a.txt', 'b.txt']);
     });
   });
 });
