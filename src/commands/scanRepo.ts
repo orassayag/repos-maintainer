@@ -6,13 +6,16 @@ import fs from 'fs/promises';
 
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
-export async function scanRepoCommand(): Promise<void> {
+export async function scanRepoCommand(repo?: {
+  name: string;
+  url: string;
+}): Promise<{ name: string; url: string } | null> {
   try {
     Logger.log('\nScan Repo:');
     Logger.log('==========\n');
 
-    const selectedRepo = await selectRepo();
-    if (!selectedRepo) return;
+    const selectedRepo = repo || (await selectRepo());
+    if (!selectedRepo) return null;
 
     Logger.log(`\n🔍 Starting scan for ${selectedRepo.name}...\n`);
 
@@ -58,7 +61,10 @@ export async function scanRepoCommand(): Promise<void> {
 
     await fs.writeFile(REPORT_PATH, reportContent, 'utf-8');
     Logger.success(`Scan completed! Report saved to: ${REPORT_PATH}`);
+
+    return selectedRepo;
   } catch (err) {
     Logger.error(`Scan failed: ${(err as Error).message}`);
+    return null;
   }
 }

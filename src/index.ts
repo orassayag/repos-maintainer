@@ -71,12 +71,6 @@ export async function preFlightValidation(): Promise<boolean> {
 // Main entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Handle Ctrl+C gracefully
-process.on('SIGINT', () => {
-  console.log('\n\n👋 Goodbye! (SIGINT)');
-  process.exit(0);
-});
-
 export async function main(): Promise<void> {
   Logger.log('\n🚀 Repos Maintainer starting...\n');
 

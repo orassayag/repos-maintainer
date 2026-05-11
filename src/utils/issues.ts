@@ -198,6 +198,10 @@ export const ISSUES = {
     message: 'Lint issues found (run via npx):\n{issues}',
     severity: Severity.VERY_LOW,
   },
+  PACKAGE_JSON_PRIVATE: {
+    message: 'package.json: "private" is set to true',
+    severity: Severity.LOW,
+  },
   LINT_COMMAND_FAILED: {
     message: 'Lint command failed when running via npx.',
     severity: Severity.VERY_LOW,

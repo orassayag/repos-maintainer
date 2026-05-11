@@ -587,6 +587,10 @@ export class Scanner {
           Severity.MEDIUM
         );
 
+      if (pkg.private === true) {
+        this.logIssue('PACKAGE_JSON_PRIVATE');
+      }
+
       // Author Validation
       const expectedAuthor = {
         name: 'Or Assayag',
