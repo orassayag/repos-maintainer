@@ -94,12 +94,40 @@ export async function syncTemplateFiles(
     'tsconfig.json',
     'tsconfig.node.json',
     'vitest.config.ts',
-    'eslint.config.mjs',
   ];
 
   for (const file of templateFiles) {
     const isTsFile = tsTemplateFiles.includes(file);
     const destPath = path.join(repoPath, file);
+
+    // Special logic for ESLint config: copy if missing AND no legacy config exists
+    if (file === 'eslint.config.mjs') {
+      const hasLegacyConfig =
+        (await fs
+          .access(path.join(repoPath, 'eslintrc.json'))
+          .then(() => true)
+          .catch(() => false)) ||
+        (await fs
+          .access(path.join(repoPath, '.eslintrc.json'))
+          .then(() => true)
+          .catch(() => false));
+
+      let configExists = false;
+      try {
+        await fs.access(destPath);
+        configExists = true;
+      } catch {
+        // Not found
+      }
+
+      if (!configExists && !hasLegacyConfig) {
+        const created = await ensureTemplateFile(repoPath, file, true);
+        if (created) {
+          changes.push(`Created missing ESLint config: ${file}`);
+        }
+      }
+      continue;
+    }
 
     // Skip TypeScript template files if no .ts files are found
     if (isTsFile && !hasTsFiles) {
@@ -229,11 +257,11 @@ async function syncLicense(
 
     // LICENSE exists, check if it matches template (ignoring year)
     // We look for any year pattern (YYYY or YYYY-YYYY)
-    const yearRegex = /\d{4}(-\d{4})?/;
+    const yearRegex = /\d{4}(-\d{4})?/g;
     const targetNoYear = destContent.replace(yearRegex, 'YEAR');
     const templateNoYear = templateContent.replace(/#YEAR#/g, 'YEAR');
 
-    if (!targetNoYear.includes(templateNoYear.trim())) {
+    if (targetNoYear.trim() !== templateNoYear.trim()) {
       // Mismatch found, need to update
       const yearMatch = destContent.match(yearRegex);
       if (yearMatch) {

@@ -237,6 +237,43 @@ describe('fileFixer', () => {
       );
     });
 
+    it('should copy eslint.config.mjs if missing and no legacy config exists', async () => {
+      vi.mocked(fs.access).mockImplementation((path) => {
+        if (path.toString().endsWith('eslintrc.json'))
+          return Promise.reject(new Error('not found'));
+        if (path.toString().endsWith('.eslintrc.json'))
+          return Promise.reject(new Error('not found'));
+        if (path.toString().endsWith('eslint.config.mjs'))
+          return Promise.reject(new Error('not found'));
+        return Promise.resolve(undefined);
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('template content');
+
+      const result = await syncTemplateFiles(repoPath, ['eslint.config.mjs']);
+
+      expect(result).toContain(
+        'Created missing ESLint config: eslint.config.mjs'
+      );
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    it('should NOT copy eslint.config.mjs if legacy config exists', async () => {
+      vi.mocked(fs.access).mockImplementation((path) => {
+        if (path.toString().endsWith('eslintrc.json'))
+          return Promise.resolve(undefined);
+        if (path.toString().endsWith('eslint.config.mjs'))
+          return Promise.reject(new Error('not found'));
+        return Promise.resolve(undefined);
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['eslint.config.mjs']);
+
+      expect(result).not.toContain(
+        'Created missing ESLint config: eslint.config.mjs'
+      );
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
     it('should warn if LICENSE has no year', async () => {
       const templateLicense = 'Copyright (c) #YEAR# Or Assayag\nMIT License';
       const existingLicense = 'Copyright (c) Or Assayag\nOld Content';

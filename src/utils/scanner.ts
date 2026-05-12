@@ -426,10 +426,11 @@ export class Scanner {
         this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
       }
     } else if (fileName === 'LICENSE') {
-      // Ignore year in LICENSE. Target has 4-digit year, template has #YEAR#
-      const targetNoYear = targetContent.replace(/\d{4}/g, 'YEAR');
+      // Ignore year in LICENSE. Target has 4-digit year or range, template has #YEAR#
+      const yearRegex = /\d{4}(-\d{4})?/g;
+      const targetNoYear = targetContent.replace(yearRegex, 'YEAR');
       const templateNoYear = templateContent.replace(/#YEAR#/g, 'YEAR');
-      if (!targetNoYear.includes(templateNoYear.trim())) {
+      if (targetNoYear.trim() !== templateNoYear.trim()) {
         this.logIssue('LICENSE_CONTENT_MISMATCH');
       }
     }
