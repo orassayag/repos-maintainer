@@ -98,12 +98,38 @@ export async function syncTemplateFiles(
   ];
 
   for (const file of templateFiles) {
+    const isTsFile = tsTemplateFiles.includes(file);
+    const destPath = path.join(repoPath, file);
+
     // Skip TypeScript template files if no .ts files are found
-    if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+    if (isTsFile && !hasTsFiles) {
+      // If the file exists but it's a JS project, we might want to remove it
+      // if it was previously added by us.
+      try {
+        await fs.access(destPath);
+        // Only remove if it's a standard config file that shouldn't be in a JS project
+        if (
+          ['tsconfig.json', 'tsconfig.node.json', 'vitest.config.ts'].includes(
+            file
+          )
+        ) {
+          if (!settings.DRY_RUN) {
+            await fs.unlink(destPath);
+            changes.push(
+              `Removed TypeScript-only file from JavaScript project: ${file}`
+            );
+          } else {
+            changes.push(
+              `[DRY RUN] Would remove TypeScript-only file from JavaScript project: ${file}`
+            );
+          }
+        }
+      } catch {
+        // File doesn't exist, which is fine
+      }
       continue;
     }
 
-    const destPath = path.join(repoPath, file);
     const templatePath = path.join(settings.TEMPLATES_DIR, file);
 
     let fileExists = false;

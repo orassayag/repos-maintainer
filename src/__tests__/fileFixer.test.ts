@@ -152,6 +152,21 @@ describe('fileFixer', () => {
       expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
+    it('should REMOVE existing TS files if project is NOT TypeScript', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(false);
+
+      vi.mocked(fs.access).mockResolvedValue(undefined); // File exists
+      vi.mocked(fs.unlink).mockResolvedValue(undefined);
+
+      const result = await syncTemplateFiles(repoPath, ['tsconfig.json']);
+
+      expect(result).toContain(
+        'Removed TypeScript-only file from JavaScript project: tsconfig.json'
+      );
+      expect(fs.unlink).toHaveBeenCalled();
+    });
+
     it('should sync .gitignore by appending missing lines', async () => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(true);

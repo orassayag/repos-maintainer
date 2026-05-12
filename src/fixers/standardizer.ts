@@ -130,8 +130,27 @@ export async function standardizeRepo(
   ];
 
   for (const file of TEMPLATE_FILES) {
+    const isTsFile = tsTemplateFiles.includes(file);
+
     // Skip TypeScript template files if no .ts files are found
-    if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+    if (isTsFile && !hasTsFiles) {
+      // If the file exists but it's a JS project, remove it
+      if (
+        ['tsconfig.json', 'tsconfig.node.json', 'vitest.config.ts'].includes(
+          file
+        )
+      ) {
+        const destPath = path.join(localPath, file);
+        try {
+          await fs.access(destPath);
+          if (!settings.DRY_RUN) {
+            await fs.unlink(destPath);
+            changes.push(`Removed ${file} (JS project)`);
+          }
+        } catch {
+          // File doesn't exist
+        }
+      }
       continue;
     }
 
