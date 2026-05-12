@@ -7,6 +7,7 @@ import { ensureRepoCloned } from '../utils/git.js';
 import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
 import { getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
+import { syncTemplateFiles } from '../utils/fileFixer.js';
 
 vi.mock('fs/promises');
 vi.mock('../utils/logger.js');
@@ -15,6 +16,7 @@ vi.mock('../utils/git.js');
 vi.mock('../github.js');
 vi.mock('../settings.js');
 vi.mock('../fixers/packageJsonFixer.js');
+vi.mock('../utils/fileFixer.js');
 
 describe('syncRepoCommand', () => {
   const mockRepo = {
@@ -34,6 +36,7 @@ describe('syncRepoCommand', () => {
     vi.mocked(repoExists).mockResolvedValue(true);
     vi.mocked(ensureRepoCloned).mockResolvedValue(true);
     vi.mocked(fixPackageJson).mockResolvedValue(false);
+    vi.mocked(syncTemplateFiles).mockResolvedValue([]);
   });
 
   it('should return early if no repo is selected', async () => {
@@ -122,6 +125,19 @@ describe('syncRepoCommand', () => {
     await syncRepoCommand();
 
     expect(fixPackageJson).toHaveBeenCalledWith(mockRepoPath, 'test-repo');
+  });
+
+  it('should call syncTemplateFiles during sync', async () => {
+    const pkg = { name: 'test-repo' };
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkg));
+    vi.mocked(syncTemplateFiles).mockResolvedValue(['Created missing LICENSE']);
+
+    await syncRepoCommand();
+
+    expect(syncTemplateFiles).toHaveBeenCalled();
+    expect(Logger.success).toHaveBeenCalledWith(
+      expect.stringContaining('Created missing LICENSE')
+    );
   });
 
   it('should handle errors during sync', async () => {

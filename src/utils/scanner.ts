@@ -24,6 +24,7 @@ import {
   RepoMetadata,
 } from '../github.js';
 import { normalizeToTitle, stripAnsi } from './stringUtils.js';
+import { isTypeScriptProject } from './projectType.js';
 
 export interface ScanIssue {
   severity: Severity;
@@ -156,8 +157,7 @@ export class Scanner {
       // but in this project it should.
     }
 
-    const allRepoFiles = await this.getAllFiles(repoPath);
-    const hasTsFiles = allRepoFiles.some((f) => f.endsWith('.ts'));
+    const hasTsFiles = await isTypeScriptProject(repoPath);
 
     for (const file of templateFiles) {
       if (excludedPaths.includes(file)) continue;
@@ -167,6 +167,7 @@ export class Scanner {
         'tsconfig.json',
         'tsconfig.node.json',
         'vitest.config.ts',
+        'eslint.config.mjs',
       ];
       if (tsTemplateFiles.includes(file) && !hasTsFiles) {
         continue;
@@ -214,6 +215,7 @@ export class Scanner {
         repo.name,
         githubMetadata ? githubMetadata.topics : null
       );
+      this.scanPackageJsonSorting(repoPath);
     }
 
     // 8. Formatter Scan
@@ -281,9 +283,14 @@ export class Scanner {
       command += ' --no-dependencies';
     }
 
-    const excludedPaths = getExcludedKnipPaths(this.currentRepoName);
-    if (excludedPaths.length > 0) {
-      for (const p of excludedPaths) {
+    const knipExcludedPaths = getExcludedKnipPaths(this.currentRepoName);
+    const globalExcludedPaths = getExcludedPaths(this.currentRepoName);
+    const allExcludedPaths = [
+      ...new Set([...knipExcludedPaths, ...globalExcludedPaths]),
+    ];
+
+    if (allExcludedPaths.length > 0) {
+      for (const p of allExcludedPaths) {
         command += ` --ignore "${p}"`;
       }
     }
@@ -324,7 +331,7 @@ export class Scanner {
           if (isPkgExcluded) continue;
 
           // Check if line contains any excluded path
-          const isPathExcluded = excludedPaths.some((p) => {
+          const isPathExcluded = allExcludedPaths.some((p) => {
             const normalizedPath = p.replace(/\\/g, '/');
             // Remove leading dash or spaces if present to check the path correctly
             const cleanTrimmed = trimmed.startsWith('-')
@@ -784,6 +791,23 @@ export class Scanner {
     }
   }
 
+  private scanPackageJsonSorting(repoPath: string): void {
+    const pkgPath = path.join(repoPath, 'package.json');
+    if (!existsSync(pkgPath)) return;
+
+    try {
+      const result = this.runCmd(
+        'npx --yes sort-package-json --check',
+        repoPath
+      );
+      if (result.combined.includes('is not sorted')) {
+        this.logIssue('PACKAGE_JSON_UNSORTED');
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
+
   private scanTests(repoPath: string): void {
     const pkg = this.readPkg(repoPath);
     if (!pkg.scripts?.test) return;
@@ -838,9 +862,26 @@ export class Scanner {
     ) {
       // Strip ANSI codes and check if it's a real lint issue
       const cleanCombined = stripAnsi(result.combined);
+      const excludedPaths = getExcludedPaths(this.currentRepoName);
+
       const issues = cleanCombined
         .split('\n')
-        .filter((line) => line.includes('error') || line.includes('warning'))
+        .filter((line) => {
+          const isIssue = line.includes('error') || line.includes('warning');
+          if (!isIssue) return false;
+
+          if (excludedPaths.length > 0) {
+            const isExcluded = excludedPaths.some(
+              (p) =>
+                line.includes(p + '/') ||
+                line.includes(p + '\\') ||
+                line.includes(' ' + p + ':') ||
+                line.includes(' ' + p + ' ')
+            );
+            if (isExcluded) return false;
+          }
+          return true;
+        })
         .slice(0, 5); // Limit to first 5 issues
 
       if (issues.length > 0) {
@@ -1118,7 +1159,21 @@ export class Scanner {
     for (const fmt of formatters) {
       if (fmt.detect(repoPath)) {
         try {
-          const unformatted = fmt.check(repoPath);
+          let unformatted = fmt.check(repoPath);
+
+          // Filter excluded paths
+          const excludedPaths = getExcludedPaths(this.currentRepoName);
+          if (excludedPaths.length > 0) {
+            unformatted = unformatted.filter((file) => {
+              return !excludedPaths.some(
+                (excluded) =>
+                  file === excluded ||
+                  file.startsWith(excluded + '/') ||
+                  file.startsWith(excluded + '\\')
+              );
+            });
+          }
+
           if (unformatted.length > 0) {
             this.logIssue('FORMATTER_UNFORMATTED', {
               formatter: fmt.name,

@@ -37,6 +37,9 @@ vi.mock('../github.js', () => ({
   isRepoWatched: vi.fn(),
   getRulesets: vi.fn(),
 }));
+vi.mock('../utils/projectType.js', () => ({
+  isTypeScriptProject: vi.fn(),
+}));
 
 describe('Scanner', () => {
   let scanner: Scanner;
@@ -76,17 +79,15 @@ describe('Scanner', () => {
 
   describe('Template Scan', () => {
     it('should NOT report missing TS template files for JS-only projects', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(false);
+
       const templatesDir = path.join(process.cwd(), 'src', 'templates');
       vi.mocked(fs.readdir).mockImplementation((p: any) => {
         const pathStr = p.toString();
         if (pathStr === templatesDir) {
           return Promise.resolve([
             { name: 'tsconfig.json', isDirectory: (): boolean => false },
-          ] as any);
-        }
-        if (pathStr === `/mock/path/${mockRepo.name}`) {
-          return Promise.resolve([
-            { name: 'index.js', isDirectory: (): boolean => false },
           ] as any);
         }
         return Promise.resolve([]);
@@ -108,17 +109,15 @@ describe('Scanner', () => {
     });
 
     it('should report missing TS template files for TS projects', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
       const templatesDir = path.join(process.cwd(), 'src', 'templates');
       vi.mocked(fs.readdir).mockImplementation((p: any) => {
         const pathStr = p.toString();
         if (pathStr === templatesDir) {
           return Promise.resolve([
             { name: 'tsconfig.json', isDirectory: (): boolean => false },
-          ] as any);
-        }
-        if (pathStr === `/mock/path/${mockRepo.name}`) {
-          return Promise.resolve([
-            { name: 'index.ts', isDirectory: (): boolean => false },
           ] as any);
         }
         return Promise.resolve([]);
@@ -580,19 +579,8 @@ describe('Scanner', () => {
 
   describe('scanTypeScriptRules', () => {
     it('should report missing tsconfig files if .ts files exist', async () => {
-      // Mock readdir to return some .ts files
-      vi.mocked(fs.readdir).mockImplementation((dir: any) => {
-        const dirStr = dir.toString();
-        if (dirStr.includes('src')) {
-          return Promise.resolve([
-            { name: 'index.ts', isDirectory: (): boolean => false },
-          ] as any);
-        }
-        return Promise.resolve([
-          { name: 'src', isDirectory: (): boolean => true },
-          { name: 'package.json', isDirectory: (): boolean => false },
-        ] as any);
-      });
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
 
       vi.mocked(existsSync).mockImplementation((p: any) => {
         const pathStr = p.toString();
@@ -628,11 +616,8 @@ describe('Scanner', () => {
     });
 
     it('should NOT report missing files if NO .ts files exist', async () => {
-      // Mock readdir to return NO .ts files
-      vi.mocked(fs.readdir).mockResolvedValue([
-        { name: 'index.js', isDirectory: (): boolean => false },
-        { name: 'package.json', isDirectory: (): boolean => false },
-      ] as any);
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(false);
 
       vi.mocked(existsSync).mockReturnValue(false);
 
@@ -817,6 +802,63 @@ describe('Scanner', () => {
       );
       expect(prettierIssue).toBeDefined();
       expect(prettierIssue?.message).toContain('2 file(s) unformatted');
+    });
+
+    it('should filter out excluded paths from formatters', async () => {
+      const { getExcludedPaths } = await import('../utils/excludes.js');
+      vi.mocked(getExcludedPaths).mockReturnValue(['misc', 'db/days.json']);
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('.prettierrc')) return true;
+        return false;
+      });
+
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout:
+          '[warn] file1.ts\n[warn] misc/file2.ts\n[warn] db/days.json\n[warn] other/file3.ts',
+        stderr: '',
+        status: 0,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const prettierIssue = result.issues.find((i) =>
+        i.message.includes('Prettier')
+      );
+      expect(prettierIssue).toBeDefined();
+      // Should only have file1.ts and other/file3.ts (2 files)
+      expect(prettierIssue?.message).toContain('2 file(s) unformatted');
+      expect(prettierIssue?.message).toContain('file1.ts');
+      expect(prettierIssue?.message).toContain('other/file3.ts');
+      expect(prettierIssue?.message).not.toContain('misc/file2.ts');
+      expect(prettierIssue?.message).not.toContain('db/days.json');
+    });
+
+    it('should filter out excluded paths from lint issues', async () => {
+      const { getExcludedPaths } = await import('../utils/excludes.js');
+      vi.mocked(getExcludedPaths).mockReturnValue(['misc']);
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({ scripts: { lint: 'eslint .' } });
+        return '';
+      });
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        if (p.toString().includes('node_modules')) return false; // Trigger npx lint
+        return false;
+      });
+
+      vi.mocked(spawnSync).mockReturnValue({
+        stdout: 'error in misc/file.ts\nerror in src/main.ts',
+        stderr: '',
+        status: 1,
+      } as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+      const lintIssue = result.issues.find((i) => i.message.includes('Lint'));
+      expect(lintIssue).toBeDefined();
+      expect(lintIssue?.message).toContain('src/main.ts');
+      expect(lintIssue?.message).not.toContain('misc/file.ts');
     });
 
     it('should detect and check ESLint', async () => {

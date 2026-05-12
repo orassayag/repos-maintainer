@@ -1,11 +1,14 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { execSync } from 'child_process';
 import { Logger } from '../utils/logger.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import { ensureRepoCloned } from '../utils/git.js';
 import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
 import { settings, getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
+import { syncTemplateFiles } from '../utils/fileFixer.js';
+import { TEMPLATE_FILES } from '../fixers/standardizer.js';
 
 /**
  * Syncs a repository's package.json with its GitHub metadata and local file system.
@@ -83,9 +86,23 @@ export async function syncRepoCommand(): Promise<{
       }
     }
 
-    // B. Standardize package.json (funding, engines, contributors, author, main, type, files)
+    // B. Sync Template Files (.gitignore, LICENSE, and other missing files)
+    Logger.log('📄 Syncing template files...');
+    const templateChanges = await syncTemplateFiles(repoPath, TEMPLATE_FILES);
+    if (templateChanges.length > 0) {
+      changed = true;
+      templateChanges.forEach((change) => {
+        if (change.startsWith('Unable to update')) {
+          Logger.warn(`  - ${change}`);
+        } else {
+          Logger.success(`  - ${change}`);
+        }
+      });
+    }
+
+    // C. Standardize package.json (funding, engines, contributors, author, main, type, files)
     if (changed) {
-      // If keywords changed, write them first so fixPackageJson sees the update
+      // If keywords or templates changed, write them first so fixPackageJson sees the update
       await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
     }
 
@@ -94,8 +111,22 @@ export async function syncRepoCommand(): Promise<{
       changed = true;
     }
 
+    // D. Sort package.json
+    Logger.log('🧹 Sorting package.json...');
+    try {
+      execSync('npx --yes sort-package-json', {
+        cwd: repoPath,
+        stdio: 'ignore',
+      });
+      // We assume it might have changed something if it ran successfully
+      // or we could check if it actually changed, but the instruction just says "fix it by running"
+      changed = true;
+    } catch (err) {
+      Logger.error(`Failed to sort package.json: ${(err as Error).message}`);
+    }
+
     if (changed) {
-      Logger.success('Updated package.json');
+      Logger.success('Updated project');
       Logger.log(
         '\n⚠️ Successfully sync the project, you should manually commit and push the changes on the project'
       );

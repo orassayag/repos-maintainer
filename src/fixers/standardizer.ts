@@ -13,6 +13,7 @@ import { fixPackageJson } from './packageJsonFixer.js';
 import { fixReadme } from './readmeFixer.js';
 import { fixMetadata } from './metadataFixer.js';
 import { fixRulesets } from './rulesetsFixer.js';
+import { isTypeScriptProject } from '../utils/projectType.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -26,7 +27,7 @@ export interface StandardizeResult {
 }
 
 // Standard template files to ensure
-const TEMPLATE_FILES = [
+export const TEMPLATE_FILES = [
   'LICENSE',
   'CONTRIBUTING.md',
   'CHANGELOG.md',
@@ -120,7 +121,20 @@ export async function standardizeRepo(
 
   // ── Step 5: Standard files from templates ──────────────────────────────
   let templatesCreated = false;
+  const hasTsFiles = await isTypeScriptProject(localPath);
+  const tsTemplateFiles = [
+    'tsconfig.json',
+    'tsconfig.node.json',
+    'vitest.config.ts',
+    'eslint.config.mjs',
+  ];
+
   for (const file of TEMPLATE_FILES) {
+    // Skip TypeScript template files if no .ts files are found
+    if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+      continue;
+    }
+
     try {
       const created = await ensureTemplateFile(localPath, file, true);
       if (created) {
@@ -141,13 +155,16 @@ export async function standardizeRepo(
   try {
     await fs.mkdir(path.join(localPath, 'misc'), { recursive: true });
     await fs.mkdir(path.join(localPath, 'src'), { recursive: true });
-    // Create empty index.ts in src if it doesn't exist
-    const indexPath = path.join(localPath, 'src', 'index.ts');
-    try {
-      await fs.access(indexPath);
-    } catch {
-      await fs.writeFile(indexPath, '', 'utf-8');
-      changes.push('src/index.ts: Created empty file');
+
+    // Only create index.ts if it's a TypeScript project
+    if (hasTsFiles) {
+      const indexPath = path.join(localPath, 'src', 'index.ts');
+      try {
+        await fs.access(indexPath);
+      } catch {
+        await fs.writeFile(indexPath, '', 'utf-8');
+        changes.push('src/index.ts: Created empty file');
+      }
     }
   } catch (err) {
     const msg = `Folders/index.ts: ${(err as Error).message}`;

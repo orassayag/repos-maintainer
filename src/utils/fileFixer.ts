@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { settings } from '../settings.js';
 import { Logger } from './logger.js';
+import { isTypeScriptProject } from './projectType.js';
 
 /**
  * Ensures a standard file exists in the repo based on overwrite policy.
@@ -75,6 +76,153 @@ export async function ensureTemplateFile(
     Logger.success(`${action}: ${templateName}`);
   }
   return true;
+}
+
+/**
+ * Syncs standard template files in the repo based on the user's logic.
+ * 1. .gitignore: copy if missing, or append missing lines in a new section.
+ * 2. LICENSE: handle missing, mismatching, and year extraction.
+ * 3. Other files: copy if missing.
+ */
+export async function syncTemplateFiles(
+  repoPath: string,
+  templateFiles: string[]
+): Promise<string[]> {
+  const changes: string[] = [];
+  const hasTsFiles = await isTypeScriptProject(repoPath);
+  const tsTemplateFiles = [
+    'tsconfig.json',
+    'tsconfig.node.json',
+    'vitest.config.ts',
+    'eslint.config.mjs',
+  ];
+
+  for (const file of templateFiles) {
+    // Skip TypeScript template files if no .ts files are found
+    if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+      continue;
+    }
+
+    const destPath = path.join(repoPath, file);
+    const templatePath = path.join(settings.TEMPLATES_DIR, file);
+
+    let fileExists = false;
+    try {
+      await fs.access(destPath);
+      fileExists = true;
+    } catch {
+      // File doesn't exist
+    }
+
+    if (file === '.gitignore') {
+      const gitignoreChange = await syncGitignore(destPath, templatePath);
+      if (gitignoreChange) changes.push(gitignoreChange);
+      continue;
+    }
+
+    if (file === 'LICENSE') {
+      const licenseChange = await syncLicense(destPath, templatePath);
+      if (licenseChange) changes.push(licenseChange);
+      continue;
+    }
+
+    // Default logic for other files: copy if missing
+    if (!fileExists) {
+      const created = await ensureTemplateFile(repoPath, file, true);
+      if (created) {
+        changes.push(`Created missing file: ${file}`);
+      }
+    }
+  }
+
+  return changes;
+}
+
+async function syncGitignore(
+  destPath: string,
+  templatePath: string
+): Promise<string | null> {
+  try {
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+
+    let destContent: string;
+    try {
+      destContent = await fs.readFile(destPath, 'utf-8');
+    } catch {
+      // .gitignore doesn't exist, just copy it
+      await fs.writeFile(destPath, templateContent, 'utf-8');
+      return 'Created missing .gitignore';
+    }
+
+    const destLines = new Set(
+      destContent
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('#'))
+    );
+    const templateLines = templateContent
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+
+    const missingLines: string[] = [];
+    for (const line of templateLines) {
+      if (!destLines.has(line)) {
+        missingLines.push(line);
+      }
+    }
+
+    if (missingLines.length > 0) {
+      const newSection = `\n# Others:\n${missingLines.join('\n')}\n`;
+      await fs.appendFile(destPath, newSection, 'utf-8');
+      return `Added ${missingLines.length} missing lines to .gitignore`;
+    }
+  } catch (err) {
+    Logger.error(`Failed to sync .gitignore: ${(err as Error).message}`);
+  }
+  return null;
+}
+
+async function syncLicense(
+  destPath: string,
+  templatePath: string
+): Promise<string | null> {
+  try {
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+    const currentYear = new Date().getFullYear().toString();
+
+    let destContent: string;
+    try {
+      destContent = await fs.readFile(destPath, 'utf-8');
+    } catch {
+      // LICENSE doesn't exist, create it with current year
+      const content = templateContent.replace(/#YEAR#/g, currentYear);
+      await fs.writeFile(destPath, content, 'utf-8');
+      return 'Created missing LICENSE';
+    }
+
+    // LICENSE exists, check if it matches template (ignoring year)
+    // We look for any year pattern (YYYY or YYYY-YYYY)
+    const yearRegex = /\d{4}(-\d{4})?/;
+    const targetNoYear = destContent.replace(yearRegex, 'YEAR');
+    const templateNoYear = templateContent.replace(/#YEAR#/g, 'YEAR');
+
+    if (!targetNoYear.includes(templateNoYear.trim())) {
+      // Mismatch found, need to update
+      const yearMatch = destContent.match(yearRegex);
+      if (yearMatch) {
+        const existingYear = yearMatch[0];
+        const content = templateContent.replace(/#YEAR#/g, existingYear);
+        await fs.writeFile(destPath, content, 'utf-8');
+        return `Updated LICENSE (preserved year: ${existingYear})`;
+      } else {
+        return "Unable to update the LICENSE file since it doesn't contain a year";
+      }
+    }
+  } catch (err) {
+    Logger.error(`Failed to sync LICENSE: ${(err as Error).message}`);
+  }
+  return null;
 }
 
 /**

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   ensureTemplateFile,
   getChangelogCommitMessage,
+  syncTemplateFiles,
 } from '../utils/fileFixer.js';
 import fs from 'fs/promises';
 import { settings } from '../settings.js';
@@ -15,6 +16,9 @@ vi.mock('../settings.js', () => ({
     OVERWRITE_POLICY: {} as Record<string, string>,
     DRY_RUN: false,
   },
+}));
+vi.mock('../utils/projectType.js', () => ({
+  isTypeScriptProject: vi.fn(),
 }));
 
 describe('fileFixer', () => {
@@ -118,6 +122,123 @@ describe('fileFixer', () => {
       vi.mocked(fs.readFile).mockRejectedValue(new Error('not found'));
       const message = await getChangelogCommitMessage(repoPath);
       expect(message).toBeNull();
+    });
+  });
+
+  describe('syncTemplateFiles', () => {
+    it('should copy missing files', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      vi.mocked(fs.access).mockRejectedValue(new Error('not found'));
+      vi.mocked(fs.readFile).mockResolvedValue('template content');
+
+      const result = await syncTemplateFiles(repoPath, ['.prettierrc']);
+
+      expect(result).toContain('Created missing file: .prettierrc');
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    it('should NOT copy missing TS files if project is NOT TypeScript', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(false);
+
+      vi.mocked(fs.access).mockRejectedValue(new Error('not found'));
+      vi.mocked(fs.readFile).mockResolvedValue('template content');
+
+      const result = await syncTemplateFiles(repoPath, ['tsconfig.json']);
+
+      expect(result).not.toContain('Created missing file: tsconfig.json');
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should sync .gitignore by appending missing lines', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      const templateGitignore = 'node_modules/\ndist/\n# Comment\n.env';
+      const existingGitignore = 'node_modules/\n';
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateGitignore);
+        return Promise.resolve(existingGitignore);
+      });
+      vi.mocked(fs.appendFile).mockResolvedValue(undefined);
+
+      const result = await syncTemplateFiles(repoPath, ['.gitignore']);
+
+      expect(result).toContain('Added 2 missing lines to .gitignore');
+      expect(fs.appendFile).toHaveBeenCalledWith(
+        expect.stringContaining('.gitignore'),
+        expect.stringContaining('# Others:\ndist/\n.env'),
+        'utf-8'
+      );
+    });
+
+    it('should sync LICENSE and preserve year', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      const templateLicense = 'Copyright (c) #YEAR# Or Assayag\nMIT License';
+      const existingLicense = 'Copyright (c) 2023 Or Assayag\nOld Content';
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateLicense);
+        return Promise.resolve(existingLicense);
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['LICENSE']);
+
+      expect(result).toContain('Updated LICENSE (preserved year: 2023)');
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('LICENSE'),
+        'Copyright (c) 2023 Or Assayag\nMIT License',
+        'utf-8'
+      );
+    });
+
+    it('should handle LICENSE with year range', async () => {
+      const templateLicense = 'Copyright (c) #YEAR# Or Assayag\nMIT License';
+      const existingLicense = 'Copyright (c) 2017-2023 Or Assayag\nOld Content';
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateLicense);
+        return Promise.resolve(existingLicense);
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['LICENSE']);
+
+      expect(result).toContain('Updated LICENSE (preserved year: 2017-2023)');
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('LICENSE'),
+        'Copyright (c) 2017-2023 Or Assayag\nMIT License',
+        'utf-8'
+      );
+    });
+
+    it('should warn if LICENSE has no year', async () => {
+      const templateLicense = 'Copyright (c) #YEAR# Or Assayag\nMIT License';
+      const existingLicense = 'Copyright (c) Or Assayag\nOld Content';
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateLicense);
+        return Promise.resolve(existingLicense);
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['LICENSE']);
+
+      expect(result).toContain(
+        "Unable to update the LICENSE file since it doesn't contain a year"
+      );
+      expect(fs.writeFile).not.toHaveBeenCalled();
     });
   });
 });

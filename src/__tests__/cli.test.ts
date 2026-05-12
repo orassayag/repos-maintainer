@@ -110,7 +110,6 @@ describe('cli', () => {
 
     vi.mocked(select)
       .mockResolvedValueOnce('sync-repo')
-      .mockResolvedValueOnce('rescan')
       .mockResolvedValueOnce('exit');
 
     vi.mocked(syncRepoCommand).mockResolvedValueOnce(mockRepo);
@@ -126,7 +125,7 @@ describe('cli', () => {
     }
 
     expect(syncRepoCommand).toHaveBeenCalled();
-    // After sync-repo, rescan should be called with the synced repo
+    // After sync-repo, rescan should be called automatically with the synced repo
     expect(scanRepoCommand).toHaveBeenCalledWith(mockRepo);
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
@@ -137,7 +136,6 @@ describe('cli', () => {
 
     vi.mocked(select)
       .mockResolvedValueOnce('add')
-      .mockResolvedValueOnce('rescan')
       .mockResolvedValueOnce('exit');
 
     vi.mocked(addRepoCommand).mockResolvedValueOnce(mockRepo);
@@ -153,7 +151,7 @@ describe('cli', () => {
     }
 
     expect(addRepoCommand).toHaveBeenCalled();
-    // After add, rescan should be called with the added repo
+    // After add, rescan should be called automatically with the added repo
     expect(scanRepoCommand).toHaveBeenCalledWith(mockRepo);
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();

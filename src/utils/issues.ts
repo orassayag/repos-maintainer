@@ -155,6 +155,10 @@ export const ISSUES = {
       'package.json: Description length is {actualLen} (expected 290-300 chars)',
     severity: Severity.MEDIUM,
   },
+  PACKAGE_JSON_UNSORTED: {
+    message: 'package.json: The file is unsorted',
+    severity: Severity.VERY_LOW,
+  },
   GITHUB_STAR_MISSING: {
     message: 'GitHub: Repository is NOT starred by you',
     severity: Severity.LOW,
