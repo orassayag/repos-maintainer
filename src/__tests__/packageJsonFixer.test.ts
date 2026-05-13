@@ -111,6 +111,10 @@ describe('packageJsonFixer', () => {
       ],
       funding: { type: 'github', url: 'https://github.com/sponsors/orassayag' },
       type: 'module',
+      repository: {
+        type: 'git',
+        url: 'git://github.com/orassayag/#REPO-NAME#.git',
+      },
       bugs: { url: 'https://github.com/orassayag/#REPO-NAME#/issues' },
       homepage: 'https://github.com/orassayag/#REPO-NAME##readme',
     });
@@ -135,6 +139,27 @@ describe('packageJsonFixer', () => {
       expect(written.contributors).toHaveLength(1);
     });
 
+    it('should fix repository field if missing or incorrect', async () => {
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(
+          JSON.stringify({
+            name: 'test',
+            repository: { type: 'git', url: 'wrong-url' },
+          })
+        )
+        .mockResolvedValueOnce(template);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.repository.url).toBe(
+        'git://github.com/orassayag/test-repo.git'
+      );
+    });
+
     it('should return false if already correct', async () => {
       const pkg = JSON.stringify({
         author: {
@@ -155,6 +180,10 @@ describe('packageJsonFixer', () => {
         },
         engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
         type: 'module',
+        repository: {
+          type: 'git',
+          url: 'git://github.com/orassayag/test-repo.git',
+        },
         bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
         homepage: 'https://github.com/orassayag/test-repo#readme',
         main: 'dist/index.js',

@@ -212,7 +212,22 @@ export async function fixPackageJson(
       Logger.info('Updated "type" in package.json');
     }
 
-    // 8. bugs
+    // 8. repository
+    if (templatePkg.repository) {
+      const expectedRepository = JSON.parse(
+        JSON.stringify(templatePkg.repository).replace(/#REPO-NAME#/g, repoName)
+      );
+      if (
+        !pkg.repository ||
+        JSON.stringify(pkg.repository) !== JSON.stringify(expectedRepository)
+      ) {
+        pkg.repository = expectedRepository;
+        changed = true;
+        Logger.info('Updated "repository" in package.json');
+      }
+    }
+
+    // 9. bugs
     if (templatePkg.bugs) {
       const expectedBugs = JSON.parse(
         JSON.stringify(templatePkg.bugs).replace(/#REPO-NAME#/g, repoName)
@@ -227,7 +242,7 @@ export async function fixPackageJson(
       }
     }
 
-    // 9. homepage
+    // 10. homepage
     if (templatePkg.homepage) {
       const expectedHomepage = templatePkg.homepage.replace(
         /#REPO-NAME#/g,
