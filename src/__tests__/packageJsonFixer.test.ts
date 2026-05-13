@@ -238,5 +238,54 @@ describe('packageJsonFixer', () => {
       );
       expect(written.files).toEqual(['a_dir', 'b_dir', 'a.txt', 'b.txt']);
     });
+
+    it('should exclude "coverage", ".git" and "node_modules" from files section', async () => {
+      const pkg = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
+        type: 'module',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        main: 'dist/index.js',
+        files: [],
+      });
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(pkg)
+        .mockResolvedValueOnce(template);
+
+      vi.mocked(fs.readdir).mockResolvedValue([
+        { name: 'src', isDirectory: (): boolean => true },
+        { name: 'coverage', isDirectory: (): boolean => true },
+        { name: '.git', isDirectory: (): boolean => true },
+        { name: 'node_modules', isDirectory: (): boolean => true },
+        { name: 'package.json', isDirectory: (): boolean => false },
+      ] as any);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.files).toEqual(['src', 'package.json']);
+      expect(written.files).not.toContain('coverage');
+      expect(written.files).not.toContain('.git');
+      expect(written.files).not.toContain('node_modules');
+    });
   });
 });

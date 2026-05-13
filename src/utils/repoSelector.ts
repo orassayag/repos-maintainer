@@ -36,9 +36,14 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
       : repoNameOrUrl.toLowerCase();
 
     for (const entry of repoList) {
-      const [name, url] = entry.includes(':')
-        ? entry.split(':').map((s) => s.trim())
-        : [entry.trim(), ''];
+      const colonIndex = entry.indexOf(':');
+      const [name, url] =
+        colonIndex !== -1
+          ? [
+              entry.slice(0, colonIndex).trim(),
+              entry.slice(colonIndex + 1).trim(),
+            ]
+          : [entry.trim(), ''];
 
       if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
         selectedRepo = { name, url };
@@ -49,9 +54,9 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
     if (!selectedRepo) {
       // Try similar match (fuzzy)
       const suggestions = repoList.filter((entry) => {
-        const name = entry.includes(':')
-          ? entry.split(':')[0].trim()
-          : entry.trim();
+        const colonIndex = entry.indexOf(':');
+        const name =
+          colonIndex !== -1 ? entry.slice(0, colonIndex).trim() : entry.trim();
         return name.toLowerCase().includes(inputName);
       });
 
@@ -61,21 +66,30 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
           const prompt = new AutoComplete({
             name: 'repo',
             message: 'Repo not found. Did you mean one of these?',
-            choices: suggestions.map((s) =>
-              s.includes(':') ? s.split(':')[0].trim() : s.trim()
-            ),
+            choices: suggestions.map((s) => {
+              const colonIndex = s.indexOf(':');
+              return colonIndex !== -1
+                ? s.slice(0, colonIndex).trim()
+                : s.trim();
+            }),
           });
 
           const selectedName = (await prompt.run()) as string;
-          const entry = repoList.find(
-            (s) =>
-              (s.includes(':') ? s.split(':')[0].trim() : s.trim()) ===
-              selectedName
-          );
+          const entry = repoList.find((s) => {
+            const colonIndex = s.indexOf(':');
+            const name =
+              colonIndex !== -1 ? s.slice(0, colonIndex).trim() : s.trim();
+            return name === selectedName;
+          });
           if (entry) {
-            const [name, url] = entry.includes(':')
-              ? entry.split(':').map((s) => s.trim())
-              : [entry.trim(), ''];
+            const colonIndex = entry.indexOf(':');
+            const [name, url] =
+              colonIndex !== -1
+                ? [
+                    entry.slice(0, colonIndex).trim(),
+                    entry.slice(colonIndex + 1).trim(),
+                  ]
+                : [entry.trim(), ''];
             selectedRepo = { name, url };
           }
         } catch (_e) {

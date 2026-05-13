@@ -4,67 +4,159 @@ import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Expected sections (must match exactly what the plan specifies)
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AUTHOR_SECTION = `## Author
- 
-**${settings.AUTHOR_NAME}**
+/**
+ * Extracts a section from markdown content starting with ## SectionName.
+ * Continues until the next ## header or end of file.
+ */
+function extractSection(content: string, sectionName: string): string | null {
+  const lines = content.split('\n');
+  const sectionHeader = `## ${sectionName}`;
+  const startIndex = lines.findIndex(
+    (line) => line.trim().toLowerCase() === sectionHeader.toLowerCase()
+  );
 
-- Email: ${settings.AUTHOR_EMAIL}
-- GitHub: [@${settings.AUTHOR_GITHUB}](https://github.com/${settings.AUTHOR_GITHUB})
-- StackOverflow: [${settings.AUTHOR_STACKOVERFLOW}](https://stackoverflow.com/users/4442606/${settings.AUTHOR_STACKOVERFLOW})
-- LinkedIn: [${settings.AUTHOR_GITHUB}](https://linkedin.com/in/${settings.AUTHOR_GITHUB})
-`;
+  if (startIndex === -1) {
+    return null;
+  }
 
-const LICENSE_SECTION = `## License
+  let endIndex = lines.findIndex(
+    (line, index) => index > startIndex && line.startsWith('## ')
+  );
+  if (endIndex === -1) endIndex = lines.length;
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-`;
+  const result = lines.slice(startIndex, endIndex).join('\n').trim();
+  return result;
+}
 
 /**
- * Ensures the README.md has Author and License sections at the bottom.
- * Idempotent — checks for existing sections before appending.
- * Returns true if changes were made.
+ * Ensures the README.md has License, Author, and Acknowledgments sections.
+ * If missing or different from the template, updates them.
  */
 export async function fixReadme(repoPath: string): Promise<boolean> {
   const readmePath = path.join(repoPath, 'README.md');
+  const templatePath = path.join(settings.TEMPLATES_DIR, 'README.md');
 
   try {
-    let content = await fs.readFile(readmePath, 'utf-8');
-
-    // Check if Author section already exists with the correct name (idempotent)
-    const hasAuthor =
-      content.includes('## Author') && content.includes(settings.AUTHOR_NAME);
-    const hasLicense =
-      content.includes('## License') && content.includes('MIT License');
-
-    if (hasAuthor && hasLicense) {
-      return false; // Already has both sections
+    // Check if README.md exists
+    try {
+      await fs.access(readmePath);
+    } catch {
+      return false; // Skip if file doesn't exist
     }
 
-    if (settings.DRY_RUN) {
-      Logger.log('🔍 [DRY RUN] Would add Author/License section to README.md');
-      return false;
+    const [content, templateContent] = await Promise.all([
+      fs.readFile(readmePath, 'utf-8'),
+      fs.readFile(templatePath, 'utf-8'),
+    ]);
+
+    let updatedContent = content;
+    let changed = false;
+
+    const sectionsToSync = ['License', 'Author', 'Acknowledgments'];
+
+    for (const sectionName of sectionsToSync) {
+      const templateSection = extractSection(templateContent, sectionName);
+      if (!templateSection) {
+        continue;
+      }
+
+      const currentSection = extractSection(updatedContent, sectionName);
+
+      if (currentSection) {
+        if (currentSection !== templateSection) {
+          // Replace existing section
+          updatedContent = updatedContent.replace(
+            currentSection,
+            templateSection
+          );
+          changed = true;
+        }
+      } else {
+        // Append missing section
+        updatedContent =
+          updatedContent.trimEnd() + '\n\n' + templateSection + '\n';
+        changed = true;
+      }
     }
 
-    // Ensure content ends with newline
-    if (!content.endsWith('\n')) {
-      content += '\n';
+    if (changed) {
+      if (settings.DRY_RUN) {
+        Logger.log(
+          '🔍 [DRY RUN] Would update documentation sections in README.md'
+        );
+        return false;
+      }
+      await fs.writeFile(readmePath, updatedContent, 'utf-8');
+      return true;
     }
 
-    // Append missing sections
-    if (!hasAuthor) {
-      content += '\n' + AUTHOR_SECTION + '\n';
-    }
-    if (!hasLicense) {
-      content += LICENSE_SECTION + '\n';
-    }
-
-    await fs.writeFile(readmePath, content, 'utf-8');
-    return true;
+    return false;
   } catch (err) {
     Logger.error(`Could not fix README.md: ${(err as Error).message}`);
+    return false;
+  }
+}
+
+/**
+ * Ensures the INSTRUCTIONS.md has the Author section at the bottom.
+ * If missing or different from the template, updates it.
+ */
+export async function fixInstructions(repoPath: string): Promise<boolean> {
+  const instructionsPath = path.join(repoPath, 'INSTRUCTIONS.md');
+  const templatePath = path.join(settings.TEMPLATES_DIR, 'INSTRUCTIONS.md');
+
+  try {
+    // Check if INSTRUCTIONS.md exists
+    try {
+      await fs.access(instructionsPath);
+    } catch {
+      return false; // Skip if file doesn't exist
+    }
+
+    const [content, templateContent] = await Promise.all([
+      fs.readFile(instructionsPath, 'utf-8'),
+      fs.readFile(templatePath, 'utf-8'),
+    ]);
+
+    const templateAuthorSection = extractSection(templateContent, 'Author');
+    if (!templateAuthorSection) return false;
+
+    const currentAuthorSection = extractSection(content, 'Author');
+
+    let updatedContent = content;
+    let changed = false;
+
+    if (currentAuthorSection) {
+      if (currentAuthorSection !== templateAuthorSection) {
+        updatedContent = content.replace(
+          currentAuthorSection,
+          templateAuthorSection
+        );
+        changed = true;
+      }
+    } else {
+      updatedContent =
+        content.trimEnd() + '\n\n' + templateAuthorSection + '\n';
+      changed = true;
+    }
+
+    if (changed) {
+      if (settings.DRY_RUN) {
+        Logger.log(
+          '🔍 [DRY RUN] Would update Author section in INSTRUCTIONS.md'
+        );
+        return false;
+      }
+      await fs.writeFile(instructionsPath, updatedContent, 'utf-8');
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    Logger.error(`Could not fix INSTRUCTIONS.md: ${(err as Error).message}`);
     return false;
   }
 }

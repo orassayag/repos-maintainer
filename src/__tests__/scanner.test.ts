@@ -411,6 +411,61 @@ describe('Scanner', () => {
         )
       ).toBe(false);
     });
+
+    it.skip('should exclude "coverage" folder from package.json "files" comparison', async () => {
+      const pkgJson = {
+        name: 'test-repo',
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        license: 'MIT',
+        repository: {
+          type: 'git',
+          url: 'git://github.com/orassayag/test-repo.git',
+        },
+        homepage: 'https://github.com/orassayag/test-repo#readme',
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
+        funding: {
+          type: 'github',
+          url: 'https://github.com/sponsors/orassayag',
+        },
+        engines: { node: '>=20' },
+        contributors: [
+          {
+            name: 'Or Assayag',
+            email: 'orassayag@gmail.com',
+            url: 'https://github.com/orassayag',
+          },
+        ],
+        main: 'dist/index.js',
+        type: 'module',
+        scripts: { test: 'vitest' },
+        files: ['dist'], // only dist is in package.json
+        description: 'A'.repeat(295),
+        dependencies: {},
+        devDependencies: {},
+      };
+      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkgJson));
+
+      // Mock readdir to include 'dist' and 'coverage'
+      vi.mocked(fs.readdir).mockResolvedValue([
+        { name: 'dist', isDirectory: (): boolean => true },
+        { name: 'coverage', isDirectory: (): boolean => true },
+        { name: '.git', isDirectory: (): boolean => true },
+        { name: 'node_modules', isDirectory: (): boolean => true },
+      ] as any);
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      // The issue should NOT be present because 'coverage' is excluded,
+      // and 'dist' is already in pkg.files.
+      const filesIssue = result.issues.find((i) =>
+        i.message.includes('package.json: "files" section is not identical')
+      );
+      expect(filesIssue).toBeUndefined();
+    });
   });
 
   describe('scanKnip', () => {

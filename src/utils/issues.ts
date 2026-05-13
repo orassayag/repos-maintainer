@@ -49,7 +49,7 @@ export const ISSUES = {
   },
   README_TITLE_MISMATCH: {
     message:
-      'README.md: First section should be similar to "# {expectedTitle}" (found "{actualTitle}")',
+      'README.md: First section should be similar to "{expectedTitle}" (found "{actualTitle}")',
     severity: Severity.LOW,
   },
   README_DESCRIPTION_LENGTH: {

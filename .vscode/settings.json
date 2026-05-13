@@ -3,6 +3,8 @@
     "Assayag",
     "Bashpnpm",
     "dedup",
+    "emailaddresses",
+    "gmial",
     "gofmt",
     "Kmsu",
     "msvc",
@@ -16,6 +18,8 @@
     "syncer",
     "testuser",
     "unreviewed",
+    "valdebug",
+    "valmany",
     "yourname"
   ]
 }

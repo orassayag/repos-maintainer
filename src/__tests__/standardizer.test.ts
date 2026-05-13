@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { standardizeRepo } from '../fixers/standardizer.js';
-import { ensureRepoCloned, commitAndPush } from '../utils/git.js';
+import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
 import {
   ensureTemplateFile,
   getChangelogCommitMessage,
@@ -11,6 +11,8 @@ import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixMetadata } from '../fixers/metadataFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
+import { isTypeScriptProject } from '../utils/projectType.js';
+import { settings } from '../settings.js';
 
 vi.mock('../utils/git.js');
 vi.mock('../utils/fileFixer.js');
@@ -21,11 +23,13 @@ vi.mock('../fixers/readmeFixer.js');
 vi.mock('../fixers/metadataFixer.js');
 vi.mock('../fixers/rulesetsFixer.js');
 vi.mock('../utils/logger.js');
+vi.mock('../utils/projectType.js');
 vi.mock('fs/promises');
 vi.mock('../settings.js', () => ({
   settings: {
     PROJECTS_ROOT: '/mock/projects',
     DRY_RUN: false,
+    GIT_CLEAN_ENABLED: false,
   },
 }));
 
@@ -34,6 +38,8 @@ describe('standardizer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    settings.GIT_CLEAN_ENABLED = false;
+    vi.mocked(isTypeScriptProject).mockResolvedValue(true);
     vi.mocked(parseGitHubUrl).mockReturnValue({
       owner: 'user',
       repo: 'test-repo',
@@ -48,6 +54,7 @@ describe('standardizer', () => {
     vi.mocked(starRepo).mockResolvedValue(undefined);
     vi.mocked(watchRepo).mockResolvedValue(undefined);
     vi.mocked(commitAndPush).mockResolvedValue(true);
+    vi.mocked(runGitClean).mockResolvedValue(undefined);
     vi.mocked(getChangelogCommitMessage).mockResolvedValue('standardize');
   });
 

@@ -701,11 +701,21 @@ export class Scanner {
       } else {
         const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
         const rootItems = rootEntries
-          .filter((e) => e.name !== '.git' && e.name !== 'node_modules')
+          .filter(
+            (e) =>
+              e.name !== '.git' &&
+              e.name !== 'node_modules' &&
+              e.name !== 'coverage'
+          )
           .map((e) => e.name);
 
         const sortedRootItems = [...rootEntries]
-          .filter((e) => e.name !== '.git' && e.name !== 'node_modules')
+          .filter(
+            (e) =>
+              e.name !== '.git' &&
+              e.name !== 'node_modules' &&
+              e.name !== 'coverage'
+          )
           .sort((a, b) => {
             if (a.isDirectory() && !b.isDirectory()) return -1;
             if (!a.isDirectory() && b.isDirectory()) return 1;

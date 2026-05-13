@@ -7,6 +7,7 @@ import { ensureRepoCloned } from '../utils/git.js';
 import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
 import { settings, getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
+import { fixReadme, fixInstructions } from '../fixers/readmeFixer.js';
 import { syncTemplateFiles } from '../utils/fileFixer.js';
 import { TEMPLATE_FILES } from '../fixers/standardizer.js';
 
@@ -100,7 +101,21 @@ export async function syncRepoCommand(): Promise<{
       });
     }
 
-    // C. Standardize package.json (funding, engines, contributors, author, main, type, files)
+    // C. Sync Documentation (README.md, INSTRUCTIONS.md)
+    Logger.log('📝 Syncing documentation sections...');
+    const readmeChanged = await fixReadme(repoPath);
+    if (readmeChanged) {
+      changed = true;
+      Logger.success('  - Updated README.md sections');
+    }
+
+    const instructionsChanged = await fixInstructions(repoPath);
+    if (instructionsChanged) {
+      changed = true;
+      Logger.success('  - Updated INSTRUCTIONS.md section');
+    }
+
+    // D. Standardize package.json (funding, engines, contributors, author, main, type, files)
     if (changed) {
       // If keywords or templates changed, write them first so fixPackageJson sees the update
       await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
