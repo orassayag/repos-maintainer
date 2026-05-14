@@ -115,6 +115,11 @@ export const ISSUES = {
     message: 'package.json: Missing "main" field',
     severity: Severity.MEDIUM,
   },
+  PACKAGE_JSON_INVALID_MAIN: {
+    message:
+      'package.json: "main" field points to a missing or empty path: {path}',
+    severity: Severity.MEDIUM,
+  },
   PACKAGE_JSON_MISSING_TYPE: {
     message: 'package.json: Missing "type" field',
     severity: Severity.MEDIUM,

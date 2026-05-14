@@ -696,7 +696,18 @@ export class Scanner {
         this.logIssue('PACKAGE_JSON_MISSING_CONTRIBUTOR');
       }
 
-      if (!pkg.main) this.logIssue('PACKAGE_JSON_MISSING_MAIN');
+      if (!pkg.main || pkg.main.trim() === '') {
+        this.logIssue('PACKAGE_JSON_MISSING_MAIN');
+      } else {
+        // Normalize to forward slashes for consistent check
+        const normalizedMain = pkg.main.replace(/\\/g, '/');
+        // Strict check: if the file doesn't exist, it's invalid.
+        try {
+          await fs.access(path.join(repoPath, normalizedMain));
+        } catch {
+          this.logIssue('PACKAGE_JSON_INVALID_MAIN', { path: pkg.main });
+        }
+      }
       if (!pkg.type) this.logIssue('PACKAGE_JSON_MISSING_TYPE');
       if (!pkg.scripts) this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS');
       if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {

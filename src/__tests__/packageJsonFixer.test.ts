@@ -316,5 +316,60 @@ describe('packageJsonFixer', () => {
       expect(written.files).not.toContain('.git');
       expect(written.files).not.toContain('node_modules');
     });
+
+    it('should fix "main" field to point to source file if current main is invalid (e.g., dist/main.js -> src/main.ts)', async () => {
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(
+          JSON.stringify({ name: 'test', main: 'dist/main.js' })
+        )
+        .mockResolvedValueOnce(template);
+
+      // Mock fs.access: dist/main.js fails, src/main.ts succeeds
+      vi.mocked(fs.access).mockImplementation((p: any) => {
+        const normalizedPath = p.toString().replace(/\\/g, '/');
+        if (normalizedPath.endsWith('src/main.ts')) return Promise.resolve();
+        return Promise.reject(new Error('Not found'));
+      });
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.main).toBe('src/main.ts');
+    });
+
+    it('should fix "main" field using smart scan if candidates fail', async () => {
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(template);
+
+      // Mock fs.access to fail for all candidates
+      vi.mocked(fs.access).mockRejectedValue(new Error('Not found'));
+
+      // Mock fs.readdir for collectSourceFiles
+      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+        if (p === repoPath) {
+          return Promise.resolve([
+            {
+              name: 'app.ts',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+              startsWith: (s: string): boolean => 'app.ts'.startsWith(s),
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.main).toBe('app.ts');
+    });
   });
 });

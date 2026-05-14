@@ -85,6 +85,90 @@ export async function injectPackageJson(
   }
 }
 
+const IGNORE_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.git',
+  '.cache',
+  '__tests__',
+  'test',
+  'tests',
+  'spec',
+]);
+
+/**
+ * Recursively collect all .js / .ts files, skipping noise directories and
+ * test/spec files.
+ */
+async function collectSourceFiles(
+  dir: string,
+  root: string,
+  results: string[] = []
+): Promise<string[]> {
+  let entries: import('fs').Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+
+    const abs = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (!IGNORE_DIRS.has(entry.name)) {
+        await collectSourceFiles(abs, root, results);
+      }
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name);
+      if (!['.js', '.ts'].includes(ext)) continue;
+      if (/\.(test|spec)\.(js|ts)$/.test(entry.name)) continue;
+      // Normalize to forward slashes for package.json consistency
+      results.push(path.relative(root, abs).replace(/\\/g, '/'));
+    }
+  }
+  return results;
+}
+
+/**
+ * Rank a relative file path by how likely it is to be the main entry point.
+ * Lower score = more likely.
+ */
+function rankFile(rel: string): number {
+  const parts = rel.split(path.sep);
+  const depth = parts.length - 1;
+  const noExt = path.basename(rel, path.extname(rel)).toLowerCase();
+  const dirSeg = parts.slice(0, -1).join('/').toLowerCase();
+
+  let score = 0;
+
+  // Prefer shallower files
+  score += depth * 10;
+
+  // Slight bonus for src/ (common convention)
+  if (dirSeg === 'src') score -= 3;
+
+  // Strong preference for canonical entry-point names
+  const nameBonus: Record<string, number> = {
+    index: -15,
+    main: -12,
+    app: -10,
+    server: -8,
+    start: -6,
+  };
+  if (nameBonus[noExt] !== undefined) score += nameBonus[noExt];
+
+  // Prefer .js over .ts (compiled output is usually .js)
+  if (path.extname(rel) === '.ts') score += 2;
+
+  return score;
+}
+
 /**
  * Ensures package.json has the correct author and contributors fields.
  * Idempotent — won't duplicate if already correct.
@@ -151,57 +235,77 @@ export async function fixPackageJson(
     }
 
     // 5. main
-    // Search for src/index.ts, src/index.js, or root index/main
-    const mainCandidates = [
-      { path: 'src/index.ts', main: 'dist/index.js' },
-      { path: 'src/index.js', main: 'dist/index.js' },
-      { path: 'src/main.ts', main: 'dist/main.js' },
-      { path: 'src/main.js', main: 'dist/main.js' },
-      { path: 'index.ts', main: 'dist/index.js' },
-      { path: 'index.js', main: 'index.js' },
-      { path: 'main.js', main: 'main.js' },
-    ];
-
     let currentMainValid = false;
-    if (pkg.main) {
+    if (pkg.main && pkg.main.trim() !== '') {
+      // Normalize existing main to forward slashes for consistent comparison/access
+      const normalizedMain = pkg.main.replace(/\\/g, '/');
+
       try {
-        const mainPath = path.join(repoPath, pkg.main);
-        await fs.access(mainPath);
+        // Strict check: if the file doesn't exist, it's invalid.
+        await fs.access(path.join(repoPath, normalizedMain));
         currentMainValid = true;
       } catch {
-        // If it doesn't exist, maybe it's a dist file that hasn't been built yet.
-        // Check if it's a standard dist path and the src equivalent exists.
-        if (pkg.main.startsWith('dist/')) {
-          const srcPath = path.join(
-            repoPath,
-            pkg.main.replace('dist/', 'src/').replace('.js', '.ts')
-          );
-          try {
-            await fs.access(srcPath);
-            currentMainValid = true;
-          } catch {
-            // Try .js as well for src
-            try {
-              await fs.access(srcPath.replace('.ts', '.js'));
-              currentMainValid = true;
-            } catch {}
-          }
-        }
+        currentMainValid = false;
       }
     }
 
     if (!currentMainValid) {
-      for (const candidate of mainCandidates) {
+      let resolved: string | null = null;
+
+      // Step 1: index.js / index.ts (root, then src/)
+      const indexCandidates = [
+        'index.js',
+        'index.ts',
+        'src/index.js',
+        'src/index.ts',
+      ];
+      for (const cand of indexCandidates) {
         try {
-          await fs.access(path.join(repoPath, candidate.path));
-          if (pkg.main !== candidate.main) {
-            pkg.main = candidate.main;
-            changed = true;
-            Logger.info(`Updated "main" to ${candidate.main}`);
-          }
-          currentMainValid = true;
+          await fs.access(path.join(repoPath, cand));
+          resolved = cand;
           break;
         } catch {}
+      }
+
+      // Step 2: main.js / main.ts (root, then src/)
+      if (!resolved) {
+        const mainCandidates = [
+          'main.js',
+          'main.ts',
+          'src/main.js',
+          'src/main.ts',
+        ];
+        for (const cand of mainCandidates) {
+          try {
+            await fs.access(path.join(repoPath, cand));
+            resolved = cand;
+            break;
+          } catch {}
+        }
+      }
+
+      // Step 3: smart scan
+      if (!resolved) {
+        const allFiles = await collectSourceFiles(repoPath, repoPath);
+        if (allFiles.length > 0) {
+          allFiles.sort((a, b) => rankFile(a) - rankFile(b));
+          resolved = allFiles[0];
+        }
+      }
+
+      // Step 4: give up
+      if (!resolved) {
+        resolved = '';
+      }
+
+      // The user expects the "main" to point to the real root file (e.g., src/main.ts)
+      // and NOT map to dist/ folder.
+      const finalMain = resolved;
+
+      if (pkg.main !== finalMain) {
+        pkg.main = finalMain;
+        changed = true;
+        Logger.info(`Updated "main" to ${finalMain}`);
       }
     }
 
