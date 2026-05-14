@@ -1,8 +1,218 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { minimatch } from 'minimatch';
 import { settings } from '../settings.js';
 import { Logger } from './logger.js';
 import { isTypeScriptProject } from './projectType.js';
+
+interface GitignoreSection {
+  /** The raw comment header, e.g. "# Distribution", or null for a headerless block. */
+  header: string | null;
+  entries: string[];
+}
+
+/**
+ * Splits a .gitignore file into sections.
+ * A new section starts whenever a comment line (# …) is encountered.
+ * Blank lines are ignored (they don't create sections or entries).
+ */
+function parseGitignore(content: string): GitignoreSection[] {
+  const lines = content.split(/\r?\n/);
+  const sections: GitignoreSection[] = [];
+  let current: GitignoreSection = { header: null, entries: [] };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    if (line.startsWith('#')) {
+      if (current.header !== null || current.entries.length > 0) {
+        sections.push(current);
+      }
+      current = { header: line, entries: [] };
+    } else if (line !== '') {
+      current.entries.push(line);
+    }
+  }
+
+  if (current.header !== null || current.entries.length > 0) {
+    sections.push(current);
+  }
+
+  return sections;
+}
+
+/**
+ * Strips a leading "!" or "/" and a trailing "/" so patterns can be
+ * compared by their core path component.
+ */
+function normalizeGitignorePattern(entry: string): string {
+  return entry.replace(/^!/, '').replace(/^\//, '').replace(/\/$/, '');
+}
+
+/**
+ * True if `targetEntry` "belongs" to a section containing `sectionEntries`:
+ *   1. Normalized base match with any section entry.
+ *   2. A section entry used as a glob covers the target (e.g. *.log* → *.log).
+ *   3. The target used as a glob covers a section entry (reverse check).
+ */
+function entryBelongsToSection(
+  targetEntry: string,
+  sectionEntries: string[]
+): boolean {
+  const normalizedTarget = normalizeGitignorePattern(targetEntry);
+
+  for (const templateEntry of sectionEntries) {
+    const normalizedTemplate = normalizeGitignorePattern(templateEntry);
+
+    if (normalizedTarget === normalizedTemplate) return true;
+
+    try {
+      if (
+        minimatch(normalizedTarget, normalizedTemplate, {
+          dot: true,
+          matchBase: true,
+        })
+      )
+        return true;
+      if (
+        minimatch(normalizedTemplate, normalizedTarget, {
+          dot: true,
+          matchBase: true,
+        })
+      )
+        return true;
+    } catch {
+      // minimatch can throw on malformed patterns – skip
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Merges a template .gitignore into a target .gitignore.
+ */
+function mergeGitignore(
+  templateContent: string,
+  targetContent: string
+): string {
+  const templateSections = parseGitignore(templateContent);
+  const targetSections = parseGitignore(targetContent);
+
+  // Flat list of all target entries with their source section header
+  const allTargetEntries: Array<{
+    entry: string;
+    sourceHeader: string | null;
+  }> = [];
+  for (const s of targetSections) {
+    for (const e of s.entries) {
+      allTargetEntries.push({ entry: e, sourceHeader: s.header });
+    }
+  }
+
+  // Check if a target entry is an exact duplicate of ANY template entry.
+  function isDuplicateOfTemplate(targetEntry: string): boolean {
+    for (const section of templateSections) {
+      for (const te of section.entries) {
+        if (targetEntry === te) return true;
+      }
+    }
+    return false;
+  }
+
+  // --- Assign each target entry to a template section (or Others) -----------
+  const assignedEntries = new Set<string>();
+  const sectionExtras: string[][] = templateSections.map(() => []);
+
+  for (const { entry } of allTargetEntries) {
+    if (isDuplicateOfTemplate(entry)) {
+      assignedEntries.add(entry);
+      continue;
+    }
+    for (let i = 0; i < templateSections.length; i++) {
+      if (entryBelongsToSection(entry, templateSections[i].entries)) {
+        sectionExtras[i].push(entry);
+        assignedEntries.add(entry);
+        break;
+      }
+    }
+  }
+
+  // --- Collect Others entries (no matching template section) ----------------
+  const othersHeaderlessEntries: string[] = [];
+  const othersCustomSections: GitignoreSection[] = [];
+
+  const othersMap = new Map<string | null, string[]>();
+  for (const { entry, sourceHeader } of allTargetEntries) {
+    if (assignedEntries.has(entry)) continue;
+    if (!othersMap.has(sourceHeader)) othersMap.set(sourceHeader, []);
+    othersMap.get(sourceHeader)!.push(entry);
+  }
+  for (const [header, entries] of othersMap) {
+    if (header === null) othersHeaderlessEntries.push(...entries);
+    else othersCustomSections.push({ header, entries });
+  }
+
+  // --- Render output --------------------------------------------------------
+  const output: string[] = [];
+
+  for (let i = 0; i < templateSections.length; i++) {
+    const { header, entries } = templateSections[i];
+    const extras = [...sectionExtras[i]];
+
+    if (header) output.push(header);
+
+    for (const templateEntry of entries) {
+      output.push(templateEntry);
+
+      // Interleave: extras with the same normalized base go directly after
+      // this template entry (e.g. "dist/" immediately after "dist")
+      const inlined: string[] = [];
+      const leftover: string[] = [];
+
+      for (const extra of extras) {
+        if (
+          normalizeGitignorePattern(extra) ===
+          normalizeGitignorePattern(templateEntry)
+        ) {
+          inlined.push(extra);
+        } else {
+          leftover.push(extra);
+        }
+      }
+
+      if (inlined.length > 0) output.push(...inlined);
+      extras.length = 0;
+      extras.push(...leftover);
+    }
+
+    // Remaining extras (glob-matched, no direct base partner) go at section end
+    if (extras.length > 0) output.push(...extras);
+
+    output.push(''); // blank line between sections
+  }
+
+  // --- Others block ---------------------------------------------------------
+  const hasOthers =
+    othersHeaderlessEntries.length > 0 || othersCustomSections.length > 0;
+
+  if (hasOthers) {
+    output.push('# Others:');
+
+    if (othersHeaderlessEntries.length > 0) {
+      output.push(...othersHeaderlessEntries);
+      output.push('');
+    }
+
+    for (const section of othersCustomSections) {
+      if (section.header) output.push(section.header);
+      output.push(...section.entries);
+      output.push('');
+    }
+  }
+
+  return output.join('\n');
+}
 
 /**
  * Ensures a standard file exists in the repo based on overwrite policy.
@@ -208,28 +418,11 @@ async function syncGitignore(
       return 'Created missing .gitignore';
     }
 
-    const destLines = new Set(
-      destContent
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l && !l.startsWith('#'))
-    );
-    const templateLines = templateContent
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#'));
+    const mergedContent = mergeGitignore(templateContent, destContent);
 
-    const missingLines: string[] = [];
-    for (const line of templateLines) {
-      if (!destLines.has(line)) {
-        missingLines.push(line);
-      }
-    }
-
-    if (missingLines.length > 0) {
-      const newSection = `\n# Others:\n${missingLines.join('\n')}\n`;
-      await fs.appendFile(destPath, newSection, 'utf-8');
-      return `Added ${missingLines.length} missing lines to .gitignore`;
+    if (mergedContent.trim() !== destContent.trim()) {
+      await fs.writeFile(destPath, mergedContent, 'utf-8');
+      return 'Merged and updated .gitignore';
     }
   } catch (err) {
     Logger.error(`Failed to sync .gitignore: ${(err as Error).message}`);

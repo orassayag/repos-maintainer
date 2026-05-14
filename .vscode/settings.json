@@ -6,6 +6,7 @@
     "emailaddresses",
     "gmial",
     "gofmt",
+    "headerless",
     "Kmsu",
     "msvc",
     "orassayag",
@@ -21,5 +22,12 @@
     "valdebug",
     "valmany",
     "yourname"
+  ],
+  "cSpell.ignorePaths": [
+    "coverage",
+    "node_modules",
+    "dist",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
   ]
 }

@@ -167,12 +167,27 @@ describe('fileFixer', () => {
       expect(fs.unlink).toHaveBeenCalled();
     });
 
-    it('should sync .gitignore by appending missing lines', async () => {
+    it('should sync .gitignore by merging template with existing', async () => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(true);
 
-      const templateGitignore = 'node_modules/\ndist/\n# Comment\n.env';
-      const existingGitignore = 'node_modules/\n';
+      const templateGitignore = `# Distribution
+dist
+node_modules
+
+# Logs
+*.log*
+
+# Misc
+.DS_Store`;
+      const existingGitignore = `node_modules/
+dist/
+*.log
+.DS_Store
+.env
+
+# Custom section
+path1`;
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readFile).mockImplementation((path) => {
@@ -180,16 +195,31 @@ describe('fileFixer', () => {
           return Promise.resolve(templateGitignore);
         return Promise.resolve(existingGitignore);
       });
-      vi.mocked(fs.appendFile).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
       const result = await syncTemplateFiles(repoPath, ['.gitignore']);
 
-      expect(result).toContain('Added 2 missing lines to .gitignore');
-      expect(fs.appendFile).toHaveBeenCalledWith(
-        expect.stringContaining('.gitignore'),
-        expect.stringContaining('# Others:\ndist/\n.env'),
-        'utf-8'
-      );
+      expect(result).toContain('Merged and updated .gitignore');
+      const writtenContent = vi
+        .mocked(fs.writeFile)
+        .mock.calls.find((call) =>
+          call[0].toString().includes('.gitignore')
+        )![1] as string;
+
+      expect(writtenContent).toContain('# Distribution');
+      expect(writtenContent).toContain('dist');
+      expect(writtenContent).toContain('dist/');
+      expect(writtenContent).toContain('node_modules');
+      expect(writtenContent).toContain('node_modules/');
+      expect(writtenContent).toContain('# Logs');
+      expect(writtenContent).toContain('*.log*');
+      expect(writtenContent).toContain('*.log');
+      expect(writtenContent).toContain('# Misc');
+      expect(writtenContent).toContain('.DS_Store');
+      expect(writtenContent).toContain('# Others:');
+      expect(writtenContent).toContain('.env');
+      expect(writtenContent).toContain('# Custom section');
+      expect(writtenContent).toContain('path1');
     });
 
     it('should sync LICENSE and preserve year', async () => {
