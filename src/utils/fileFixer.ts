@@ -390,6 +390,12 @@ export async function syncTemplateFiles(
       continue;
     }
 
+    if (file === '.vscode/settings.json') {
+      const settingsChange = await syncVsCodeSettings(destPath, templatePath);
+      if (settingsChange) changes.push(settingsChange);
+      continue;
+    }
+
     // Default logic for other files: copy if missing
     if (!fileExists) {
       const created = await ensureTemplateFile(repoPath, file, true);
@@ -468,6 +474,74 @@ async function syncLicense(
     }
   } catch (err) {
     Logger.error(`Failed to sync LICENSE: ${(err as Error).message}`);
+  }
+  return null;
+}
+
+async function syncVsCodeSettings(
+  destPath: string,
+  templatePath: string
+): Promise<string | null> {
+  try {
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+    const templateJson = JSON.parse(templateContent);
+
+    let destContent: string;
+    try {
+      destContent = await fs.readFile(destPath, 'utf-8');
+    } catch {
+      // .vscode/settings.json doesn't exist, just copy it
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await fs.writeFile(destPath, templateContent, 'utf-8');
+      return 'Created missing .vscode/settings.json';
+    }
+
+    const destJson = JSON.parse(destContent);
+    let changed = false;
+
+    // Check if cSpell.ignorePaths exists
+    if (!destJson['cSpell.ignorePaths'] && templateJson['cSpell.ignorePaths']) {
+      // If cSpell.words exists, we want to insert cSpell.ignorePaths after it for better organization
+      if (destJson['cSpell.words']) {
+        const entries = Object.entries(destJson);
+        const wordsIndex = entries.findIndex(([key]) => key === 'cSpell.words');
+
+        const newEntries: [string, any][] = [];
+        for (let i = 0; i <= wordsIndex; i++) {
+          newEntries.push(entries[i]);
+        }
+        newEntries.push([
+          'cSpell.ignorePaths',
+          templateJson['cSpell.ignorePaths'],
+        ]);
+        for (let i = wordsIndex + 1; i < entries.length; i++) {
+          newEntries.push(entries[i]);
+        }
+
+        const newJson = Object.fromEntries(newEntries);
+        await fs.writeFile(
+          destPath,
+          JSON.stringify(newJson, null, 2) + '\n',
+          'utf-8'
+        );
+      } else {
+        destJson['cSpell.ignorePaths'] = templateJson['cSpell.ignorePaths'];
+        await fs.writeFile(
+          destPath,
+          JSON.stringify(destJson, null, 2) + '\n',
+          'utf-8'
+        );
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      return 'Updated .vscode/settings.json: Added missing cSpell.ignorePaths';
+    }
+  } catch (err) {
+    Logger.error(
+      `Failed to sync .vscode/settings.json: ${(err as Error).message}`
+    );
   }
   return null;
 }

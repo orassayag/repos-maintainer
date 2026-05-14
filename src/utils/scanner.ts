@@ -231,24 +231,27 @@ export class Scanner {
     // 10. ESLint Config Scan
     this.scanEslintConfig(repoPath);
 
-    // 11. TypeScript & Vitest Config Scan
+    // 11. VSCode Settings Scan
+    this.scanVsCodeSettings(repoPath);
+
+    // 12. TypeScript & Vitest Config Scan
     this.scanTypeScriptRules(repoPath, hasTsFiles);
 
-    // 12. Test Scan (via npx if node_modules missing)
+    // 13. Test Scan (via npx if node_modules missing)
     try {
       this.scanTests(repoPath);
     } catch {
       // Ignore test scan errors
     }
 
-    // 13. Knip Scan (Unused dependencies/exports)
+    // 14. Knip Scan (Unused dependencies/exports)
     try {
       this.scanKnip(repoPath);
     } catch {
       // Ignore knip scan errors
     }
 
-    // 14. GitHub Metadata Scan
+    // 15. GitHub Metadata Scan
     if (parsed) {
       try {
         await this.scanGitHubMetadata(
@@ -915,6 +918,21 @@ export class Scanner {
       this.logIssue('ESLINT_CONFIG_MISSING');
     } else if (hasLegacyConfig && !hasFlatConfig) {
       this.logIssue('ESLINT_LEGACY_CONFIG');
+    }
+  }
+
+  private scanVsCodeSettings(repoPath: string): void {
+    const settingsPath = path.join(repoPath, '.vscode', 'settings.json');
+    if (existsSync(settingsPath)) {
+      try {
+        const content = readFileSync(settingsPath, 'utf-8');
+        const settings = JSON.parse(content);
+        if (!settings['cSpell.ignorePaths']) {
+          this.logIssue('VSCODE_SETTINGS_MISSING_CSPELL_IGNORE_PATHS');
+        }
+      } catch {
+        // If JSON is malformed, we might want to log it, but for now just ignore
+      }
     }
   }
 

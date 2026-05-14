@@ -274,6 +274,10 @@ export const ISSUES = {
     message: 'Knip command failed when running via {command}.',
     severity: Severity.VERY_LOW,
   },
+  VSCODE_SETTINGS_MISSING_CSPELL_IGNORE_PATHS: {
+    message: '.vscode/settings.json: Missing "cSpell.ignorePaths" section',
+    severity: Severity.LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;
