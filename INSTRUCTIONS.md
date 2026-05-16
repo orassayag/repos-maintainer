@@ -336,8 +336,9 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
     ],
     "experimental-project": ["*"]
   },
-  "EXCLUDED_KNIP_PACKAGES": {
-    "my-project": ["@eslint/js", "lodash"]
+  "EXCLUDED_KNIP_PACKAGES_GLOBALLY": ["lodash"],
+  "EXCLUDED_KNIP_PACKAGES_PER_PROJECT": {
+    "my-project": ["@eslint/js"]
   },
   "EXCLUDED_KNIP_SCAN": ["legacy-ui-project"],
   "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["top-packages"],
@@ -350,7 +351,8 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 - **EXCLUDED_PROJECTS**: Projects listed here will be skipped by the "Repos Sync" and "Add Repo" commands.
 - **EXCLUDED_PATHS**: Files or directories that should be ignored when checking for "local changes". This is useful for database files or logs that change frequently but shouldn't be committed.
 - **EXCLUDED_ISSUES**: Specific issue keys to ignore for a project. Issue keys can be found in `src/utils/issues.ts`. Using `"*"` will ignore all issues for a repository.
-- **EXCLUDED_KNIP_PACKAGES**: List of package names to ignore in Knip reports for specific repositories. Useful for ignoring packages that Knip incorrectly identifies as unused.
+- **EXCLUDED_KNIP_PACKAGES_GLOBALLY**: List of package names to ignore in Knip reports for ALL repositories.
+- **EXCLUDED_KNIP_PACKAGES_PER_PROJECT**: Mapping of repository names to specific package names that should be ignored in the Knip report for that repository.
 - **EXCLUDED_KNIP_SCAN**: List of repository names to skip Knip validation entirely.
 - **EXCLUDED_KNIP_UNUSED_DEPS_SCAN**: List of repository names to skip Knip validation for unused dependencies (using `--no-dependencies` flag).
 - **EXCLUDED_OUTDATED_SCAN**: List of repository names to skip the check for outdated dependencies. Useful for projects that must stay on specific versions of packages.

@@ -9,7 +9,8 @@ export interface Excludes {
   EXCLUDED_PROJECTS: string[];
   EXCLUDED_PATHS: Record<string, string[]>;
   EXCLUDED_ISSUES: Record<string, string[]>;
-  EXCLUDED_KNIP_PACKAGES: Record<string, string[]>;
+  EXCLUDED_KNIP_PACKAGES_GLOBALLY: string[];
+  EXCLUDED_KNIP_PACKAGES_PER_PROJECT: Record<string, string[]>;
   EXCLUDED_KNIP_PATHS: Record<string, string[]>;
   EXCLUDED_KNIP_SCAN: string[];
   EXCLUDED_KNIP_UNUSED_DEPS_SCAN: string[];
@@ -37,7 +38,8 @@ export function loadExcludes(): Excludes {
     EXCLUDED_PROJECTS: [],
     EXCLUDED_PATHS: {},
     EXCLUDED_ISSUES: {},
-    EXCLUDED_KNIP_PACKAGES: {},
+    EXCLUDED_KNIP_PACKAGES_GLOBALLY: [],
+    EXCLUDED_KNIP_PACKAGES_PER_PROJECT: {},
     EXCLUDED_KNIP_PATHS: {},
     EXCLUDED_KNIP_SCAN: [],
     EXCLUDED_KNIP_UNUSED_DEPS_SCAN: [],
@@ -61,7 +63,10 @@ export function getExcludedPaths(repoName: string): string[] {
 }
 
 export function getExcludedKnipPackages(repoName: string): string[] {
-  return excludes.EXCLUDED_KNIP_PACKAGES[repoName] || [];
+  const globalExcludes = excludes.EXCLUDED_KNIP_PACKAGES_GLOBALLY || [];
+  const projectExcludes =
+    excludes.EXCLUDED_KNIP_PACKAGES_PER_PROJECT[repoName] || [];
+  return [...new Set([...globalExcludes, ...projectExcludes])];
 }
 
 export function getExcludedKnipPaths(repoName: string): string[] {

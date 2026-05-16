@@ -24,6 +24,8 @@ describe('excludes', () => {
       EXCLUDED_PROJECTS: ['project1'],
       EXCLUDED_PATHS: { project2: ['path1'] },
       EXCLUDED_ISSUES: { project3: ['issue1'] },
+      EXCLUDED_KNIP_PACKAGES_GLOBALLY: ['global-pkg'],
+      EXCLUDED_KNIP_PACKAGES_PER_PROJECT: { project4: ['project-pkg'] },
     });
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
@@ -32,6 +34,10 @@ describe('excludes', () => {
     expect(result.EXCLUDED_PROJECTS).toContain('project1');
     expect(result.EXCLUDED_PATHS['project2']).toContain('path1');
     expect(result.EXCLUDED_ISSUES['project3']).toContain('issue1');
+    expect(result.EXCLUDED_KNIP_PACKAGES_GLOBALLY).toContain('global-pkg');
+    expect(result.EXCLUDED_KNIP_PACKAGES_PER_PROJECT['project4']).toContain(
+      'project-pkg'
+    );
   });
 
   it('should return default excludes if file missing', () => {
