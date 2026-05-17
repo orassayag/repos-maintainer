@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Scanner } from '../utils/scanner.js';
+import { isLegacyProject } from '../utils/excludes.js';
 import fs from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import { spawnSync, execSync } from 'child_process';
@@ -29,6 +30,7 @@ vi.mock('../utils/excludes.js', () => ({
   getExcludedKnipPackages: vi.fn(() => []),
   getExcludedKnipPaths: vi.fn(() => []),
   isOutdatedScanExcluded: vi.fn(() => false),
+  isLegacyProject: vi.fn(() => false),
 }));
 vi.mock('../github.js', () => ({
   parseGitHubUrl: vi.fn(() => ({ owner: 'user', repo: 'repo' })),
@@ -61,6 +63,7 @@ describe('Scanner', () => {
     vi.mocked(getExcludedKnipPackages).mockReturnValue([]);
     vi.mocked(getExcludedKnipPaths).mockReturnValue([]);
     vi.mocked(isOutdatedScanExcluded).mockReturnValue(false);
+    vi.mocked(isLegacyProject).mockReturnValue(false);
 
     vi.clearAllMocks();
     scanner = new Scanner();

@@ -101,7 +101,13 @@ export function isKnipUnusedDepsExcluded(repoName: string): boolean {
   return excludes.EXCLUDED_KNIP_UNUSED_DEPS_SCAN.includes(repoName);
 }
 
-export function isOutdatedScanExcluded(repoName: string): boolean {
-  const project = projectsData.find((p) => p.name === repoName);
+export function isLegacyProject(repoName: string): boolean {
+  const project = projectsData.find(
+    (p) => p.name.toLowerCase() === repoName.toLowerCase()
+  );
   return project?.type === 'Legacy';
+}
+
+export function isOutdatedScanExcluded(repoName: string): boolean {
+  return isLegacyProject(repoName);
 }

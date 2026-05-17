@@ -14,6 +14,7 @@ import {
   isKnipScanExcluded,
   isKnipUnusedDepsExcluded,
   isOutdatedScanExcluded,
+  isLegacyProject,
 } from './excludes.js';
 import {
   parseGitHubUrl,
@@ -308,22 +309,46 @@ export class Scanner {
       const issues: string[] = [];
       let currentHeader = '';
       let categoryIssues: string[] = [];
+      const isLegacy = isLegacyProject(this.currentRepoName);
+
+      const pushCategory = (): void => {
+        if (currentHeader && categoryIssues.length > 0) {
+          let shouldSkipCategory = false;
+          // For Legacy projects, skip "Unused dependencies" if they only contain "Unresolved imports"
+          // Also skip "Unresolved imports" category entirely for Legacy projects
+          if (isLegacy) {
+            if (currentHeader.includes('Unused dependencies')) {
+              const hasOnlyUnresolvedImports = categoryIssues.every((i) =>
+                i.includes('Unresolved imports')
+              );
+              if (hasOnlyUnresolvedImports) {
+                shouldSkipCategory = true;
+              }
+            } else if (currentHeader.includes('Unresolved imports')) {
+              shouldSkipCategory = true;
+            }
+          }
+
+          if (!shouldSkipCategory) {
+            issues.push(currentHeader);
+            issues.push(...categoryIssues.map((i) => `  ${i}`));
+          }
+        }
+      };
 
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
         const isHeader =
-          trimmed.includes('Unused') ||
-          trimmed.includes('Unlisted') ||
-          trimmed.includes('Duplicate');
+          (trimmed.includes('Unused') ||
+            trimmed.includes('Unlisted') ||
+            trimmed.includes('Unresolved') ||
+            trimmed.includes('Duplicate')) &&
+          !trimmed.startsWith('-');
 
         if (isHeader) {
-          // If we were already capturing, push the previous category's issues
-          if (currentHeader && categoryIssues.length > 0) {
-            issues.push(currentHeader);
-            issues.push(...categoryIssues.map((i) => `  ${i}`));
-          }
+          pushCategory();
           currentHeader = trimmed;
           categoryIssues = [];
         } else {
@@ -366,11 +391,7 @@ export class Scanner {
         if (issues.length + categoryIssues.length >= 40) break;
       }
 
-      // Push the last category
-      if (currentHeader && categoryIssues.length > 0) {
-        issues.push(currentHeader);
-        issues.push(...categoryIssues.map((i) => `  ${i}`));
-      }
+      pushCategory();
 
       if (issues.length > 0) {
         this.logIssue('KNIP_ISSUES', {
@@ -920,15 +941,27 @@ export class Scanner {
   }
 
   private scanEslintConfig(repoPath: string): void {
-    const hasLegacyConfig =
-      existsSync(path.join(repoPath, 'eslintrc.json')) ||
-      existsSync(path.join(repoPath, '.eslintrc.json'));
+    const legacyFiles = [
+      'eslintrc.json',
+      '.eslintrc.json',
+      '.eslintrc.js',
+      '.eslintrc.cjs',
+      '.eslintrc.yaml',
+      '.eslintrc.yml',
+      '.eslintrc',
+    ];
+    const hasLegacyConfig = legacyFiles.some((file) =>
+      existsSync(path.join(repoPath, file))
+    );
     const hasFlatConfig = existsSync(path.join(repoPath, 'eslint.config.mjs'));
 
     if (!hasLegacyConfig && !hasFlatConfig) {
       this.logIssue('ESLINT_CONFIG_MISSING');
     } else if (hasLegacyConfig && !hasFlatConfig) {
-      this.logIssue('ESLINT_LEGACY_CONFIG');
+      // If project is Legacy, we don't care about migrating to flat config
+      if (!isLegacyProject(this.currentRepoName)) {
+        this.logIssue('ESLINT_LEGACY_CONFIG');
+      }
     }
   }
 
