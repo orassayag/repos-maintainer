@@ -99,8 +99,7 @@ Structure of `exclude.json`:
     "repo-name": ["package-name-to-ignore"]
   },
   "EXCLUDED_KNIP_SCAN": ["repo-name-to-skip-knip"],
-  "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["repo-name-to-skip-unused-deps"],
-  "EXCLUDED_OUTDATED_SCAN": ["repo-name-to-skip-outdated-check"]
+  "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["repo-name-to-skip-unused-deps"]
 }
 ```
 
@@ -111,7 +110,8 @@ Structure of `exclude.json`:
 - `EXCLUDED_KNIP_PACKAGES_PER_PROJECT`: Mapping of repository names to specific package names that should be ignored in the Knip report for that repository.
 - `EXCLUDED_KNIP_SCAN`: List of repository names to skip Knip validation entirely.
 - `EXCLUDED_KNIP_UNUSED_DEPS_SCAN`: List of repository names to skip Knip validation for unused dependencies.
-- `EXCLUDED_OUTDATED_SCAN`: List of repository names to skip the outdated dependencies check.
+
+Note: Outdated package scans are automatically excluded for projects marked as `"type": "Legacy"` in `project-repos-names.json`.
 
 ## Usage
 

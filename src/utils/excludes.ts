@@ -14,7 +14,6 @@ export interface Excludes {
   EXCLUDED_KNIP_PATHS: Record<string, string[]>;
   EXCLUDED_KNIP_SCAN: string[];
   EXCLUDED_KNIP_UNUSED_DEPS_SCAN: string[];
-  EXCLUDED_OUTDATED_SCAN: string[];
 }
 
 const EXCLUDES_PATH = path.join(
@@ -24,6 +23,28 @@ const EXCLUDES_PATH = path.join(
   'excludes',
   'exclude.json'
 );
+
+const PROJECTS_DATA_PATH = 'C:\\Or\\web\\project-repos-names.json';
+
+interface ProjectData {
+  name: string;
+  url: string;
+  type: 'Active' | 'Legacy';
+}
+
+function loadProjectsData(): ProjectData[] {
+  try {
+    if (fs.existsSync(PROJECTS_DATA_PATH)) {
+      const content = fs.readFileSync(PROJECTS_DATA_PATH, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (error) {
+    console.error('Failed to load projects data:', error);
+  }
+  return [];
+}
+
+const projectsData = loadProjectsData();
 
 export function loadExcludes(): Excludes {
   try {
@@ -43,7 +64,6 @@ export function loadExcludes(): Excludes {
     EXCLUDED_KNIP_PATHS: {},
     EXCLUDED_KNIP_SCAN: [],
     EXCLUDED_KNIP_UNUSED_DEPS_SCAN: [],
-    EXCLUDED_OUTDATED_SCAN: [],
   };
 }
 
@@ -82,5 +102,6 @@ export function isKnipUnusedDepsExcluded(repoName: string): boolean {
 }
 
 export function isOutdatedScanExcluded(repoName: string): boolean {
-  return excludes.EXCLUDED_OUTDATED_SCAN.includes(repoName);
+  const project = projectsData.find((p) => p.name === repoName);
+  return project?.type === 'Legacy';
 }

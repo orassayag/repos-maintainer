@@ -350,8 +350,7 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
     "my-project": ["@eslint/js"]
   },
   "EXCLUDED_KNIP_SCAN": ["legacy-ui-project"],
-  "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["top-packages"],
-  "EXCLUDED_OUTDATED_SCAN": ["frozen-dependency-project"]
+  "EXCLUDED_KNIP_UNUSED_DEPS_SCAN": ["top-packages"]
 }
 ```
 
@@ -364,7 +363,8 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 - **EXCLUDED_KNIP_PACKAGES_PER_PROJECT**: Mapping of repository names to specific package names that should be ignored in the Knip report for that repository.
 - **EXCLUDED_KNIP_SCAN**: List of repository names to skip Knip validation entirely.
 - **EXCLUDED_KNIP_UNUSED_DEPS_SCAN**: List of repository names to skip Knip validation for unused dependencies (using `--no-dependencies` flag).
-- **EXCLUDED_OUTDATED_SCAN**: List of repository names to skip the check for outdated dependencies. Useful for projects that must stay on specific versions of packages.
+
+Note: Outdated package scans are automatically excluded for projects marked as `"type": "Legacy"` in `project-repos-names.json`. This replaces the previous manual `EXCLUDED_OUTDATED_SCAN` list.
 
 ## Best Practices
 
