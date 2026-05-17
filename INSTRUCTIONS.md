@@ -70,14 +70,23 @@ GITHUB_TOKEN=your_github_token_here
 ### 3. Verify Paths
 
 Ensure your repository list file exists at the expected location. By default, the tool looks for:
-`C:\Or\web\project-repos-names.txt`
+`C:\Or\web\project-repos-names.json`
 
-The file should contain one repository name per line, e.g.:
+The file should contain a JSON array of repository objects, e.g.:
 
-```text
-events-and-people-syncer
-repos-maintainer
-my-other-project
+```json
+[
+  {
+    "name": "actions-manager",
+    "url": "https://github.com/orassayag/actions-manager",
+    "type": "Active"
+  },
+  {
+    "name": "angularil-lottery",
+    "url": "https://github.com/orassayag/angularil-lottery",
+    "type": "Legacy"
+  }
+]
 ```
 
 ## GitHub Authentication

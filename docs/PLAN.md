@@ -17,7 +17,7 @@ Core principles:
 ## Pre-flight Validation (`pnpm run start`)
 
 1. Check that `PROJECTS_ROOT` exists and is not empty
-2. Check that `project-repos-names.txt` exists and is not empty
+2. Check that `project-repos-names.json` exists and is not empty
 3. Verify GitHub authentication (`gh auth status` or valid `GITHUB_TOKEN`)
 4. Fail fast with clear error if any validation fails
 
@@ -42,7 +42,7 @@ Core principles:
 
 2. Verify the repository exists via GitHub API
 
-3. Add or update entry in `project-repos-names.txt` (keep list alphabetically sorted)
+3. Add or update entry in `project-repos-names.json` (keep list alphabetically sorted)
 
 4. **Standardization Phase** – Execute all steps (continue even if some fail):
    - **Git step**:
@@ -94,7 +94,7 @@ Core principles:
 
 ## 2. Repos Sync (Crawler)
 
-- Read all repositories from `project-repos-names.txt`
+- Read all repositories from `project-repos-names.json`
 - For each repo:
   - Clone if missing
   - `git pull --rebase`

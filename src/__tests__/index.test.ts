@@ -18,7 +18,7 @@ vi.mock('../settings.js', async (importOriginal) => {
       ...actual.settings,
       PROJECTS_ROOT: '/mock/projects',
     },
-    getReposListPath: vi.fn().mockReturnValue('/mock/projects/repos.txt'),
+    getReposListPath: vi.fn().mockReturnValue('/mock/projects/repos.json'),
   };
 });
 
@@ -32,7 +32,9 @@ describe('index entry point', () => {
     it('should pass when all checks pass', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['project1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('repo1:url1\nrepo2:url2');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'repo1', url: 'url1' }])
+      );
 
       const result = await preFlightValidation();
       expect(result).toBe(true);
@@ -77,7 +79,7 @@ describe('index entry point', () => {
     it('should fail if repos list is empty', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['project1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('\n   \n# comment');
+      vi.mocked(fs.readFile).mockResolvedValue('[]');
 
       const result = await preFlightValidation();
       expect(result).toBe(false);
@@ -86,10 +88,24 @@ describe('index entry point', () => {
       );
     });
 
+    it('should fail if repos list contains invalid JSON', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readdir).mockResolvedValue(['project1'] as any);
+      vi.mocked(fs.readFile).mockResolvedValue('invalid json');
+
+      const result = await preFlightValidation();
+      expect(result).toBe(false);
+      expect(Logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('The file contains invalid JSON')
+      );
+    });
+
     it('should fail if GitHub auth fails', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['project1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('repo1:url1');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'repo1', url: 'url1' }])
+      );
       vi.mocked(checkGitHubAuth).mockResolvedValue(false);
 
       const result = await preFlightValidation();
@@ -105,7 +121,9 @@ describe('index entry point', () => {
       process.argv = ['node', 'index.js', '--auto'];
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['p1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('r1:u1');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'r1', url: 'u1' }])
+      );
 
       // We need to mock the dynamic import of scanReposCommand
       const mockScanRepos = vi.fn();
@@ -124,7 +142,9 @@ describe('index entry point', () => {
       process.argv = ['node', 'index.js'];
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['p1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('r1:u1');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'r1', url: 'u1' }])
+      );
 
       await main();
 
@@ -135,7 +155,9 @@ describe('index entry point', () => {
       process.argv = ['node', 'index.js', '--dry-run'];
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['p1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('r1:u1');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'r1', url: 'u1' }])
+      );
 
       await main();
 
@@ -149,7 +171,9 @@ describe('index entry point', () => {
       process.argv = ['node', 'index.js', '--git-clean'];
       vi.mocked(fs.access).mockResolvedValue(undefined);
       vi.mocked(fs.readdir).mockResolvedValue(['p1'] as any);
-      vi.mocked(fs.readFile).mockResolvedValue('r1:u1');
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'r1', url: 'u1' }])
+      );
 
       await main();
 

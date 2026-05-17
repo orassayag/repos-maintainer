@@ -36,14 +36,7 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
       : repoNameOrUrl.toLowerCase();
 
     for (const entry of repoList) {
-      const colonIndex = entry.indexOf(':');
-      const [name, url] =
-        colonIndex !== -1
-          ? [
-              entry.slice(0, colonIndex).trim(),
-              entry.slice(colonIndex + 1).trim(),
-            ]
-          : [entry.trim(), ''];
+      const { name, url } = entry;
 
       if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
         selectedRepo = { name, url };
@@ -53,12 +46,9 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
 
     if (!selectedRepo) {
       // Try similar match (fuzzy)
-      const suggestions = repoList.filter((entry) => {
-        const colonIndex = entry.indexOf(':');
-        const name =
-          colonIndex !== -1 ? entry.slice(0, colonIndex).trim() : entry.trim();
-        return name.toLowerCase().includes(inputName);
-      });
+      const suggestions = repoList.filter((entry) =>
+        entry.name.toLowerCase().includes(inputName)
+      );
 
       if (suggestions.length > 0) {
         try {
@@ -66,31 +56,13 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
           const prompt = new AutoComplete({
             name: 'repo',
             message: 'Repo not found. Did you mean one of these?',
-            choices: suggestions.map((s) => {
-              const colonIndex = s.indexOf(':');
-              return colonIndex !== -1
-                ? s.slice(0, colonIndex).trim()
-                : s.trim();
-            }),
+            choices: suggestions.map((s) => s.name),
           });
 
           const selectedName = (await prompt.run()) as string;
-          const entry = repoList.find((s) => {
-            const colonIndex = s.indexOf(':');
-            const name =
-              colonIndex !== -1 ? s.slice(0, colonIndex).trim() : s.trim();
-            return name === selectedName;
-          });
+          const entry = repoList.find((s) => s.name === selectedName);
           if (entry) {
-            const colonIndex = entry.indexOf(':');
-            const [name, url] =
-              colonIndex !== -1
-                ? [
-                    entry.slice(0, colonIndex).trim(),
-                    entry.slice(colonIndex + 1).trim(),
-                  ]
-                : [entry.trim(), ''];
-            selectedRepo = { name, url };
+            selectedRepo = { name: entry.name, url: entry.url };
           }
         } catch (_e) {
           // User might have escaped AutoComplete, loop will continue to ask input

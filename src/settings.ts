@@ -52,7 +52,7 @@ export interface MaintainerSettings {
 export const settings: MaintainerSettings = {
   PROJECTS_ROOT:
     process.env.REPOS_ROOT || path.join('C:', 'Or', 'web', 'projects'),
-  REPOS_LIST_FILE: 'project-repos-names.txt',
+  REPOS_LIST_FILE: 'project-repos-names.json',
   TEMPLATES_DIR: path.join(__dirname, 'templates'),
   RULESETS_PATH: path.resolve(
     __dirname,

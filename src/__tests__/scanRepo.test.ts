@@ -58,7 +58,9 @@ vi.mock('enquirer', () => ({
 }));
 
 describe('scanRepoCommand', () => {
-  const mockRepoList = ['test-repo:https://github.com/user/test-repo'];
+  const mockRepoList = [
+    { name: 'test-repo', url: 'https://github.com/user/test-repo' },
+  ];
   const mockRepoPath = 'C:\\mock\\path\\test-repo';
 
   beforeEach(async () => {

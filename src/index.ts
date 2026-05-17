@@ -32,23 +32,23 @@ export async function preFlightValidation(): Promise<boolean> {
     return false;
   }
 
-  // 2. Check project-repos-names.txt exists and is not empty
+  // 2. Check project-repos-names.json exists and is not empty
   const listPath = getReposListPath();
   try {
     const content = await fs.readFile(listPath, 'utf-8');
-    const lines = content
-      .split('\n')
-      .filter((l: string) => l.trim() && !l.trim().startsWith('#'));
-    if (lines.length === 0) {
+    const repos = JSON.parse(content);
+    if (!Array.isArray(repos) || repos.length === 0) {
       throw new Error('File has no repo entries');
     }
-    Logger.success(`Repos list: ${listPath} (${lines.length} repos)`);
+    Logger.success(`Repos list: ${listPath} (${repos.length} repos)`);
   } catch (error: any) {
     Logger.error(`Repos list not found or empty: ${listPath}`);
     if (error.code === 'ENOENT') {
-      Logger.log('     The file project-repos-names.txt was not found.\n');
+      Logger.log('     The file project-repos-names.json was not found.\n');
     } else if (error.message === 'File has no repo entries') {
       Logger.log('     The file exists but contains no repository names.\n');
+    } else if (error instanceof SyntaxError) {
+      Logger.log('     The file contains invalid JSON.\n');
     }
     return false;
   }

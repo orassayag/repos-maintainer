@@ -78,7 +78,7 @@ GITHUB_TOKEN=your_github_personal_access_token_here
 The tool uses several important paths that can be configured in `src/settings.ts`:
 
 - **PROJECTS_ROOT**: Where your repositories are located locally (Default: `C:\Or\web\projects`).
-- **REPOS_LIST_PATH**: Path to the `.txt` file containing your repository names (Default: `C:\Or\web\project-repos-names.txt`).
+- **REPOS_LIST_PATH**: Path to the JSON file containing your repository names (Default: `C:\Or\web\project-repos-names.json`).
 
 ### 3. Exclusions
 

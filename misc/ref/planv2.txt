@@ -1,6 +1,6 @@
 -Validation steps:
 -Validate that the C:\Or\web\projects exists - declared on settings.ts file - if not exists / empty - throw an error.
--Validate that the C:\Or\web\project-repos-names.txt - declared on settings.ts file - if not exists / empty - throw an error.
+-Validate that the C:\Or\web\project-repos-names.json - declared on settings.ts file - if not exists / empty - throw an error.
 -Validate that connected to GitHub account. If not - throw an error.
 -Once all valid - we can continue.
 
@@ -13,7 +13,7 @@ Manual script (CLI steps):
 🔍 Running pre-flight validations...
 
 ✅ Projects root: C:\Or\web\projects
-✅ Repos list: C:\Or\web\project-repos-names.txt (91 repos)
+✅ Repos list: C:\Or\web\project-repos-names.json (91 repos)
 ✅ GitHub authenticated as: orassayag
 ✅ All pre-flight checks passed!
 

@@ -5,21 +5,20 @@ import { settings } from '../settings';
 export async function reposSyncCommand(): Promise<void> {
   console.log('\n♻️  Repos Sync - Starting full standardization crawl...\n');
 
-  const repoNames = await readRepoList();
+  const repos = await readRepoList();
 
-  if (repoNames.length === 0) {
-    console.error('❌ No repositories found in project-repos-names.txt');
+  if (repos.length === 0) {
+    console.error('❌ No repositories found in project-repos-names.json');
     return;
   }
 
-  console.log(`Found ${repoNames.length} repositories to process.\n`);
+  console.log(`Found ${repos.length} repositories to process.\n`);
 
   const results = [];
   let successCount = 0;
 
-  for (const repoName of repoNames) {
-    // For sync we assume the repo name is enough - we can enhance URL storage later
-    const repoUrl = `https://github.com/orassayag/${repoName}`; // fallback - improve if needed
+  for (const repo of repos) {
+    const { name: repoName, url: repoUrl } = repo;
 
     console.log(`\nProcessing: ${repoName}`);
     const result = await standardizeRepo(repoUrl);

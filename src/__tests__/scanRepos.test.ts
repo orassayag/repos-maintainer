@@ -37,7 +37,9 @@ describe('scanReposCommand', () => {
       { name: 'repo1', isDirectory: (): boolean => true },
       { name: 'repo2', isDirectory: (): boolean => true },
     ] as any);
-    vi.mocked(readRepoList).mockResolvedValue(['repo1: url1']);
+    vi.mocked(readRepoList).mockResolvedValue([
+      { name: 'repo1', url: 'url1', type: 'Active' },
+    ]);
 
     const mockScanner = {
       scanRepo: vi.fn().mockResolvedValue({

@@ -10,7 +10,7 @@ Once we enter "pnpm run start" we will perform the validation steps.
 
 -Validation steps:
 -Validate that the C:\Or\web\projects exists - declared on settings.ts file - if not exists / empty - throw an error.
--Validate that the C:\Or\web\project-repos-names.txt - declared on settings.ts file - if not exists / empty - throw an error.
+-Validate that the C:\Or\web\project-repos-names.json - declared on settings.ts file - if not exists / empty - throw an error.
 -Validate that connected to GitHub account. If not - throw an error.
 -Once all valid - we can continue.
 
@@ -27,11 +27,11 @@ Manual script (CLI steps):
 
 Add Repo:
 =========
-1. When selecting this option, the CLI will ask the usr for the newly repo URL. If the url is invalid (not github url, missing repo name in the url) - An error will be throwen but the use will be able to recover and give the correct url.
+1. When selecting this option, the CLI will ask the usr for the newly repo URL. If the url is invalid (not github url, missing repo name in the url) - An error will be thrown but the use will be able to recover and give the correct url.
 2. When the URL is valid - We will do a simple API call to GitHub API to check if the repo exists within the given name. If not - throw an error.
 3. If the repo exists we should do the following:
--Check if the project is listed in the C:\Or\web\project-repos-names.txt file - If not, add it according to the existing patterns there and add it in the alfabetifc correct order.
--Also check that the url and the project name are correct in C:\Or\web\project-repos-names.txt file according to the data fetched from GitHub. If not - Fix them accordinglly.
+-Check if the project is listed in the C:\Or\web\project-repos-names.json file - If not, add it according to the existing patterns there and add it in the alphabetical correct order.
+-Also check that the url and the project name are correct in C:\Or\web\project-repos-names.json file according to the data fetched from GitHub. If not - Fix them accordingly.
 
 For the following steps, we will do them all and not stop if any or all of the steps fail:
 
@@ -105,7 +105,7 @@ git gc --aggressive --prune=now   # re-pack and prune unreachable objects
 git reflog expire --expire=now --all && git gc --prune=now  # also clear reflog
 
 Create a github project which update the metadata of a new project:
-tags, description (350 chars limit), mit license file and mit license, add website as the https://linkedin.com/in/orassayag URL, rulsets, add it to the list C:\Or\web\project-repos-names.txt (order alphabetically of course)
+tags, description (350 chars limit), mit license file and mit license, add website as the https://linkedin.com/in/orassayag URL, rulesets, add it to the list C:\Or\web\project-repos-names.txt (order alphabetically of course)
 CHANGELOG.md
 CODE_OF_CONDUCT.md
 SECURITY.md

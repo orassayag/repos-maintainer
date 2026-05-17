@@ -40,15 +40,7 @@ export async function scanReposCommand(): Promise<void> {
   const repoList = await readRepoList();
   const repoMap = new Map<string, string>();
   for (const entry of repoList) {
-    if (entry.includes(':')) {
-      const [name, ...urlParts] = entry.split(':');
-      repoMap.set(name.trim().toLowerCase(), urlParts.join(':').trim());
-    } else {
-      repoMap.set(
-        entry.trim().toLowerCase(),
-        `https://github.com/${settings.AUTHOR_GITHUB}/${entry.trim()}`
-      );
-    }
+    repoMap.set(entry.name.toLowerCase(), entry.url);
   }
 
   Logger.log(`📦 Found ${projectDirs.length} directories to scan.\n`);
