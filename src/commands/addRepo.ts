@@ -22,6 +22,12 @@ import { settings, getLocalRepoPath } from '../settings.js';
 import { addOrUpdateRepoInList } from '../utils/repoList.js';
 import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
+import {
+  validateGitHubDescription,
+  validatePackageDescription,
+  validateKeywordsInput,
+  parseKeywordsString,
+} from '../utils/description.js';
 
 /**
  * Interactive "Add Repo" command.
@@ -90,41 +96,20 @@ export async function addRepoCommand(): Promise<{
   // 2. Descriptions
   const packageDesc = await input({
     message: 'Enter description for package.json (290-300 characters):',
-    validate: (val) => {
-      const len = val.trim().length;
-      if (len < 290 || len > 300)
-        return `Length must be between 290 and 300 chars (current: ${len})`;
-      return true;
-    },
+    validate: validatePackageDescription,
   });
 
   const githubDesc = await input({
     message: 'Enter description for GitHub project (340-350 characters):',
-    validate: (val) => {
-      const len = val.trim().length;
-      if (len < 340 || len > 350)
-        return `Length must be between 340 and 350 chars (current: ${len})`;
-      return true;
-    },
+    validate: validateGitHubDescription,
   });
 
   // 3. Keywords / Topics
-  let keywords: string[] = [];
-  await input({
+  const keywordsStr = await input({
     message: 'Enter keywords / topics (comma separated, 8-20 unique items):',
-    validate: (val) => {
-      const items = val
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const uniqueItems = [...new Set(items)];
-      if (uniqueItems.length < 8 || uniqueItems.length > 20) {
-        return `Must have between 8 and 20 unique keywords (current: ${uniqueItems.length})`;
-      }
-      keywords = uniqueItems; // Store for later use
-      return true;
-    },
+    validate: validateKeywordsInput,
   });
+  const keywords = parseKeywordsString(keywordsStr);
 
   Logger.log('\n🚀 Starting repository standardization and setup...\n');
 

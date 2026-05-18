@@ -4,12 +4,29 @@ import { execSync } from 'child_process';
 import { Logger } from '../utils/logger.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import { ensureRepoCloned } from '../utils/git.js';
-import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
+import {
+  replaceTopics,
+  parseGitHubUrl,
+  repoExists,
+  getRepoMetadata,
+  updateRepoMetadata,
+} from '../github.js';
 import { settings, getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 import { fixReadme, fixInstructions } from '../fixers/readmeFixer.js';
 import { syncTemplateFiles } from '../utils/fileFixer.js';
 import { TEMPLATE_FILES } from '../fixers/standardizer.js';
+import { input } from '../utils/prompts.js';
+import {
+  extractReadmeDescription,
+  updateReadmeDescription,
+  validateGitHubDescription,
+  validatePackageDescription,
+  validateReadmeDescription,
+  validateKeywords,
+  validateKeywordsInput,
+  parseKeywordsString,
+} from '../utils/description.js';
 
 /**
  * Syncs a repository's package.json with its GitHub metadata and local file system.
@@ -52,7 +69,7 @@ export async function syncRepoCommand(): Promise<{
     if (!cloned) return null;
 
     const pkgPath = path.join(repoPath, 'package.json');
-    let pkg;
+    let pkg: any;
     try {
       const pkgContent = await fs.readFile(pkgPath, 'utf-8');
       pkg = JSON.parse(pkgContent);
@@ -61,19 +78,96 @@ export async function syncRepoCommand(): Promise<{
       return null;
     }
 
-    // 2. Sync Keywords & Standardize package.json
+    // 2. Validate and fix descriptions
+    Logger.log('🔍 Validating descriptions...');
     let changed = false;
+
+    // A. package.json description
+    const pkgDesc = pkg.description || '';
+    const pkgDescValidation = validatePackageDescription(pkgDesc);
+    if (pkgDescValidation !== true) {
+      Logger.warn(`package.json: ${pkgDescValidation}`);
+      const newPkgDesc = await input({
+        message: 'Enter description for package.json (290-300 characters):',
+        validate: validatePackageDescription,
+      });
+      pkg.description = newPkgDesc;
+      changed = true;
+    }
+
+    // B. README.md description
+    const readmePath = path.join(repoPath, 'README.md');
+    try {
+      const readmeContent = await fs.readFile(readmePath, 'utf-8');
+      const readmeDesc = extractReadmeDescription(readmeContent);
+      const readmeDescValidation = validateReadmeDescription(readmeDesc);
+      if (readmeDescValidation !== true) {
+        Logger.warn(`README.md: ${readmeDescValidation}`);
+        const newReadmeDesc = await input({
+          message: 'Enter description for README.md (300-600 characters):',
+          validate: validateReadmeDescription,
+        });
+        const updatedReadmeContent = updateReadmeDescription(
+          readmeContent,
+          newReadmeDesc,
+          selectedRepo.name
+        );
+        await fs.writeFile(readmePath, updatedReadmeContent, 'utf-8');
+        changed = true;
+        Logger.success('Updated README.md description');
+      }
+    } catch (err) {
+      Logger.warn(
+        `Could not validate README.md description: ${(err as Error).message}`
+      );
+    }
+
+    // C. GitHub description
+    if (existsOnGitHub) {
+      try {
+        const githubMetadata = await getRepoMetadata(parsed.owner, parsed.repo);
+        if (githubMetadata) {
+          const githubDesc = githubMetadata.description || '';
+          const githubDescValidation = validateGitHubDescription(githubDesc);
+          if (githubDescValidation !== true) {
+            Logger.warn(`GitHub: ${githubDescValidation}`);
+            const newGithubDesc = await input({
+              message:
+                'Enter description for GitHub project (340-350 characters):',
+              validate: validateGitHubDescription,
+            });
+            await updateRepoMetadata(parsed.owner, parsed.repo, {
+              description: newGithubDesc,
+            });
+            Logger.success('Updated GitHub repository description');
+          }
+        }
+      } catch (err) {
+        Logger.warn(
+          `Could not validate GitHub description: ${(err as Error).message}`
+        );
+      }
+    }
+
+    // D. package.json keywords
+    const keywords = pkg.keywords || [];
+    const keywordsValidation = validateKeywords(keywords);
+    if (keywordsValidation !== true) {
+      Logger.warn(`package.json keywords: ${keywordsValidation}`);
+      const newKeywordsStr = await input({
+        message:
+          'Enter keywords / topics (comma separated, 8-20 unique items):',
+        validate: validateKeywordsInput,
+      });
+      pkg.keywords = parseKeywordsString(newKeywordsStr);
+      changed = true;
+    }
+
+    // 3. Sync Keywords & Standardize package.json
 
     // A. Keyword Sync (GitHub)
     if (pkg.keywords && Array.isArray(pkg.keywords)) {
-      let keywords = pkg.keywords;
-      if (keywords.length > 20) {
-        Logger.info(`Reducing keywords from ${keywords.length} to 20...`);
-        keywords = keywords.slice(0, 20);
-        pkg.keywords = keywords;
-        changed = true;
-      }
-
+      const keywords = pkg.keywords;
       if (existsOnGitHub) {
         Logger.log('🌐 Syncing GitHub topics with package.json keywords...');
         try {

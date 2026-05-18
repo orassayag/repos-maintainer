@@ -4,10 +4,16 @@ import fs from 'fs/promises';
 import { Logger } from '../utils/logger.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import { ensureRepoCloned } from '../utils/git.js';
-import { replaceTopics, parseGitHubUrl, repoExists } from '../github.js';
+import {
+  replaceTopics,
+  parseGitHubUrl,
+  repoExists,
+  getRepoMetadata,
+} from '../github.js';
 import { getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 import { syncTemplateFiles } from '../utils/fileFixer.js';
+import { input } from '../utils/prompts.js';
 
 vi.mock('fs/promises');
 vi.mock('../utils/logger.js');
@@ -17,6 +23,7 @@ vi.mock('../github.js');
 vi.mock('../settings.js');
 vi.mock('../fixers/packageJsonFixer.js');
 vi.mock('../utils/fileFixer.js');
+vi.mock('../utils/prompts.js');
 
 describe('syncRepoCommand', () => {
   const mockRepo = {
@@ -37,6 +44,33 @@ describe('syncRepoCommand', () => {
     vi.mocked(ensureRepoCloned).mockResolvedValue(true);
     vi.mocked(fixPackageJson).mockResolvedValue(false);
     vi.mocked(syncTemplateFiles).mockResolvedValue([]);
+    vi.mocked(input).mockResolvedValue(
+      'valid description that is at least 290 characters long and does not exceed 300 characters for the package.json description test. This is just a long string to satisfy the length requirement of the validation logic which is between 290 and 300 characters for package.json.'
+    );
+    vi.mocked(fs.readFile).mockImplementation((path: any) => {
+      const p = path.toString();
+      if (p.endsWith('package.json')) {
+        return Promise.resolve(
+          JSON.stringify({
+            name: 'test-repo',
+            description:
+              'valid description that is at least 290 characters long and does not exceed 300 characters for the package.json description test. This is just a long string to satisfy the length requirement of the validation logic which is between 290 and 300 characters for package.json.',
+          })
+        );
+      }
+      if (p.endsWith('README.md')) {
+        return Promise.resolve(
+          '# Test Repo\n\nValid description that is at least 300 characters long and does not exceed 600 characters for the README.md description test. This is just a long string to satisfy the length requirement of the validation logic which is between 300 and 600 characters for README.md. And even more text to be sure.'
+        );
+      }
+      return Promise.resolve('');
+    });
+    vi.mocked(getRepoMetadata).mockResolvedValue({
+      description:
+        'valid description that is at least 340 characters long and does not exceed 350 characters for the GitHub description test. This is just a long string to satisfy the length requirement of the validation logic which is between 340 and 350 characters for GitHub. And some more text to reach the limit correctly.',
+      topics: [],
+      homepage: 'https://linkedin.com/in/orassayag',
+    } as any);
   });
 
   it('should return early if no repo is selected', async () => {
@@ -96,24 +130,26 @@ describe('syncRepoCommand', () => {
     );
   });
 
-  it('should reduce keywords if more than 20 and sync to GitHub', async () => {
+  it('should prompt to fix keywords if count is invalid and sync to GitHub', async () => {
     const manyKeywords = Array.from({ length: 25 }, (_, i) => `kw${i}`);
+    const validKeywords = Array.from({ length: 10 }, (_, i) => `newkw${i}`);
     const pkg = {
       name: 'test-repo',
       keywords: manyKeywords,
     };
     vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkg));
     vi.mocked(fs.readdir).mockResolvedValue([]);
+    vi.mocked(input).mockResolvedValue(validKeywords.join(','));
 
     await syncRepoCommand();
 
-    expect(Logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('Reducing keywords from 25 to 20')
+    expect(Logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('package.json keywords:')
     );
     expect(replaceTopics).toHaveBeenCalledWith(
       'user',
       'test-repo',
-      manyKeywords.slice(0, 20)
+      validKeywords
     );
     expect(fs.writeFile).toHaveBeenCalled();
   });

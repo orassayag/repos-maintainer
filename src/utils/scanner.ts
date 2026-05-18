@@ -27,6 +27,14 @@ import {
 import { normalizeToTitle, stripAnsi } from './stringUtils.js';
 import { isTypeScriptProject } from './projectType.js';
 
+import {
+  extractReadmeDescription,
+  validateGitHubDescription,
+  validatePackageDescription,
+  validateReadmeDescription,
+  validateKeywords,
+} from './description.js';
+
 export interface ScanIssue {
   severity: Severity;
   message: string;
@@ -555,28 +563,12 @@ export class Scanner {
         });
       }
 
-      // Extract description: everything between the first title and the next title (##)
-      let description = '';
-      let foundTitle = false;
-      const descLines: string[] = [];
+      const description = extractReadmeDescription(content);
+      const validationResult = validateReadmeDescription(description);
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('# ')) {
-          foundTitle = true;
-          continue;
-        }
-        if (foundTitle) {
-          if (trimmed.startsWith('## ')) break;
-          descLines.push(line);
-        }
-      }
-      description = descLines.join('\n').trim();
-
-      const descLen = description.length;
-      if (descLen < 300 || descLen > 600) {
+      if (validationResult !== true) {
         this.logIssue('README_DESCRIPTION_LENGTH', {
-          actualLen: descLen,
+          actualLen: description.length,
           min: 300,
           max: 600,
         });
@@ -816,7 +808,8 @@ export class Scanner {
       }
 
       const keywords = pkg.keywords || [];
-      if (keywords.length < 8 || keywords.length > 20) {
+      const keywordsValidation = validateKeywords(keywords);
+      if (keywordsValidation !== true) {
         this.logIssue('PACKAGE_JSON_KEYWORDS_COUNT', {
           actualCount: keywords.length,
         });
@@ -839,10 +832,11 @@ export class Scanner {
         }
       }
 
-      const descLen = pkg.description?.length || 0;
-      if (descLen < 290 || descLen > 300) {
+      const pkgDesc = pkg.description || '';
+      const pkgDescValidation = validatePackageDescription(pkgDesc);
+      if (pkgDescValidation !== true) {
         this.logIssue('PACKAGE_JSON_DESCRIPTION_LENGTH', {
-          actualLen: descLen,
+          actualLen: pkgDesc.length,
         });
       }
     } catch {
@@ -1050,9 +1044,10 @@ export class Scanner {
       });
     }
 
-    const descLen = data.description?.length || 0;
-    if (descLen < 340 || descLen > 350) {
-      this.logIssue('GITHUB_DESCRIPTION_LENGTH', { actual: descLen });
+    const githubDesc = data.description || '';
+    const githubDescValidation = validateGitHubDescription(githubDesc);
+    if (githubDescValidation !== true) {
+      this.logIssue('GITHUB_DESCRIPTION_LENGTH', { actual: githubDesc.length });
     }
 
     const isStarred = await isRepoStarred(owner, repo);
