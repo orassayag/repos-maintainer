@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import ora from 'ora';
 import { Logger } from '../utils/logger.js';
 import { Scanner, RepoScanResult } from '../utils/scanner.js';
-import { Severity } from '../utils/issues.js';
+import { Severity, sortIssuesByFile } from '../utils/issues.js';
 import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
 import { readRepoList } from '../utils/repoList.js';
@@ -133,7 +133,8 @@ export async function scanReposCommand(): Promise<void> {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
           reportContent += `\n${severity}:\n\n`;
-          for (const message of issues) {
+          const sortedIssues = sortIssuesByFile(issues);
+          for (const message of sortedIssues) {
             reportContent += `-${message.trim()}\n`;
           }
         }

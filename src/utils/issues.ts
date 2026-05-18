@@ -286,3 +286,23 @@ export const ISSUES = {
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;
+
+/**
+ * Sorts issues such that README.md issues come first, then INSTRUCTIONS.md issues, then others.
+ */
+export function sortIssuesByFile(issues: string[]): string[] {
+  return [...issues].sort((a, b) => {
+    const isAReadme = a.toLowerCase().includes('readme.md');
+    const isBReadme = b.toLowerCase().includes('readme.md');
+    const isAInstructions = a.toLowerCase().includes('instructions.md');
+    const isBInstructions = b.toLowerCase().includes('instructions.md');
+
+    if (isAReadme && !isBReadme) return -1;
+    if (!isAReadme && isBReadme) return 1;
+
+    if (isAInstructions && !isBInstructions) return -1;
+    if (!isAInstructions && isBInstructions) return 1;
+
+    return a.localeCompare(b);
+  });
+}

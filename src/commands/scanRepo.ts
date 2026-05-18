@@ -1,6 +1,6 @@
 import { Logger } from '../utils/logger.js';
 import { Scanner } from '../utils/scanner.js';
-import { Severity } from '../utils/issues.js';
+import { Severity, sortIssuesByFile } from '../utils/issues.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import fs from 'fs/promises';
 import { handleUnlistedBinaries } from '../utils/knipExcluder.js';
@@ -53,7 +53,8 @@ export async function scanRepoCommand(repo?: {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
           reportContent += `\n${severity}:\n\n`;
-          for (const message of issues) {
+          const sortedIssues = sortIssuesByFile(issues);
+          for (const message of sortedIssues) {
             reportContent += `-${message.trim()}\n`;
           }
         }
