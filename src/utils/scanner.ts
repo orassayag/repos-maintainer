@@ -36,11 +36,13 @@ export interface RepoScanResult {
   repoName: string;
   issues: ScanIssue[];
   maxSeverity: number; // 1, 2, 3, or 4 (0 if no issues)
+  unlistedBinaries?: string[];
 }
 
 export class Scanner {
   private scanIssues: ScanIssue[] = [];
   private currentRepoName: string = '';
+  private foundUnlistedBinaries: string[] = [];
 
   private logIssue(
     issueKey: IssueKey,
@@ -83,6 +85,7 @@ export class Scanner {
 
   async scanRepo(repo: { name: string; url: string }): Promise<RepoScanResult> {
     this.scanIssues = [];
+    this.foundUnlistedBinaries = [];
     this.currentRepoName = repo.name;
     const repoPath = getLocalRepoPath(repo.name);
     const parsed = parseGitHubUrl(repo.url);
@@ -358,6 +361,15 @@ export class Scanner {
           );
           if (isPkgExcluded) continue;
 
+          // If this is an unlisted binary, collect it
+          if (currentHeader.includes('Unlisted binaries')) {
+            // Usually looks like "- taskkill  package.json" or "  taskkill  package.json"
+            const binaryMatch = trimmed.match(/^(?:-\s+)?([^\s]+)/);
+            if (binaryMatch) {
+              this.foundUnlistedBinaries.push(binaryMatch[1]);
+            }
+          }
+
           // Check if line contains any excluded path
           const isPathExcluded = allExcludedPaths.some((p) => {
             const normalizedPath = p.replace(/\\/g, '/');
@@ -429,6 +441,7 @@ export class Scanner {
       repoName,
       issues: [...this.scanIssues],
       maxSeverity,
+      unlistedBinaries: [...new Set(this.foundUnlistedBinaries)],
     };
   }
 

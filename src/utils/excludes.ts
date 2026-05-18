@@ -10,6 +10,7 @@ export interface Excludes {
   EXCLUDED_PATHS: Record<string, string[]>;
   EXCLUDED_ISSUES: Record<string, string[]>;
   EXCLUDED_KNIP_PACKAGES_GLOBALLY: string[];
+  EXCLUDED_KNIP_BINARIES_GLOBALLY: string[];
   EXCLUDED_KNIP_PACKAGES_PER_PROJECT: Record<string, string[]>;
   EXCLUDED_KNIP_PATHS: Record<string, string[]>;
   EXCLUDED_KNIP_SCAN: string[];
@@ -60,6 +61,7 @@ export function loadExcludes(): Excludes {
     EXCLUDED_PATHS: {},
     EXCLUDED_ISSUES: {},
     EXCLUDED_KNIP_PACKAGES_GLOBALLY: [],
+    EXCLUDED_KNIP_BINARIES_GLOBALLY: [],
     EXCLUDED_KNIP_PACKAGES_PER_PROJECT: {},
     EXCLUDED_KNIP_PATHS: {},
     EXCLUDED_KNIP_SCAN: [],
@@ -84,9 +86,37 @@ export function getExcludedPaths(repoName: string): string[] {
 
 export function getExcludedKnipPackages(repoName: string): string[] {
   const globalExcludes = excludes.EXCLUDED_KNIP_PACKAGES_GLOBALLY || [];
+  const globalBinaries = excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
   const projectExcludes =
     excludes.EXCLUDED_KNIP_PACKAGES_PER_PROJECT[repoName] || [];
-  return [...new Set([...globalExcludes, ...projectExcludes])];
+  return [
+    ...new Set([...globalExcludes, ...globalBinaries, ...projectExcludes]),
+  ];
+}
+
+export function getExcludedKnipBinaries(): string[] {
+  return excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
+}
+
+export function saveExcludes(newExcludes: Excludes): void {
+  try {
+    fs.writeFileSync(EXCLUDES_PATH, JSON.stringify(newExcludes, null, 2));
+    // Update local variable
+    Object.assign(excludes, newExcludes);
+  } catch (error) {
+    console.error('Failed to save excludes:', error);
+  }
+}
+
+export function addGlobalExcludeBinary(binary: string): void {
+  const currentBinaries = excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
+  if (!currentBinaries.includes(binary)) {
+    const newExcludes = {
+      ...excludes,
+      EXCLUDED_KNIP_BINARIES_GLOBALLY: [binary, ...currentBinaries],
+    };
+    saveExcludes(newExcludes);
+  }
 }
 
 export function getExcludedKnipPaths(repoName: string): string[] {

@@ -64,6 +64,29 @@ export async function select<T = string>(config: SelectConfig<T>): Promise<T> {
   return await prompt.run();
 }
 
+export async function multiSelect<T = string>(
+  config: SelectConfig<T>
+): Promise<T[]> {
+  const { MultiSelect } = Enquirer as any;
+  const prompt = new MultiSelect({
+    name: 'value',
+    message: config.message,
+    choices: config.choices.map((c) => c.name),
+    result(names: string[]): T[] {
+      return config.choices
+        .filter((c) => names.includes(c.name))
+        .map((c) => c.value);
+    },
+    escape(): void {
+      this.cancel();
+    },
+  });
+
+  patchCancel(prompt);
+
+  return await prompt.run();
+}
+
 export interface InputConfig {
   message: string;
   validate?: (input: string) => boolean | string | Promise<boolean | string>;
