@@ -98,27 +98,6 @@ export function getExcludedKnipBinaries(): string[] {
   return excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
 }
 
-export function saveExcludes(newExcludes: Excludes): void {
-  try {
-    fs.writeFileSync(EXCLUDES_PATH, JSON.stringify(newExcludes, null, 2));
-    // Update local variable
-    Object.assign(excludes, newExcludes);
-  } catch (error) {
-    console.error('Failed to save excludes:', error);
-  }
-}
-
-export function addGlobalExcludeBinary(binary: string): void {
-  const currentBinaries = excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
-  if (!currentBinaries.includes(binary)) {
-    const newExcludes = {
-      ...excludes,
-      EXCLUDED_KNIP_BINARIES_GLOBALLY: [binary, ...currentBinaries],
-    };
-    saveExcludes(newExcludes);
-  }
-}
-
 export function getExcludedKnipPaths(repoName: string): string[] {
   return excludes.EXCLUDED_KNIP_PATHS[repoName] || [];
 }

@@ -371,5 +371,31 @@ describe('packageJsonFixer', () => {
       );
       expect(written.main).toBe('app.ts');
     });
+
+    it('should add devDependencies if missing in package.json', async () => {
+      const templateWithDevDeps = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        devDependencies: { 'mock-pkg': '' },
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(templateWithDevDeps);
+
+      vi.mocked(execSync).mockReturnValue('1.2.3' as any);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.devDependencies).toBeDefined();
+      expect(written.devDependencies['mock-pkg']).toBe('^1.2.3');
+    });
   });
 });

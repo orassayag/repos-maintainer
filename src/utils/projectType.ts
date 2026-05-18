@@ -9,47 +9,44 @@ import path from 'path';
  * 3. It has a tsconfig.json file AND does NOT have an index.js in src or root.
  */
 export async function isTypeScriptProject(repoPath: string): Promise<boolean> {
-  // 1. Check package.json for typescript dependency (Strongest signal)
+  // 1. Check for JS entry points first. If index.js/main.js exists, it's likely JS.
+  const hasJsEntry = await hasJavaScriptEntryPoints(repoPath);
+
+  // 2. Check package.json
+  let hasTsDep = false;
   try {
     const pkgContent = await fs.readFile(
       path.join(repoPath, 'package.json'),
       'utf-8'
     );
     const pkg = JSON.parse(pkgContent);
-    if (
+    hasTsDep = !!(
       (pkg.dependencies && pkg.dependencies.typescript) ||
       (pkg.devDependencies && pkg.devDependencies.typescript)
-    ) {
-      return true;
-    }
+    );
 
-    // If it has a main file pointing to .js, it's likely JS
-    if (pkg.main && pkg.main.endsWith('.js')) {
-      // If no typescript dependency, it's almost certainly JS
-      if (!pkg.devDependencies?.typescript && !pkg.dependencies?.typescript) {
-        // We still check for .ts files just in case, but prioritize JS entry points
-        const hasJsEntry = await hasJavaScriptEntryPoints(repoPath);
-        if (hasJsEntry) {
-          const hasTsSource = await hasTypeScriptFiles(repoPath);
-          if (!hasTsSource) return false;
-        }
-      }
+    // If it has a main file pointing to .js and NO typescript dependency, it's definitely JS
+    if (pkg.main && pkg.main.endsWith('.js') && !hasTsDep) {
+      return false;
     }
   } catch {
-    // Continue
+    // No package.json
   }
 
-  // 2. Check for actual .ts/.tsx files (excluding config files)
+  // 3. Check for actual .ts/.tsx files (excluding config files)
   const hasTs = await hasTypeScriptFiles(repoPath);
-  if (hasTs) return true;
 
-  // 3. Check for tsconfig.json as a fallback, but only if no index.js exists
-  // (to avoid circular detection if we incorrectly added tsconfig.json before)
+  // If it has TS files AND no JS entry point, it's definitely TS
+  if (hasTs && !hasJsEntry) return true;
+
+  // If it has TS files AND JS entry point, it's TS only if it has a TS dependency
+  if (hasTs && hasJsEntry) {
+    return hasTsDep;
+  }
+
+  // 4. Fallback: Check for tsconfig.json, but only if no index.js exists
   try {
     await fs.access(path.join(repoPath, 'tsconfig.json'));
-
-    // If we have tsconfig.json, check if we have JS entry points which would suggest it's actually JS
-    const hasJsEntry = await hasJavaScriptEntryPoints(repoPath);
     if (!hasJsEntry) {
       return true;
     }

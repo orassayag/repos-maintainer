@@ -171,7 +171,10 @@ export class Scanner {
 
     const hasTsFiles = await isTypeScriptProject(repoPath);
 
-    for (const file of templateFiles) {
+    for (const rawFile of templateFiles) {
+      // Normalize path to use forward slashes for consistent comparison
+      const file = rawFile.replace(/\\/g, '/');
+
       if (excludedPaths.includes(file)) continue;
 
       // Skip TypeScript template files if no .ts files are found
@@ -192,7 +195,7 @@ export class Scanner {
         await this.verifyFileContent(
           file,
           targetFilePath,
-          path.join(templatesDir, file)
+          path.join(templatesDir, rawFile)
         );
       } catch {
         this.logIssue('MISSING_TEMPLATE_FILE', { file });
@@ -245,9 +248,6 @@ export class Scanner {
 
     // 11. VSCode Settings Scan
     this.scanVsCodeSettings(repoPath);
-
-    // 12. TypeScript & Vitest Config Scan
-    this.scanTypeScriptRules(repoPath, hasTsFiles);
 
     // 13. Test Scan (via npx if node_modules missing)
     try {
@@ -983,21 +983,6 @@ export class Scanner {
         }
       } catch {
         // If JSON is malformed, we might want to log it, but for now just ignore
-      }
-    }
-  }
-
-  private scanTypeScriptRules(repoPath: string, hasTsFiles: boolean): void {
-    if (hasTsFiles) {
-      if (!existsSync(path.join(repoPath, 'tsconfig.json'))) {
-        this.logIssue('TSCONFIG_JSON_MISSING');
-      }
-      if (!existsSync(path.join(repoPath, 'tsconfig.node.json'))) {
-        this.logIssue('TSCONFIG_NODE_JSON_MISSING');
-      }
-      if (!existsSync(path.join(repoPath, 'vitest.config.ts'))) {
-        this.logIssue('VITEST_CONFIG_TEMPLATE_MISSING');
-        this.logIssue('VITEST_CONFIG_MISSING');
       }
     }
   }

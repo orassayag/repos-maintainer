@@ -304,11 +304,44 @@ export async function syncTemplateFiles(
     'tsconfig.json',
     'tsconfig.node.json',
     'vitest.config.ts',
+    'eslint.config.mjs',
   ];
 
   for (const file of templateFiles) {
     const isTsFile = tsTemplateFiles.includes(file);
     const destPath = path.join(repoPath, file);
+
+    // Skip TypeScript template files if no .ts files are found
+    if (isTsFile && !hasTsFiles) {
+      // If the file exists but it's a JS project, we might want to remove it
+      // if it was previously added by us.
+      try {
+        await fs.access(destPath);
+        // Only remove if it's a standard config file that shouldn't be in a JS project
+        if (
+          [
+            'tsconfig.json',
+            'tsconfig.node.json',
+            'vitest.config.ts',
+            'eslint.config.mjs',
+          ].includes(file)
+        ) {
+          if (!settings.DRY_RUN) {
+            await fs.unlink(destPath);
+            changes.push(
+              `Removed TypeScript-only file from JavaScript project: ${file}`
+            );
+          } else {
+            changes.push(
+              `[DRY RUN] Would remove TypeScript-only file from JavaScript project: ${file}`
+            );
+          }
+        }
+      } catch {
+        // File doesn't exist, which is fine
+      }
+      continue;
+    }
 
     // Special logic for ESLint config: copy if missing AND no legacy config exists
     if (file === 'eslint.config.mjs') {
@@ -335,35 +368,6 @@ export async function syncTemplateFiles(
         if (created) {
           changes.push(`Created missing ESLint config: ${file}`);
         }
-      }
-      continue;
-    }
-
-    // Skip TypeScript template files if no .ts files are found
-    if (isTsFile && !hasTsFiles) {
-      // If the file exists but it's a JS project, we might want to remove it
-      // if it was previously added by us.
-      try {
-        await fs.access(destPath);
-        // Only remove if it's a standard config file that shouldn't be in a JS project
-        if (
-          ['tsconfig.json', 'tsconfig.node.json', 'vitest.config.ts'].includes(
-            file
-          )
-        ) {
-          if (!settings.DRY_RUN) {
-            await fs.unlink(destPath);
-            changes.push(
-              `Removed TypeScript-only file from JavaScript project: ${file}`
-            );
-          } else {
-            changes.push(
-              `[DRY RUN] Would remove TypeScript-only file from JavaScript project: ${file}`
-            );
-          }
-        }
-      } catch {
-        // File doesn't exist, which is fine
       }
       continue;
     }

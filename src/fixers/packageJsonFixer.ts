@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
+import { isTypeScriptProject } from '../utils/projectType.js';
 
 /**
  * Fetches the latest version of a package from npm.
@@ -357,6 +358,50 @@ export async function fixPackageJson(
         changed = true;
         Logger.info('Updated "homepage" in package.json');
       }
+    }
+
+    // 11. devDependencies
+    if (!pkg.devDependencies && templatePkg.devDependencies) {
+      Logger.info(
+        'Missing "devDependencies" section. Populating from template...'
+      );
+
+      const isTS = await isTypeScriptProject(repoPath);
+      const templateDevDeps = JSON.parse(
+        JSON.stringify(templatePkg.devDependencies)
+      );
+
+      if (!isTS) {
+        // Filter out TypeScript-specific dependencies for JS projects
+        const tsDeps = [
+          'typescript',
+          'typescript-eslint',
+          'tsx',
+          '@types/node',
+          '@typescript-eslint/eslint-plugin',
+          '@typescript-eslint/parser',
+          'vitest',
+          '@vitest/coverage-istanbul',
+          '@vitest/ui',
+        ];
+        for (const dep of tsDeps) {
+          delete templateDevDeps[dep];
+        }
+        Logger.info(
+          'Project detected as JavaScript. Skipping TypeScript-specific devDependencies.'
+        );
+      }
+
+      pkg.devDependencies = templateDevDeps;
+
+      // Fetch dynamic versions for devDependencies
+      Logger.log(`📦 Fetching latest versions for devDependencies...`);
+      for (const dep of Object.keys(pkg.devDependencies)) {
+        pkg.devDependencies[dep] = getLatestVersion(dep);
+      }
+
+      changed = true;
+      Logger.info('Updated "devDependencies" in package.json');
     }
 
     // 7. files (Sync "files" section with root directory)

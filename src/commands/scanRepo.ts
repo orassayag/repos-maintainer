@@ -3,7 +3,6 @@ import { Scanner } from '../utils/scanner.js';
 import { Severity, sortIssuesByFile } from '../utils/issues.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import fs from 'fs/promises';
-import { handleUnlistedBinaries } from '../utils/knipExcluder.js';
 
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
@@ -63,10 +62,6 @@ export async function scanRepoCommand(repo?: {
 
     await fs.writeFile(REPORT_PATH, reportContent, 'utf-8');
     Logger.success(`Scan completed! Report saved to: ${REPORT_PATH}`);
-
-    if (result.unlistedBinaries && result.unlistedBinaries.length > 0) {
-      await handleUnlistedBinaries(result.unlistedBinaries);
-    }
 
     return selectedRepo;
   } catch (err) {

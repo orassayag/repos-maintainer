@@ -6,7 +6,6 @@ import { Severity, sortIssuesByFile } from '../utils/issues.js';
 import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
 import { readRepoList } from '../utils/repoList.js';
-import { handleUnlistedBinaries } from '../utils/knipExcluder.js';
 
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
@@ -146,10 +145,6 @@ export async function scanReposCommand(): Promise<void> {
   try {
     await fs.writeFile(REPORT_PATH, reportContent, 'utf-8');
     Logger.success(`\n🎯 Scan completed! Report saved to: ${REPORT_PATH}`);
-
-    if (allUnlistedBinaries.size > 0) {
-      await handleUnlistedBinaries([...allUnlistedBinaries]);
-    }
   } catch (err) {
     Logger.error(`\nFailed to save report: ${(err as Error).message}`);
   }
