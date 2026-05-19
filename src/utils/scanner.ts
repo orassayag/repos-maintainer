@@ -25,7 +25,10 @@ import {
   RepoMetadata,
 } from '../github.js';
 import { normalizeToTitle, stripAnsi } from './stringUtils.js';
-import { isTypeScriptProject } from './projectType.js';
+import {
+  isTypeScriptProject,
+  isDotNetOrWindowsProject,
+} from './projectType.js';
 
 import {
   extractReadmeDescription,
@@ -233,8 +236,12 @@ export class Scanner {
       this.scanPackageJsonSorting(repoPath);
     }
 
+    const skipPrettifyAndKnip = await isDotNetOrWindowsProject(repoPath);
+
     // 8. Formatter Scan
-    this.scanFormatters(repoPath);
+    if (!skipPrettifyAndKnip) {
+      this.scanFormatters(repoPath);
+    }
 
     // 9. Lint Scan (via npx if node_modules missing)
     try {
@@ -251,16 +258,18 @@ export class Scanner {
 
     // 13. Test Scan (via npx if node_modules missing)
     try {
-      this.scanTests(repoPath);
+      this.scanTests(repoPath, skipPrettifyAndKnip);
     } catch {
       // Ignore test scan errors
     }
 
     // 14. Knip Scan (Unused dependencies/exports)
-    try {
-      this.scanKnip(repoPath);
-    } catch {
-      // Ignore knip scan errors
+    if (!skipPrettifyAndKnip) {
+      try {
+        this.scanKnip(repoPath);
+      } catch {
+        // Ignore knip scan errors
+      }
     }
 
     // 15. GitHub Metadata Scan
@@ -861,12 +870,17 @@ export class Scanner {
     }
   }
 
-  private scanTests(repoPath: string): void {
+  private scanTests(repoPath: string, skipVitestConfigCheck = false): void {
     const pkg = this.readPkg(repoPath);
     if (!pkg.scripts?.test) return;
 
     const hasVitestConfig = existsSync(path.join(repoPath, 'vitest.config.ts'));
-    if (!hasVitestConfig) return;
+    if (!hasVitestConfig) {
+      if (!skipVitestConfigCheck) {
+        this.logIssue('VITEST_CONFIG_MISSING');
+      }
+      return;
+    }
 
     // Run test command via npx
     const cmd = `npx --yes ${pkg.scripts.test}`;

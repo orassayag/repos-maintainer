@@ -41,6 +41,7 @@ vi.mock('../github.js', () => ({
 }));
 vi.mock('../utils/projectType.js', () => ({
   isTypeScriptProject: vi.fn(),
+  isDotNetOrWindowsProject: vi.fn(),
 }));
 
 describe('Scanner', () => {
@@ -50,7 +51,7 @@ describe('Scanner', () => {
     url: 'https://github.com/user/test-repo',
   };
 
-  beforeEach(async () => {
+  beforeEach(async (): Promise<void> => {
     const {
       isKnipScanExcluded,
       isKnipUnusedDepsExcluded,
@@ -78,25 +79,74 @@ describe('Scanner', () => {
     vi.mocked(execSync).mockReturnValue('' as any);
     vi.mocked(existsSync).mockReturnValue(false);
     vi.mocked(readFileSync).mockReturnValue('');
+    const { isTypeScriptProject, isDotNetOrWindowsProject } =
+      await import('../utils/projectType.js');
+    vi.mocked(isTypeScriptProject).mockResolvedValue(false);
+    vi.mocked(isDotNetOrWindowsProject).mockResolvedValue(false);
+  });
+
+  describe('isDotNetOrWindowsProject Skipping', () => {
+    it('should skip scanFormatters and scanKnip for .NET projects', async (): Promise<void> => {
+      const { isDotNetOrWindowsProject } =
+        await import('../utils/projectType.js');
+      vi.mocked(isDotNetOrWindowsProject).mockResolvedValue(true);
+
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({
+            name: 'test-repo',
+            scripts: { test: 'vitest' },
+          });
+        return '';
+      });
+
+      await scanner.scanRepo(mockRepo);
+
+      // Verify scanFormatters was skipped (by checking if prettier/eslint commands were NOT called)
+      expect(spawnSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('prettier'),
+        expect.any(Object)
+      );
+      expect(spawnSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('eslint'),
+        expect.any(Object)
+      );
+      // Verify scanKnip was skipped
+      expect(spawnSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('knip'),
+        expect.any(Object)
+      );
+
+      // Verify VITEST_CONFIG_MISSING was skipped
+      const result = await scanner.scanRepo(mockRepo);
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('Vitest: Missing "vitest.config.ts"')
+        )
+      ).toBe(false);
+    });
   });
 
   describe('Template Scan', () => {
-    it('should NOT report missing TS template files for JS-only projects', async () => {
+    it('should NOT report missing TS template files for JS-only projects', async (): Promise<void> => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(false);
 
       const templatesDir = path.join(process.cwd(), 'src', 'templates');
-      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
         const pathStr = p.toString();
         if (pathStr === templatesDir) {
           return Promise.resolve([
-            { name: 'tsconfig.json', isDirectory: (): boolean => false },
+            {
+              name: 'tsconfig.json',
+              isDirectory: (): boolean => false,
+            },
           ] as any);
         }
         return Promise.resolve([]);
       });
 
-      vi.mocked(fs.access).mockImplementation((p: any) => {
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
         const pathStr = p.toString();
         if (pathStr.includes('tsconfig.json'))
           return Promise.reject(new Error('Not found'));
@@ -111,22 +161,25 @@ describe('Scanner', () => {
       expect(missingTsConfig).toBeUndefined();
     });
 
-    it('should report missing TS template files for TS projects', async () => {
+    it('should report missing TS template files for TS projects', async (): Promise<void> => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(true);
 
       const templatesDir = path.join(process.cwd(), 'src', 'templates');
-      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
         const pathStr = p.toString();
         if (pathStr === templatesDir) {
           return Promise.resolve([
-            { name: 'tsconfig.json', isDirectory: (): boolean => false },
+            {
+              name: 'tsconfig.json',
+              isDirectory: (): boolean => false,
+            },
           ] as any);
         }
         return Promise.resolve([]);
       });
 
-      vi.mocked(fs.access).mockImplementation((p: any) => {
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
         const pathStr = p.toString();
         if (pathStr.includes('tsconfig.json'))
           return Promise.reject(new Error('Not found'));
@@ -143,8 +196,8 @@ describe('Scanner', () => {
   });
 
   describe('scanLint', () => {
-    it('should return early if node_modules exists', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should return early if node_modules exists', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         const pathStr = p.toString();
         if (pathStr.endsWith('node_modules')) return true;
         if (pathStr.endsWith('eslint.config.mjs')) return true;
@@ -152,7 +205,7 @@ describe('Scanner', () => {
         return false;
       });
       // We need to provide a pkg with a lint script
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ scripts: { lint: 'eslint' } });
         return '';
@@ -163,8 +216,8 @@ describe('Scanner', () => {
       expect(result.issues.some((i) => i.message.includes('Lint'))).toBe(false);
     });
 
-    it('should report lint failure if no specific lines found', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+    it('should report lint failure if no specific lines found', async (): Promise<void> => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ scripts: { lint: 'eslint' } });
         return '';
@@ -184,13 +237,13 @@ describe('Scanner', () => {
   });
 
   describe('scanTests', () => {
-    it('should report test issues if tests fail', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+    it('should report test issues if tests fail', async (): Promise<void> => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ scripts: { test: 'vitest' } });
         return '';
       });
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         const pathStr = p.toString();
         if (pathStr.endsWith('vitest.config.ts')) return true;
         return false;
@@ -213,8 +266,8 @@ describe('Scanner', () => {
       );
     });
 
-    it('should return early if vitest.config.ts is missing', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+    it('should return early if vitest.config.ts is missing', async (): Promise<void> => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ scripts: { test: 'vitest' } });
         return '';
@@ -230,7 +283,7 @@ describe('Scanner', () => {
   });
 
   describe('checkDependenciesVersion', () => {
-    it('should handle package not found error', async () => {
+    it('should handle package not found error', async (): Promise<void> => {
       vi.mocked(fs.readFile).mockResolvedValue(
         JSON.stringify({
           dependencies: { 'non-existent': '^1.0.0' },
@@ -244,7 +297,7 @@ describe('Scanner', () => {
       expect(result.issues.length).toBeDefined();
     });
 
-    it('should skip outdated check if excluded', async () => {
+    it('should skip outdated check if excluded', async (): Promise<void> => {
       const { isOutdatedScanExcluded } = await import('../utils/excludes.js');
       vi.mocked(isOutdatedScanExcluded).mockReturnValue(true);
 
@@ -265,7 +318,7 @@ describe('Scanner', () => {
   });
 
   describe('scanGitHubMetadata', () => {
-    it('should report incorrect homepage', async () => {
+    it('should report incorrect homepage', async (): Promise<void> => {
       const { getRepoMetadata } = await import('../github.js');
       vi.mocked(getRepoMetadata).mockResolvedValue({
         homepage: 'wrong-homepage',
@@ -280,7 +333,7 @@ describe('Scanner', () => {
       ).toBe(true);
     });
 
-    it('should report incorrect description length', async () => {
+    it('should report incorrect description length', async (): Promise<void> => {
       const { getRepoMetadata } = await import('../github.js');
       vi.mocked(getRepoMetadata).mockResolvedValue({
         homepage: 'https://linkedin.com/in/orassayag',
@@ -297,7 +350,7 @@ describe('Scanner', () => {
       ).toBe(true);
     });
 
-    it('should report missing rulesets', async () => {
+    it('should report missing rulesets', async (): Promise<void> => {
       const { getRulesets } = await import('../github.js');
       vi.mocked(getRulesets).mockResolvedValue([]);
 
@@ -307,7 +360,7 @@ describe('Scanner', () => {
       ).toBe(true);
     });
 
-    it('should report keyword mismatch between package.json and GitHub topics', async () => {
+    it('should report keyword mismatch between package.json and GitHub topics', async (): Promise<void> => {
       const pkgJson = {
         name: 'test-repo',
         keywords: ['k1', 'k2'],
@@ -361,7 +414,7 @@ describe('Scanner', () => {
       ).toBe(true);
     });
 
-    it('should NOT report if keywords match GitHub topics', async () => {
+    it('should NOT report if keywords match GitHub topics', async (): Promise<void> => {
       const pkgJson = {
         name: 'test-repo',
         keywords: ['k1', 'k2'],
@@ -415,7 +468,7 @@ describe('Scanner', () => {
       ).toBe(false);
     });
 
-    it.skip('should exclude "coverage" folder from package.json "files" comparison', async () => {
+    it.skip('should exclude "coverage" folder from package.json "files" comparison', async (): Promise<void> => {
       const pkgJson = {
         name: 'test-repo',
         author: {
@@ -472,8 +525,8 @@ describe('Scanner', () => {
   });
 
   describe('scanKnip', () => {
-    it('should report knip issues if unused items found', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+    it('should report knip issues if unused items found', async (): Promise<void> => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -504,11 +557,11 @@ describe('Scanner', () => {
       expect(knipIssue).toBeDefined();
     });
 
-    it('should skip knip scan if excluded', async () => {
+    it('should skip knip scan if excluded', async (): Promise<void> => {
       const { isKnipScanExcluded } = await import('../utils/excludes.js');
       vi.mocked(isKnipScanExcluded).mockReturnValue(true);
 
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -524,11 +577,11 @@ describe('Scanner', () => {
       ).toBe(false);
     });
 
-    it('should add --no-dependencies flag if knip unused deps are excluded', async () => {
+    it('should add --no-dependencies flag if knip unused deps are excluded', async (): Promise<void> => {
       const { isKnipUnusedDepsExcluded } = await import('../utils/excludes.js');
       vi.mocked(isKnipUnusedDepsExcluded).mockReturnValue(true);
 
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -542,11 +595,11 @@ describe('Scanner', () => {
       expect(knipCall![0].toString()).toContain('--no-dependencies');
     });
 
-    it('should filter out excluded packages from knip output', async () => {
+    it('should filter out excluded packages from knip output', async (): Promise<void> => {
       const { getExcludedKnipPackages } = await import('../utils/excludes.js');
       vi.mocked(getExcludedKnipPackages).mockReturnValue(['lodash']);
 
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -569,11 +622,11 @@ describe('Scanner', () => {
       expect(knipIssue?.message).toContain('@eslint/js');
     });
 
-    it('should filter out excluded paths from knip output and add --ignore flag', async () => {
+    it('should filter out excluded paths from knip output and add --ignore flag', async (): Promise<void> => {
       const { getExcludedKnipPaths } = await import('../utils/excludes.js');
       vi.mocked(getExcludedKnipPaths).mockReturnValue(['misc', 'poc']);
 
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -604,8 +657,8 @@ describe('Scanner', () => {
       expect(knipIssue?.message).not.toContain('poc/test.ts');
     });
 
-    it('should handle multiple headers and limit issues in knip output', async () => {
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+    it('should handle multiple headers and limit issues in knip output', async (): Promise<void> => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ name: 'test-repo' });
         return '';
@@ -640,13 +693,58 @@ describe('Scanner', () => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(true);
 
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json'))
+          return JSON.stringify({
+            name: 'test-repo',
+            scripts: { test: 'vitest' },
+          });
+        return '';
+      });
+
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
         const pathStr = p.toString();
-        // Return false for all tsconfig and vitest files
-        if (pathStr.endsWith('tsconfig.json')) return false;
-        if (pathStr.endsWith('tsconfig.node.json')) return false;
-        if (pathStr.endsWith('vitest.config.ts')) return false;
+        if (pathStr === templatesDir) {
+          return Promise.resolve([
+            {
+              name: 'tsconfig.json',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+            },
+            {
+              name: 'tsconfig.node.json',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+            },
+            {
+              name: 'vitest.config.ts',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
+        const pathStr = p.toString();
+        if (pathStr.includes('package.json')) return true;
+        if (pathStr.includes('tsconfig.json')) return false;
+        if (pathStr.includes('tsconfig.node.json')) return false;
+        if (pathStr.includes('vitest.config.ts')) return false;
         return true;
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+        const pathStr = p.toString();
+        if (pathStr.includes('tsconfig.json'))
+          return Promise.reject(new Error('Not found'));
+        if (pathStr.includes('tsconfig.node.json'))
+          return Promise.reject(new Error('Not found'));
+        if (pathStr.includes('vitest.config.ts'))
+          return Promise.reject(new Error('Not found'));
+        return Promise.resolve();
       });
 
       const result = await scanner.scanRepo(mockRepo);
@@ -673,7 +771,7 @@ describe('Scanner', () => {
       ).toBe(true);
     });
 
-    it('should NOT report missing files if NO .ts files exist', async () => {
+    it('should NOT report missing files if NO .ts files exist', async (): Promise<void> => {
       const { isTypeScriptProject } = await import('../utils/projectType.js');
       vi.mocked(isTypeScriptProject).mockResolvedValue(false);
 
@@ -691,8 +789,8 @@ describe('Scanner', () => {
   });
 
   describe('scanRepo templates', () => {
-    it('should handle templates readdir failure', async () => {
-      vi.mocked(fs.readdir).mockImplementation((p: any) => {
+    it('should handle templates readdir failure', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
         if (p.toString().toLowerCase().includes('templates'))
           return Promise.reject(new Error('fail'));
         return Promise.resolve([]);
@@ -704,8 +802,8 @@ describe('Scanner', () => {
   });
 
   describe('git status failure', () => {
-    it('should report failure if git status fails', async () => {
-      vi.mocked(execSync).mockImplementation(() => {
+    it('should report failure if git status fails', async (): Promise<void> => {
+      vi.mocked(execSync).mockImplementation((): string => {
         throw new Error('git fail');
       });
 
@@ -719,8 +817,8 @@ describe('Scanner', () => {
   });
 
   describe('Stylelint check catch block', () => {
-    it('should handle Stylelint check failure', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should handle Stylelint check failure', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.stylelintrc')) return true;
         return false;
       });
@@ -737,12 +835,12 @@ describe('Scanner', () => {
   });
 
   describe('Black formatter detection', () => {
-    it('should return false if pyproject.toml read fails', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should return false if pyproject.toml read fails', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('pyproject.toml')) return true;
         return false;
       });
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('pyproject.toml')) throw new Error('fail');
         return '';
       });
@@ -755,8 +853,8 @@ describe('Scanner', () => {
   });
 
   describe('scanFormatters catch blocks', () => {
-    it('should handle formatter check failure', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should handle formatter check failure', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.prettierrc')) return true;
         return false;
       });
@@ -773,8 +871,8 @@ describe('Scanner', () => {
   });
 
   describe('readPkg catch block', () => {
-    it('should return empty object if package.json read fails', () => {
-      vi.mocked(readFileSync).mockImplementation(() => {
+    it('should return empty object if package.json read fails', (): void => {
+      vi.mocked(readFileSync).mockImplementation((): string => {
         throw new Error('read fail');
       });
       // @ts-ignore
@@ -784,7 +882,7 @@ describe('Scanner', () => {
   });
 
   describe('scanLint catch block', () => {
-    it('should handle scanLint unexpected error', async () => {
+    it('should handle scanLint unexpected error', async (): Promise<void> => {
       // @ts-ignore
       vi.spyOn(scanner, 'scanLint').mockImplementation(() => {
         throw new Error('unexpected');
@@ -795,7 +893,7 @@ describe('Scanner', () => {
   });
 
   describe('parsing functions', () => {
-    it('should parse Prettier check output and exclude pnpm-lock.yaml, pnpm-workspace.yaml and package-lock.json', () => {
+    it('should parse Prettier check output and exclude pnpm-lock.yaml, pnpm-workspace.yaml and package-lock.json', (): void => {
       // @ts-ignore
       const files = scanner.parsePrettierCheck(
         '[warn] file1.ts\n[warn] pnpm-lock.yaml\n[warn] packages/app/pnpm-lock.yaml\n[warn] pnpm-workspace.yaml\n[warn] packages/app/pnpm-workspace.yaml\n[warn] package-lock.json\n[warn] packages/app/package-lock.json\n[warn] file2.ts\n[warn] Code style issues'
@@ -803,7 +901,7 @@ describe('Scanner', () => {
       expect(files).toEqual(['file1.ts', 'file2.ts']);
     });
 
-    it('should parse ESLint output and exclude coverage folder', () => {
+    it('should parse ESLint output and exclude coverage folder', (): void => {
       const repoDir = process.platform === 'win32' ? 'C:\\repo' : '/repo';
       const file1 = path.join(repoDir, 'file1.ts');
       const coverageFile = path.join(repoDir, 'coverage', 'sorter.js');
@@ -815,7 +913,7 @@ describe('Scanner', () => {
         'prettify.js'
       );
 
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         const pStr = p.toString();
         return (
           pStr === file1 || pStr === coverageFile || pStr === nestedCoverageFile
@@ -832,7 +930,7 @@ describe('Scanner', () => {
       expect(files).not.toContain(path.relative(repoDir, nestedCoverageFile));
     });
 
-    it('should parse Biome output', () => {
+    it('should parse Biome output', (): void => {
       const repoDir = '/repo';
       vi.mocked(existsSync).mockReturnValue(true);
       // @ts-ignore
@@ -842,8 +940,8 @@ describe('Scanner', () => {
   });
 
   describe('scanFormatters', () => {
-    it('should detect and check Prettier', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check Prettier', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.prettierrc')) return true;
         return false;
       });
@@ -862,11 +960,11 @@ describe('Scanner', () => {
       expect(prettierIssue?.message).toContain('2 file(s) unformatted');
     });
 
-    it('should filter out excluded paths from formatters', async () => {
+    it('should filter out excluded paths from formatters', async (): Promise<void> => {
       const { getExcludedPaths } = await import('../utils/excludes.js');
       vi.mocked(getExcludedPaths).mockReturnValue(['misc', 'db/days.json']);
 
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.prettierrc')) return true;
         return false;
       });
@@ -891,17 +989,17 @@ describe('Scanner', () => {
       expect(prettierIssue?.message).not.toContain('db/days.json');
     });
 
-    it('should filter out excluded paths from lint issues', async () => {
+    it('should filter out excluded paths from lint issues', async (): Promise<void> => {
       const { getExcludedPaths } = await import('../utils/excludes.js');
       vi.mocked(getExcludedPaths).mockReturnValue(['misc']);
 
-      vi.mocked(readFileSync).mockImplementation((p: any) => {
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
           return JSON.stringify({ scripts: { lint: 'eslint .' } });
         return '';
       });
 
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().includes('node_modules')) return false; // Trigger npx lint
         return false;
       });
@@ -919,21 +1017,21 @@ describe('Scanner', () => {
       expect(lintIssue?.message).not.toContain('misc/file.ts');
     });
 
-    it('should detect and check ESLint', async () => {
+    it('should detect and check ESLint', async (): Promise<void> => {
       const repoPath =
         process.platform === 'win32'
           ? 'C:\\mock\\path\\test-repo'
           : '/mock/path/test-repo';
       const filePath = path.join(repoPath, 'file1.ts');
 
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         const ps = p.toString();
         if (ps.endsWith('eslint.config.js')) return true;
         if (ps === filePath || ps.endsWith('file1.ts')) return true;
         return false;
       });
 
-      vi.mocked(spawnSync).mockImplementation((cmd: any) => {
+      vi.mocked(spawnSync).mockImplementation((cmd: any): any => {
         if (cmd.toString().includes('eslint')) {
           return {
             stdout: '',
@@ -951,8 +1049,8 @@ describe('Scanner', () => {
       expect(eslintIssue).toBeDefined();
     });
 
-    it('should detect and check Biome', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check Biome', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('biome.json')) return true;
         if (p.toString().endsWith('file1.ts')) return true;
         return false;
@@ -969,8 +1067,8 @@ describe('Scanner', () => {
       expect(biomeIssue).toBeDefined();
     });
 
-    it('should detect and check Stylelint', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check Stylelint', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.stylelintrc')) return true;
         return false;
       });
@@ -988,13 +1086,13 @@ describe('Scanner', () => {
       expect(issue).toBeDefined();
     });
 
-    it('should handle ESLint invalid option --ext fallback', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should handle ESLint invalid option --ext fallback', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('eslint.config.js')) return true;
         return false;
       });
 
-      vi.mocked(spawnSync).mockImplementation((cmd: any) => {
+      vi.mocked(spawnSync).mockImplementation((cmd: any): any => {
         if (cmd.toString().includes('eslint')) {
           if (cmd.toString().includes('--ext')) {
             return { stdout: '[]', stderr: '', status: 0 } as any;
@@ -1012,8 +1110,8 @@ describe('Scanner', () => {
       expect(result.issues.length).toBeDefined();
     });
 
-    it('should handle Stylelint parse error', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should handle Stylelint parse error', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.stylelintrc')) return true;
         return false;
       });
@@ -1030,8 +1128,8 @@ describe('Scanner', () => {
       );
     });
 
-    it('should detect and check rustfmt', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check rustfmt', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('Cargo.toml')) return true;
         return false;
       });
@@ -1047,8 +1145,8 @@ describe('Scanner', () => {
       expect(issue).toBeDefined();
     });
 
-    it('should detect and check gofmt', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check gofmt', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('go.mod')) return true;
         return false;
       });
@@ -1064,8 +1162,8 @@ describe('Scanner', () => {
       expect(issue).toBeDefined();
     });
 
-    it('should detect and check Black (Python)', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should detect and check Black (Python)', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('pyproject.toml')) return true;
         return false;
       });
@@ -1084,8 +1182,8 @@ describe('Scanner', () => {
   });
 
   describe('resolveRunner', () => {
-    it('should use local bin if exists', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should use local bin if exists', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.prettierrc')) return true;
         if (p.toString().includes('node_modules')) return true;
         return false;
@@ -1100,8 +1198,8 @@ describe('Scanner', () => {
       expect(prettierCall?.[0]).toContain('node_modules');
     });
 
-    it('should use npx if local bin missing', async () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
+    it('should use npx if local bin missing', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
         if (p.toString().endsWith('.prettierrc')) return true;
         return false;
       });

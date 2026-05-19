@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isTypeScriptProject } from '../utils/projectType.js';
+import {
+  isTypeScriptProject,
+  isDotNetOrWindowsProject,
+} from '../utils/projectType.js';
 import fs from 'fs/promises';
+import path from 'path';
 
 vi.mock('fs/promises');
 
@@ -119,5 +123,100 @@ describe('projectType', () => {
 
     const result = await isTypeScriptProject(repoPath);
     expect(result).toBe(false);
+  });
+
+  describe('isDotNetOrWindowsProject', () => {
+    it('should detect project with .sln in root', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        {
+          name: 'MySolution.sln',
+          isFile: (): boolean => true,
+          isDirectory: (): boolean => false,
+        },
+      ] as any);
+      const result = await isDotNetOrWindowsProject(repoPath);
+      expect(result).toBe(true);
+    });
+
+    it('should detect project with desktop.ini in root', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        {
+          name: 'desktop.ini',
+          isFile: (): boolean => true,
+          isDirectory: (): boolean => false,
+        },
+      ] as any);
+      const result = await isDotNetOrWindowsProject(repoPath);
+      expect(result).toBe(true);
+    });
+
+    it('should detect project with .csproj in subfolder', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        if (p === repoPath) {
+          return Promise.resolve([
+            {
+              name: 'MyProject',
+              isFile: (): boolean => false,
+              isDirectory: (): boolean => true,
+            },
+          ] as any);
+        }
+        if (p === path.join(repoPath, 'MyProject')) {
+          return Promise.resolve([
+            {
+              name: 'MyProject.csproj',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+      const result = await isDotNetOrWindowsProject(repoPath);
+      expect(result).toBe(true);
+    });
+
+    it('should detect project with Web.config in subfolder', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        if (p === repoPath) {
+          return Promise.resolve([
+            {
+              name: 'WebApp',
+              isFile: (): boolean => false,
+              isDirectory: (): boolean => true,
+            },
+          ] as any);
+        }
+        if (p === path.join(repoPath, 'WebApp')) {
+          return Promise.resolve([
+            {
+              name: 'Web.config',
+              isFile: (): boolean => true,
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+      const result = await isDotNetOrWindowsProject(repoPath);
+      expect(result).toBe(true);
+    });
+
+    it('should return false for regular JS projects', async (): Promise<void> => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        {
+          name: 'package.json',
+          isFile: (): boolean => true,
+          isDirectory: (): boolean => false,
+        },
+        {
+          name: 'src',
+          isFile: (): boolean => false,
+          isDirectory: (): boolean => true,
+        },
+      ] as any);
+      const result = await isDotNetOrWindowsProject(repoPath);
+      expect(result).toBe(false);
+    });
   });
 });

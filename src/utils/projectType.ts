@@ -116,3 +116,63 @@ async function hasTypeScriptFiles(dir: string): Promise<boolean> {
   }
   return false;
 }
+
+/**
+ * Detects if a project is a .NET or Windows-related project based on specific files.
+ * Skip prettify and knip scans if detected.
+ */
+export async function isDotNetOrWindowsProject(
+  repoPath: string
+): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(repoPath, { withFileTypes: true });
+
+    // 1. Root level check
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const name = entry.name.toLowerCase();
+        if (
+          name.endsWith('.sln') ||
+          name.endsWith('.suo') ||
+          name.endsWith('.cs') ||
+          name === 'desktop.ini'
+        ) {
+          return true;
+        }
+      }
+    }
+
+    // 2. First level subfolder check
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const dirName = entry.name;
+        if (dirName === 'node_modules' || dirName === '.git') continue;
+
+        const subDirPath = path.join(repoPath, dirName);
+        const subEntries = await fs.readdir(subDirPath, {
+          withFileTypes: true,
+        });
+
+        for (const subEntry of subEntries) {
+          if (subEntry.isFile()) {
+            const subName = subEntry.name.toLowerCase();
+            if (
+              subName.endsWith('.ashx') ||
+              subName.endsWith('.asax') ||
+              subName.endsWith('.cs') ||
+              subName === 'package.config' ||
+              subName === 'packages.config' ||
+              subName === 'web.config' ||
+              subName.endsWith('.csproj')
+            ) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+  return false;
+}
