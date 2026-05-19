@@ -30,8 +30,8 @@ describe('repoList', () => {
 
     it('should parse repo list', async () => {
       const repos = [
-        { name: 'repo1', url: 'https://github.com/user/repo1', type: 'Active' },
-        { name: 'repo2', url: 'https://github.com/user/repo2', type: 'Active' },
+        { name: 'repo1', url: 'https://github.com/user/repo1', type: 'active' },
+        { name: 'repo2', url: 'https://github.com/user/repo2', type: 'active' },
       ];
       vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(repos));
       const result = await readRepoList();
@@ -52,7 +52,7 @@ describe('repoList', () => {
           {
             name: 'new-repo',
             url: 'https://github.com/user/new-repo',
-            type: 'Active',
+            type: 'active',
           },
         ],
         null,
@@ -71,17 +71,17 @@ describe('repoList', () => {
 
     it('should update an existing repo and keep it sorted', async () => {
       const existingRepos = [
-        { name: 'repo-b', url: 'url-b', type: 'Active' },
-        { name: 'repo-a', url: 'url-a', type: 'Active' },
+        { name: 'repo-b', url: 'url-b', type: 'active' },
+        { name: 'repo-a', url: 'url-a', type: 'active' },
       ];
       vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRepos));
 
       await addOrUpdateRepoInList('repo-c', 'url-c');
 
       const expectedRepos = [
-        { name: 'repo-a', url: 'url-a', type: 'Active' },
-        { name: 'repo-b', url: 'url-b', type: 'Active' },
-        { name: 'repo-c', url: 'url-c', type: 'Active' },
+        { name: 'repo-a', url: 'url-a', type: 'active' },
+        { name: 'repo-b', url: 'url-b', type: 'active' },
+        { name: 'repo-c', url: 'url-c', type: 'active' },
       ];
 
       expect(fs.writeFile).toHaveBeenCalledWith(
@@ -93,14 +93,14 @@ describe('repoList', () => {
 
     it('should handle updates for existing names (case-insensitive)', async () => {
       const existingRepos = [
-        { name: 'Repo-A', url: 'old-url', type: 'Active' },
+        { name: 'Repo-A', url: 'old-url', type: 'active' },
       ];
       vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRepos));
 
       await addOrUpdateRepoInList('repo-a', 'new-url');
 
       const expectedRepos = [
-        { name: 'Repo-A', url: 'new-url', type: 'Active' },
+        { name: 'Repo-A', url: 'new-url', type: 'active' },
       ];
 
       expect(fs.writeFile).toHaveBeenCalledWith(

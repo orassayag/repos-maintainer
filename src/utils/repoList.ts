@@ -43,7 +43,7 @@ export async function addOrUpdateRepoInList(
     entries.push({
       name: repoName,
       url: repoUrl,
-      type: 'Active',
+      type: 'active',
     });
   }
 

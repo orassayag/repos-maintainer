@@ -79,12 +79,12 @@ The file should contain a JSON array of repository objects, e.g.:
   {
     "name": "actions-manager",
     "url": "https://github.com/orassayag/actions-manager",
-    "type": "Active"
+    "type": "active"
   },
   {
     "name": "angularil-lottery",
     "url": "https://github.com/orassayag/angularil-lottery",
-    "type": "Legacy"
+    "type": "legacy"
   }
 ]
 ```
@@ -364,7 +364,7 @@ The tool allows you to suppress specific warnings or skip projects entirely usin
 - **EXCLUDED_KNIP_SCAN**: List of repository names to skip Knip validation entirely.
 - **EXCLUDED_KNIP_UNUSED_DEPS_SCAN**: List of repository names to skip Knip validation for unused dependencies (using `--no-dependencies` flag).
 
-Note: Outdated package scans are automatically excluded for projects marked as `"type": "Legacy"` in `project-repos-names.json`. This replaces the previous manual `EXCLUDED_OUTDATED_SCAN` list.
+Note: Outdated package scans are automatically excluded for projects marked as `"type": "legacy"` in `project-repos-names.json`. This replaces the previous manual `EXCLUDED_OUTDATED_SCAN` list.
 
 ## Best Practices
 

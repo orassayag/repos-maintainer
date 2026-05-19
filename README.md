@@ -111,7 +111,7 @@ Structure of `exclude.json`:
 - `EXCLUDED_KNIP_SCAN`: List of repository names to skip Knip validation entirely.
 - `EXCLUDED_KNIP_UNUSED_DEPS_SCAN`: List of repository names to skip Knip validation for unused dependencies.
 
-Note: Outdated package scans are automatically excluded for projects marked as `"type": "Legacy"` in `project-repos-names.json`.
+Note: Outdated package scans are automatically excluded for projects marked as `"type": "legacy"` in `project-repos-names.json`.
 
 ## Usage
 

@@ -30,7 +30,7 @@ const PROJECTS_DATA_PATH = 'C:\\Or\\web\\project-repos-names.json';
 interface ProjectData {
   name: string;
   url: string;
-  type: 'Active' | 'Legacy';
+  type: 'active' | 'legacy';
 }
 
 function loadProjectsData(): ProjectData[] {
@@ -114,7 +114,7 @@ export function isLegacyProject(repoName: string): boolean {
   const project = projectsData.find(
     (p) => p.name.toLowerCase() === repoName.toLowerCase()
   );
-  return project?.type === 'Legacy';
+  return project?.type === 'legacy';
 }
 
 export function isOutdatedScanExcluded(repoName: string): boolean {
