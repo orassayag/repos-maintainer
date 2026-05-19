@@ -397,5 +397,55 @@ describe('packageJsonFixer', () => {
       expect(written.devDependencies).toBeDefined();
       expect(written.devDependencies['mock-pkg']).toBe('^1.2.3');
     });
+
+    it('should add dependencies if missing in package.json', async () => {
+      const templateWithDeps = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        dependencies: { 'mock-dep': '' },
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(templateWithDeps);
+
+      vi.mocked(execSync).mockReturnValue('2.0.0' as any);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.dependencies).toBeDefined();
+      expect(written.dependencies['mock-dep']).toBe('^2.0.0');
+    });
+
+    it('should add scripts if missing in package.json', async () => {
+      const templateWithScripts = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        scripts: { test: 'vitest' },
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
+        .mockResolvedValueOnce(templateWithScripts);
+
+      const result = await fixPackageJson(repoPath, 'test-repo');
+
+      expect(result).toBe(true);
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.scripts).toBeDefined();
+      expect(written.scripts.test).toBe('vitest');
+    });
   });
 });

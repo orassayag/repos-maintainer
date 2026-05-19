@@ -404,6 +404,31 @@ export async function fixPackageJson(
       Logger.info('Updated "devDependencies" in package.json');
     }
 
+    // 12. dependencies
+    if (!pkg.dependencies && templatePkg.dependencies) {
+      Logger.info(
+        'Missing "dependencies" section. Populating from template...'
+      );
+      pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
+
+      // Fetch dynamic versions for dependencies
+      Logger.log(`📦 Fetching latest versions for dependencies...`);
+      for (const dep of Object.keys(pkg.dependencies)) {
+        pkg.dependencies[dep] = getLatestVersion(dep);
+      }
+
+      changed = true;
+      Logger.info('Updated "dependencies" in package.json');
+    }
+
+    // 13. scripts
+    if (!pkg.scripts && templatePkg.scripts) {
+      Logger.info('Missing "scripts" section. Populating from template...');
+      pkg.scripts = JSON.parse(JSON.stringify(templatePkg.scripts));
+      changed = true;
+      Logger.info('Updated "scripts" in package.json');
+    }
+
     // 7. files (Sync "files" section with root directory)
     const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
     const sortedRootItems = rootEntries
