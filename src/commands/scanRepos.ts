@@ -2,10 +2,10 @@ import fs from 'fs/promises';
 import ora from 'ora';
 import { Logger } from '../utils/logger.js';
 import { Scanner, RepoScanResult } from '../utils/scanner.js';
-import { Severity, sortIssuesByFile } from '../utils/issues.js';
+import { Severity, formatIssuesForReport } from '../utils/issues.js';
 import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
-import { readRepoList } from '../utils/repoList.js';
+import { readRepoList, RepoEntry } from '../utils/repoList.js';
 
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
@@ -36,11 +36,11 @@ export async function scanReposCommand(): Promise<void> {
     return;
   }
 
-  // 2. Load existing repo list for URLs
+  // 2. Load existing repo list for URLs and metadata
   const repoList = await readRepoList();
-  const repoMap = new Map<string, string>();
+  const repoMap = new Map<string, RepoEntry>();
   for (const entry of repoList) {
-    repoMap.set(entry.name.toLowerCase(), entry.url);
+    repoMap.set(entry.name.toLowerCase(), entry);
   }
 
   Logger.log(`📦 Found ${projectDirs.length} directories to scan.\n`);
@@ -56,14 +56,20 @@ export async function scanReposCommand(): Promise<void> {
 
   for (let i = 0; i < projectDirs.length; i++) {
     const repoName = projectDirs[i];
+    const repoEntry = repoMap.get(repoName.toLowerCase());
     const repoUrl =
-      repoMap.get(repoName.toLowerCase()) ||
+      repoEntry?.url ||
       `https://github.com/${settings.AUTHOR_GITHUB}/${repoName}`;
 
     spinner.text = `Scanning [${i + 1}/${projectDirs.length}]: ${repoName}`;
 
     try {
-      const result = await scanner.scanRepo({ name: repoName, url: repoUrl });
+      const result = await scanner.scanRepo({
+        name: repoName,
+        url: repoUrl,
+        purpose: repoEntry?.purpose,
+        structure: repoEntry?.structure,
+      });
       results.push(result);
       if (result.unlistedBinaries) {
         result.unlistedBinaries.forEach((b) => allUnlistedBinaries.add(b));
@@ -131,11 +137,8 @@ export async function scanReposCommand(): Promise<void> {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          reportContent += `\n${severity}:\n\n`;
-          const sortedIssues = sortIssuesByFile(issues);
-          for (const message of sortedIssues) {
-            reportContent += `-${message.trim()}\n`;
-          }
+          reportContent += `\n${severity}:\n`;
+          reportContent += formatIssuesForReport(issues);
         }
       }
     }

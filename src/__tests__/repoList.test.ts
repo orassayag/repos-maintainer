@@ -53,6 +53,8 @@ describe('repoList', () => {
             name: 'new-repo',
             url: 'https://github.com/user/new-repo',
             type: 'active',
+            purpose: 'personal',
+            structure: 'single',
           },
         ],
         null,
@@ -81,7 +83,13 @@ describe('repoList', () => {
       const expectedRepos = [
         { name: 'repo-a', url: 'url-a', type: 'active' },
         { name: 'repo-b', url: 'url-b', type: 'active' },
-        { name: 'repo-c', url: 'url-c', type: 'active' },
+        {
+          name: 'repo-c',
+          url: 'url-c',
+          type: 'active',
+          purpose: 'personal',
+          structure: 'single',
+        },
       ];
 
       expect(fs.writeFile).toHaveBeenCalledWith(

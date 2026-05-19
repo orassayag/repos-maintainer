@@ -94,13 +94,21 @@ export class Scanner {
     return files.flat();
   }
 
-  async scanRepo(repo: { name: string; url: string }): Promise<RepoScanResult> {
+  async scanRepo(repo: {
+    name: string;
+    url: string;
+    purpose?: string;
+    structure?: string;
+  }): Promise<RepoScanResult> {
     this.scanIssues = [];
     this.foundUnlistedBinaries = [];
     this.currentRepoName = repo.name;
     const repoPath = getLocalRepoPath(repo.name);
     const parsed = parseGitHubUrl(repo.url);
     const excludedPaths = getExcludedPaths(repo.name);
+
+    const isTraining = repo.purpose === 'training';
+    const isMulti = repo.structure === 'multi';
 
     // 1. Local existence
     try {
@@ -191,6 +199,11 @@ export class Scanner {
         continue;
       }
 
+      // Skip package.json if it's a training repo
+      if (file === 'package.json' && isTraining) {
+        continue;
+      }
+
       const targetFilePath = path.join(repoPath, file);
       try {
         await fs.access(targetFilePath);
@@ -227,13 +240,29 @@ export class Scanner {
       }
     }
 
-    if (!excludedPaths.includes('package.json')) {
-      await this.scanPackageJson(
-        repoPath,
-        repo.name,
-        githubMetadata ? githubMetadata.topics : null
-      );
-      this.scanPackageJsonSorting(repoPath);
+    if (!isTraining) {
+      if (isMulti) {
+        const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
+        for (const pkgPath of pkgPaths) {
+          const relativePkgPath = path.relative(repoPath, pkgPath);
+          if (excludedPaths.includes(relativePkgPath)) continue;
+
+          await this.scanPackageJson(
+            path.dirname(pkgPath),
+            repo.name,
+            githubMetadata ? githubMetadata.topics : null,
+            relativePkgPath
+          );
+          this.scanPackageJsonSorting(path.dirname(pkgPath), relativePkgPath);
+        }
+      } else if (!excludedPaths.includes('package.json')) {
+        await this.scanPackageJson(
+          repoPath,
+          repo.name,
+          githubMetadata ? githubMetadata.topics : null
+        );
+        this.scanPackageJsonSorting(repoPath);
+      }
     }
 
     const skipPrettifyAndKnip = await isDotNetOrWindowsProject(repoPath);
@@ -620,7 +649,8 @@ export class Scanner {
   private async scanPackageJson(
     repoPath: string,
     repoName: string,
-    githubTopics: string[] | null = null
+    githubTopics: string[] | null = null,
+    relativePath: string = 'package.json'
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -629,12 +659,12 @@ export class Scanner {
 
       if (pkg.name !== repoName)
         this.logToReport(
-          `package.json: "name" should be "${repoName}"`,
+          `${relativePath}: "name" should be "${repoName}"`,
           Severity.MEDIUM
         );
 
       if (pkg.private === true) {
-        this.logIssue('PACKAGE_JSON_PRIVATE');
+        this.logIssue('PACKAGE_JSON_PRIVATE', { file: relativePath });
       }
 
       // Author Validation
@@ -644,7 +674,7 @@ export class Scanner {
         url: 'https://github.com/orassayag',
       };
       if (!pkg.author) {
-        this.logIssue('PACKAGE_JSON_MISSING_AUTHOR');
+        this.logIssue('PACKAGE_JSON_MISSING_AUTHOR', { file: relativePath });
       } else if (
         typeof pkg.author !== 'object' ||
         pkg.author.name !== expectedAuthor.name ||
@@ -652,12 +682,13 @@ export class Scanner {
         pkg.author.url !== expectedAuthor.url
       ) {
         this.logIssue('PACKAGE_JSON_AUTHOR_MISMATCH', {
+          file: relativePath,
           expectedAuthor: JSON.stringify(expectedAuthor, null, 2),
         });
       }
 
       if (pkg.license !== 'MIT') {
-        this.logIssue('PACKAGE_JSON_LICENSE_MISMATCH');
+        this.logIssue('PACKAGE_JSON_LICENSE_MISMATCH', { file: relativePath });
       }
 
       const expectedRepoUrl = `git://github.com/orassayag/${repoName}.git`;
@@ -667,6 +698,7 @@ export class Scanner {
         pkg.repository.url !== expectedRepoUrl
       ) {
         this.logIssue('PACKAGE_JSON_REPO_URL_MISMATCH', {
+          file: relativePath,
           expectedRepoUrl,
         });
       }
@@ -674,9 +706,10 @@ export class Scanner {
       // Homepage Validation
       const expectedHomepage = `https://github.com/orassayag/${repoName}#readme`;
       if (!pkg.homepage) {
-        this.logIssue('PACKAGE_JSON_MISSING_HOMEPAGE');
+        this.logIssue('PACKAGE_JSON_MISSING_HOMEPAGE', { file: relativePath });
       } else if (pkg.homepage !== expectedHomepage) {
         this.logIssue('PACKAGE_JSON_HOMEPAGE_MISMATCH', {
+          file: relativePath,
           expectedHomepage,
         });
       }
@@ -684,9 +717,10 @@ export class Scanner {
       // Bugs Validation
       const expectedBugsUrl = `https://github.com/orassayag/${repoName}/issues`;
       if (!pkg.bugs) {
-        this.logIssue('PACKAGE_JSON_MISSING_BUGS');
+        this.logIssue('PACKAGE_JSON_MISSING_BUGS', { file: relativePath });
       } else if (!pkg.bugs.url || pkg.bugs.url !== expectedBugsUrl) {
         this.logIssue('PACKAGE_JSON_BUGS_MISMATCH', {
+          file: relativePath,
           expectedBugsUrl,
         });
       }
@@ -697,23 +731,23 @@ export class Scanner {
         url: 'https://github.com/sponsors/orassayag',
       };
       if (!pkg.funding) {
-        this.logIssue('PACKAGE_JSON_MISSING_FUNDING');
+        this.logIssue('PACKAGE_JSON_MISSING_FUNDING', { file: relativePath });
       } else if (
         typeof pkg.funding !== 'object' ||
         pkg.funding.type !== expectedFunding.type ||
         pkg.funding.url !== expectedFunding.url
       ) {
-        this.logIssue('PACKAGE_JSON_FUNDING_MISMATCH');
+        this.logIssue('PACKAGE_JSON_FUNDING_MISMATCH', { file: relativePath });
       }
 
       // Engines Validation
       if (!pkg.engines) {
-        this.logIssue('PACKAGE_JSON_MISSING_ENGINES');
+        this.logIssue('PACKAGE_JSON_MISSING_ENGINES', { file: relativePath });
       } else if (
         typeof pkg.engines !== 'object' ||
         Object.keys(pkg.engines).length === 0
       ) {
-        this.logIssue('PACKAGE_JSON_ENGINES_MISMATCH');
+        this.logIssue('PACKAGE_JSON_ENGINES_MISMATCH', { file: relativePath });
       }
 
       const expectedContributor = {
@@ -728,11 +762,13 @@ export class Scanner {
           c.url === expectedContributor.url
       );
       if (!hasContributor) {
-        this.logIssue('PACKAGE_JSON_MISSING_CONTRIBUTOR');
+        this.logIssue('PACKAGE_JSON_MISSING_CONTRIBUTOR', {
+          file: relativePath,
+        });
       }
 
       if (!pkg.main || pkg.main.trim() === '') {
-        this.logIssue('PACKAGE_JSON_MISSING_MAIN');
+        this.logIssue('PACKAGE_JSON_MISSING_MAIN', { file: relativePath });
       } else {
         // Normalize to forward slashes for consistent check
         const normalizedMain = pkg.main.replace(/\\/g, '/');
@@ -740,13 +776,18 @@ export class Scanner {
         try {
           await fs.access(path.join(repoPath, normalizedMain));
         } catch {
-          this.logIssue('PACKAGE_JSON_INVALID_MAIN', { path: pkg.main });
+          this.logIssue('PACKAGE_JSON_INVALID_MAIN', {
+            file: relativePath,
+            path: pkg.main,
+          });
         }
       }
-      if (!pkg.type) this.logIssue('PACKAGE_JSON_MISSING_TYPE');
-      if (!pkg.scripts) this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS');
+      if (!pkg.type)
+        this.logIssue('PACKAGE_JSON_MISSING_TYPE', { file: relativePath });
+      if (!pkg.scripts)
+        this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS', { file: relativePath });
       if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {
-        this.logIssue('PACKAGE_JSON_MISSING_FILES');
+        this.logIssue('PACKAGE_JSON_MISSING_FILES', { file: relativePath });
       } else {
         const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
         const rootItems = rootEntries
@@ -790,6 +831,7 @@ export class Scanner {
             .join(', ');
 
           this.logIssue('PACKAGE_JSON_FILES_NOT_IDENTICAL', {
+            file: relativePath,
             missing: missing || 'none',
             extra: extra || 'none',
           });
@@ -798,20 +840,26 @@ export class Scanner {
             (file: string, index: number) => file === sortedRootItems[index]
           );
           if (!isSorted) {
-            this.logIssue('PACKAGE_JSON_FILES_NOT_SORTED');
+            this.logIssue('PACKAGE_JSON_FILES_NOT_SORTED', {
+              file: relativePath,
+            });
           }
         }
       }
       const skipOutdated = isOutdatedScanExcluded(this.currentRepoName);
 
       if (!pkg.dependencies) {
-        this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES');
+        this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES', {
+          file: relativePath,
+        });
       } else if (!skipOutdated) {
         await this.checkDependenciesVersion(pkg.dependencies);
       }
 
       if (!pkg.devDependencies) {
-        this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES');
+        this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES', {
+          file: relativePath,
+        });
       } else if (!skipOutdated) {
         await this.checkDependenciesVersion(pkg.devDependencies);
       }
@@ -820,6 +868,7 @@ export class Scanner {
       const keywordsValidation = validateKeywords(keywords);
       if (keywordsValidation !== true) {
         this.logIssue('PACKAGE_JSON_KEYWORDS_COUNT', {
+          file: relativePath,
           actualCount: keywords.length,
         });
       }
@@ -835,6 +884,7 @@ export class Scanner {
 
         if (!areEqual) {
           this.logIssue('PACKAGE_JSON_KEYWORDS_MISMATCH', {
+            file: relativePath,
             expected: keywords.join(', '),
             found: githubTopics.join(', ') || 'none',
           });
@@ -845,7 +895,10 @@ export class Scanner {
       const pkgDescValidation = validatePackageDescription(pkgDesc);
       if (pkgDescValidation !== true) {
         this.logIssue('PACKAGE_JSON_DESCRIPTION_LENGTH', {
+          file: relativePath,
           actualLen: pkgDesc.length,
+          min: 290,
+          max: 300,
         });
       }
     } catch {
@@ -853,7 +906,10 @@ export class Scanner {
     }
   }
 
-  private scanPackageJsonSorting(repoPath: string): void {
+  private scanPackageJsonSorting(
+    repoPath: string,
+    relativePath: string = 'package.json'
+  ): void {
     const pkgPath = path.join(repoPath, 'package.json');
     if (!existsSync(pkgPath)) return;
 
@@ -863,11 +919,44 @@ export class Scanner {
         repoPath
       );
       if (result.combined.includes('is not sorted')) {
-        this.logIssue('PACKAGE_JSON_UNSORTED');
+        this.logIssue('PACKAGE_JSON_UNSORTED', { file: relativePath });
       }
     } catch {
       // Ignore errors
     }
+  }
+
+  public async findMultiPackageJsonPaths(repoPath: string): Promise<string[]> {
+    const pkgPaths: string[] = [];
+
+    // 1. Check root-level folders
+    const entries = await fs.readdir(repoPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        const pkgPath = path.join(repoPath, entry.name, 'package.json');
+        if (existsSync(pkgPath)) {
+          pkgPaths.push(pkgPath);
+        }
+      }
+    }
+
+    // 2. If none found, check inside "src" folder
+    if (pkgPaths.length === 0) {
+      const srcPath = path.join(repoPath, 'src');
+      if (existsSync(srcPath)) {
+        const srcEntries = await fs.readdir(srcPath, { withFileTypes: true });
+        for (const entry of srcEntries) {
+          if (entry.isDirectory() && !entry.name.startsWith('.')) {
+            const pkgPath = path.join(srcPath, entry.name, 'package.json');
+            if (existsSync(pkgPath)) {
+              pkgPaths.push(pkgPath);
+            }
+          }
+        }
+      }
+    }
+
+    return pkgPaths;
   }
 
   private scanTests(repoPath: string, skipVitestConfigCheck = false): void {

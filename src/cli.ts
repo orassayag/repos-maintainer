@@ -49,8 +49,6 @@ export async function showMainMenu(): Promise<void> {
       const added = await addRepoCommand();
       if (added) {
         lastScannedRepo = added;
-        // Automatically rescan after add
-        await scanRepoCommand(added);
       }
       break;
     }
@@ -58,8 +56,6 @@ export async function showMainMenu(): Promise<void> {
       const synced = await syncRepoCommand();
       if (synced) {
         lastScannedRepo = synced;
-        // Automatically rescan after sync
-        await scanRepoCommand(synced);
       }
       break;
     }

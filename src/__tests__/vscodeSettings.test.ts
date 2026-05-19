@@ -17,6 +17,7 @@ vi.mock('fs', async (importOriginal) => {
 vi.mock('../utils/logger.js');
 vi.mock('../utils/projectType.js', () => ({
   isTypeScriptProject: vi.fn(() => Promise.resolve(true)),
+  isDotNetOrWindowsProject: vi.fn(() => Promise.resolve(false)),
 }));
 vi.mock('../settings.js', () => ({
   getLocalRepoPath: vi.fn((name) => `/mock/path/${name}`.replace(/\//g, '\\')),

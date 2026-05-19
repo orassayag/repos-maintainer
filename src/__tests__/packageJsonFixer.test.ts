@@ -162,6 +162,13 @@ describe('packageJsonFixer', () => {
 
     it('should return false if already correct', async () => {
       const pkg = JSON.stringify({
+        type: 'module',
+        repository: {
+          type: 'git',
+          url: 'git://github.com/orassayag/test-repo.git',
+        },
+        main: 'index.js',
+        scripts: {},
         author: {
           name: 'Or Assayag',
           email: 'orassayag@gmail.com',
@@ -174,24 +181,30 @@ describe('packageJsonFixer', () => {
             url: 'https://github.com/orassayag',
           },
         ],
+        files: [],
+        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
         funding: {
           type: 'github',
           url: 'https://github.com/sponsors/orassayag',
         },
-        engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
-        type: 'module',
-        repository: {
-          type: 'git',
-          url: 'git://github.com/orassayag/test-repo.git',
-        },
-        bugs: { url: 'https://github.com/orassayag/test-repo/issues' },
         homepage: 'https://github.com/orassayag/test-repo#readme',
-        main: 'dist/index.js',
-        files: [],
+        engines: { node: '>=20.0.0', pnpm: '>=8.0.0' },
+        dependencies: {},
+        devDependencies: {},
       });
       vi.mocked(fs.readFile)
         .mockResolvedValueOnce(pkg)
-        .mockResolvedValueOnce(template);
+        .mockResolvedValueOnce(
+          JSON.stringify({
+            ...JSON.parse(template),
+            scripts: {},
+            dependencies: {},
+            devDependencies: {},
+          })
+        );
+
+      // Make sure main is considered valid
+      vi.mocked(fs.access).mockResolvedValue(undefined);
 
       const result = await fixPackageJson(repoPath, 'test-repo');
 
@@ -218,7 +231,7 @@ describe('packageJsonFixer', () => {
 
       expect(result).toBe(false);
       expect(fs.writeFile).not.toHaveBeenCalled();
-      expect(Logger.info).toHaveBeenCalledWith(
+      expect(Logger.log).toHaveBeenCalledWith(
         expect.stringContaining('[DRY RUN]')
       );
     });

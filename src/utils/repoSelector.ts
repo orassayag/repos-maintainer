@@ -7,6 +7,8 @@ import { parseGitHubUrl } from '../github.js';
 export interface SelectedRepo {
   name: string;
   url: string;
+  purpose?: 'personal' | 'training';
+  structure?: 'single' | 'multi';
 }
 
 /**
@@ -36,10 +38,10 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
       : repoNameOrUrl.toLowerCase();
 
     for (const entry of repoList) {
-      const { name, url } = entry;
+      const { name, url, purpose, structure } = entry;
 
       if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
-        selectedRepo = { name, url };
+        selectedRepo = { name, url, purpose, structure };
         break;
       }
     }
@@ -62,7 +64,12 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
           const selectedName = (await prompt.run()) as string;
           const entry = repoList.find((s) => s.name === selectedName);
           if (entry) {
-            selectedRepo = { name: entry.name, url: entry.url };
+            selectedRepo = {
+              name: entry.name,
+              url: entry.url,
+              purpose: entry.purpose,
+              structure: entry.structure,
+            };
           }
         } catch (_e) {
           // User might have escaped AutoComplete, loop will continue to ask input

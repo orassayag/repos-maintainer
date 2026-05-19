@@ -6,6 +6,8 @@ export interface RepoEntry {
   name: string;
   url: string;
   type?: string;
+  purpose?: 'personal' | 'training';
+  structure?: 'single' | 'multi';
 }
 
 /**
@@ -27,7 +29,9 @@ export async function readRepoList(): Promise<RepoEntry[]> {
  */
 export async function addOrUpdateRepoInList(
   repoName: string,
-  repoUrl: string
+  repoUrl: string,
+  purpose?: 'personal' | 'training',
+  structure?: 'single' | 'multi'
 ): Promise<void> {
   const filePath = getReposListPath();
   const entries = await readRepoList();
@@ -38,12 +42,16 @@ export async function addOrUpdateRepoInList(
 
   if (index !== -1) {
     entries[index].url = repoUrl;
+    if (purpose) entries[index].purpose = purpose;
+    if (structure) entries[index].structure = structure;
     // Preserve existing name casing and type
   } else {
     entries.push({
       name: repoName,
       url: repoUrl,
       type: 'active',
+      purpose: purpose || 'personal',
+      structure: structure || 'single',
     });
   }
 

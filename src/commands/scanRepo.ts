@@ -1,6 +1,6 @@
 import { Logger } from '../utils/logger.js';
 import { Scanner } from '../utils/scanner.js';
-import { Severity, sortIssuesByFile } from '../utils/issues.js';
+import { Severity, formatIssuesForReport } from '../utils/issues.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import fs from 'fs/promises';
 
@@ -9,7 +9,14 @@ const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 export async function scanRepoCommand(repo?: {
   name: string;
   url: string;
-}): Promise<{ name: string; url: string } | null> {
+  purpose?: 'personal' | 'training';
+  structure?: 'single' | 'multi';
+}): Promise<{
+  name: string;
+  url: string;
+  purpose?: 'personal' | 'training';
+  structure?: 'single' | 'multi';
+} | null> {
   try {
     Logger.log('\nScan Repo:');
     Logger.log('==========\n');
@@ -51,11 +58,8 @@ export async function scanRepoCommand(repo?: {
       for (const severity of severityOrder) {
         const issues = issuesBySeverity[severity];
         if (issues.length > 0) {
-          reportContent += `\n${severity}:\n\n`;
-          const sortedIssues = sortIssuesByFile(issues);
-          for (const message of sortedIssues) {
-            reportContent += `-${message.trim()}\n`;
-          }
+          reportContent += `\n${severity}:\n`;
+          reportContent += formatIssuesForReport(issues);
         }
       }
     }

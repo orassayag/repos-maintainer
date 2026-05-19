@@ -278,17 +278,23 @@ describe('addRepoCommand', () => {
     // 2. package.json description validation
     const pkgDescValidate = inputCalls[1][0].validate;
     if (pkgDescValidate) {
-      expect(pkgDescValidate('too short')).toContain('between 290 and 300');
-      expect(pkgDescValidate('A'.repeat(301))).toContain('between 290 and 300');
+      expect(pkgDescValidate('too short')).toContain(
+        'Description length is 9 (expected 290-300 chars)'
+      );
+      expect(pkgDescValidate('A'.repeat(301))).toContain(
+        'Description length is 301 (expected 290-300 chars)'
+      );
       expect(pkgDescValidate('A'.repeat(295))).toBe(true);
     }
 
     // 3. GitHub description validation
     const githubDescValidate = inputCalls[2][0].validate;
     if (githubDescValidate) {
-      expect(githubDescValidate('too short')).toContain('between 340 and 350');
+      expect(githubDescValidate('too short')).toContain(
+        'Description length is 9 (expected 340-350 chars)'
+      );
       expect(githubDescValidate('A'.repeat(351))).toContain(
-        'between 340 and 350'
+        'Description length is 351 (expected 340-350 chars)'
       );
       expect(githubDescValidate('A'.repeat(345))).toBe(true);
     }

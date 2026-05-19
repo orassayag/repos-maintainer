@@ -1,0 +1,20 @@
+I recently added to the project-repos-names.json 2 new fields for each project:
+-"purpose": "personal" / "training" and "structure": "single" / "multi", and for that for - Let's update the logic of all the scripts:
+1. On the "Add Repo" - The CLI will ask for the purpose and structure - (It will be a drop down to select only one):
+a. "Select the purpose type: (personal - One standard project with the standard structure. It will be validated normally. training - Multiple projects with separate folders; package.json validations will be skipped.)"
+b. Once the user selected personal or training, the CLI will now ask:
+"Select the structure type: (single - One standard project with the standard structure. It will be validated normally. multi - Multiple projects with separate folders; each package.json file in each folder will be validated, usually for full-stack projects that have a backend, client, and/or additional services.)"
+
+2. On the "Scan Repo" / "Rescan Repo" / "Scan Repos" - Update the logic:
+-purpose - If it's "personal" keep the logic as today. If it's "training" - Don't look for package.json anywhere, and skip all the validations related to it.
+-structure - It it's "single" - Keep the logic as today. If it's "multi" - Scan for multiple package.json files inside the folders on the root level only (like "client", "server", "src", etc)
+For example: under a project folder, you have all kind of folders. Search for multiple package.json on this level. If not exists, search inside the "src" folder for "client", "server", and inside each search for any package.json.
+-Test Both of these.
+
+3. For the "Sync Repo", we will act as the "Scan Repo" / "Rescan Repo" / "Scan Repos" new logic. For "personal" keep the logic as today, If it's "training" - Don't look for package.json anywhere and skip the fixes for it.
+-structure - It it's "single" - Keep the logic as today. If it's "multi" - Scan for multiple package.json files inside the folders on the root level only (like "client", "server", "src", etc) and fix them when found.
+
+handle multiple package.json projects from the root folder: *
+-Add manually to the json: "Purpose": "Personal" / "Training" and "Structure": *("Single" / "Multi") *
+-Fix from Legacy and Active to lower case legacy and active. *
+-On the Add Repo ask for the purpose (Add explanation) and structure (Add explanation). + Test it.

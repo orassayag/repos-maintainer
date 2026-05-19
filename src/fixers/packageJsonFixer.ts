@@ -3,7 +3,6 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
-import { isTypeScriptProject } from '../utils/projectType.js';
 
 /**
  * Fetches the latest version of a package from npm.
@@ -177,7 +176,8 @@ function rankFile(rel: string): number {
  */
 export async function fixPackageJson(
   repoPath: string,
-  repoName: string
+  repoName: string,
+  relativePath: string = 'package.json'
 ): Promise<boolean> {
   const pkgPath = path.join(repoPath, 'package.json');
   const templatePath = path.join(settings.TEMPLATES_DIR, 'package.json');
@@ -197,7 +197,7 @@ export async function fixPackageJson(
     ) {
       pkg.funding = templatePkg.funding;
       changed = true;
-      Logger.info('Updated "funding" in package.json');
+      Logger.info(`Updated "funding" in ${relativePath}`);
     }
 
     // 2. engines
@@ -211,38 +211,51 @@ export async function fixPackageJson(
     ) {
       pkg.engines = expectedEngines;
       changed = true;
-      Logger.info('Updated "engines" in package.json');
+      Logger.info(`Updated "engines" in ${relativePath}`);
     }
 
-    // 3. contributors
-    if (
-      !pkg.contributors ||
-      JSON.stringify(pkg.contributors) !==
-        JSON.stringify(templatePkg.contributors)
-    ) {
-      pkg.contributors = templatePkg.contributors;
-      changed = true;
-      Logger.info('Updated "contributors" in package.json');
-    }
+    // 3. author
+    const expectedAuthor = {
+      name: 'Or Assayag',
+      email: 'orassayag@gmail.com',
+      url: 'https://github.com/orassayag',
+    };
 
-    // 4. author
     if (
       !pkg.author ||
-      JSON.stringify(pkg.author) !== JSON.stringify(templatePkg.author)
+      typeof pkg.author !== 'object' ||
+      pkg.author.name !== expectedAuthor.name ||
+      pkg.author.email !== expectedAuthor.email ||
+      pkg.author.url !== expectedAuthor.url
     ) {
-      pkg.author = templatePkg.author;
+      pkg.author = expectedAuthor;
       changed = true;
-      Logger.info('Updated "author" in package.json');
+      Logger.info(`Updated "author" in ${relativePath}`);
+    }
+
+    // 4. contributors
+    const expectedContributor = {
+      name: 'Or Assayag',
+      email: 'orassayag@gmail.com',
+      url: 'https://github.com/orassayag',
+    };
+    const hasContributor = pkg.contributors?.some(
+      (c: { name: string; email: string; url: string }) =>
+        c.name === expectedContributor.name &&
+        c.email === expectedContributor.email &&
+        c.url === expectedContributor.url
+    );
+    if (!hasContributor) {
+      pkg.contributors = [expectedContributor];
+      changed = true;
+      Logger.info(`Updated "contributors" in ${relativePath}`);
     }
 
     // 5. main
     let currentMainValid = false;
     if (pkg.main && pkg.main.trim() !== '') {
-      // Normalize existing main to forward slashes for consistent comparison/access
       const normalizedMain = pkg.main.replace(/\\/g, '/');
-
       try {
-        // Strict check: if the file doesn't exist, it's invalid.
         await fs.access(path.join(repoPath, normalizedMain));
         currentMainValid = true;
       } catch {
@@ -252,8 +265,6 @@ export async function fixPackageJson(
 
     if (!currentMainValid) {
       let resolved: string | null = null;
-
-      // Step 1: index.js / index.ts (root, then src/)
       const indexCandidates = [
         'index.js',
         'index.ts',
@@ -268,7 +279,6 @@ export async function fixPackageJson(
         } catch {}
       }
 
-      // Step 2: main.js / main.ts (root, then src/)
       if (!resolved) {
         const mainCandidates = [
           'main.js',
@@ -285,7 +295,6 @@ export async function fixPackageJson(
         }
       }
 
-      // Step 3: smart scan
       if (!resolved) {
         const allFiles = await collectSourceFiles(repoPath, repoPath);
         if (allFiles.length > 0) {
@@ -294,142 +303,23 @@ export async function fixPackageJson(
         }
       }
 
-      // Step 4: give up
-      if (!resolved) {
-        resolved = '';
-      }
+      if (!resolved) resolved = '';
 
-      // The user expects the "main" to point to the real root file (e.g., src/main.ts)
-      // and NOT map to dist/ folder.
-      const finalMain = resolved;
-
-      if (pkg.main !== finalMain) {
-        pkg.main = finalMain;
+      if (pkg.main !== resolved) {
+        pkg.main = resolved;
         changed = true;
-        Logger.info(`Updated "main" to ${finalMain}`);
+        Logger.info(`Updated "main" to "${resolved}" in ${relativePath}`);
       }
     }
 
     // 6. type
-    if (!pkg.type || pkg.type !== templatePkg.type) {
-      pkg.type = templatePkg.type;
+    if (pkg.type !== 'module') {
+      pkg.type = 'module';
       changed = true;
-      Logger.info('Updated "type" in package.json');
+      Logger.info(`Updated "type" to "module" in ${relativePath}`);
     }
 
-    // 8. repository
-    if (templatePkg.repository) {
-      const expectedRepository = JSON.parse(
-        JSON.stringify(templatePkg.repository).replace(/#REPO-NAME#/g, repoName)
-      );
-      if (
-        !pkg.repository ||
-        JSON.stringify(pkg.repository) !== JSON.stringify(expectedRepository)
-      ) {
-        pkg.repository = expectedRepository;
-        changed = true;
-        Logger.info('Updated "repository" in package.json');
-      }
-    }
-
-    // 9. bugs
-    if (templatePkg.bugs) {
-      const expectedBugs = JSON.parse(
-        JSON.stringify(templatePkg.bugs).replace(/#REPO-NAME#/g, repoName)
-      );
-      if (
-        !pkg.bugs ||
-        JSON.stringify(pkg.bugs) !== JSON.stringify(expectedBugs)
-      ) {
-        pkg.bugs = expectedBugs;
-        changed = true;
-        Logger.info('Updated "bugs" in package.json');
-      }
-    }
-
-    // 10. homepage
-    if (templatePkg.homepage) {
-      const expectedHomepage = templatePkg.homepage.replace(
-        /#REPO-NAME#/g,
-        repoName
-      );
-      if (!pkg.homepage || pkg.homepage !== expectedHomepage) {
-        pkg.homepage = expectedHomepage;
-        changed = true;
-        Logger.info('Updated "homepage" in package.json');
-      }
-    }
-
-    // 11. devDependencies
-    if (!pkg.devDependencies && templatePkg.devDependencies) {
-      Logger.info(
-        'Missing "devDependencies" section. Populating from template...'
-      );
-
-      const isTS = await isTypeScriptProject(repoPath);
-      const templateDevDeps = JSON.parse(
-        JSON.stringify(templatePkg.devDependencies)
-      );
-
-      if (!isTS) {
-        // Filter out TypeScript-specific dependencies for JS projects
-        const tsDeps = [
-          'typescript',
-          'typescript-eslint',
-          'tsx',
-          '@types/node',
-          '@typescript-eslint/eslint-plugin',
-          '@typescript-eslint/parser',
-          'vitest',
-          '@vitest/coverage-istanbul',
-          '@vitest/ui',
-        ];
-        for (const dep of tsDeps) {
-          delete templateDevDeps[dep];
-        }
-        Logger.info(
-          'Project detected as JavaScript. Skipping TypeScript-specific devDependencies.'
-        );
-      }
-
-      pkg.devDependencies = templateDevDeps;
-
-      // Fetch dynamic versions for devDependencies
-      Logger.log(`📦 Fetching latest versions for devDependencies...`);
-      for (const dep of Object.keys(pkg.devDependencies)) {
-        pkg.devDependencies[dep] = getLatestVersion(dep);
-      }
-
-      changed = true;
-      Logger.info('Updated "devDependencies" in package.json');
-    }
-
-    // 12. dependencies
-    if (!pkg.dependencies && templatePkg.dependencies) {
-      Logger.info(
-        'Missing "dependencies" section. Populating from template...'
-      );
-      pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
-
-      // Fetch dynamic versions for dependencies
-      Logger.log(`📦 Fetching latest versions for dependencies...`);
-      for (const dep of Object.keys(pkg.dependencies)) {
-        pkg.dependencies[dep] = getLatestVersion(dep);
-      }
-
-      changed = true;
-      Logger.info('Updated "dependencies" in package.json');
-    }
-
-    // 13. scripts
-    if (!pkg.scripts && templatePkg.scripts) {
-      Logger.info('Missing "scripts" section. Populating from template...');
-      pkg.scripts = JSON.parse(JSON.stringify(templatePkg.scripts));
-      changed = true;
-      Logger.info('Updated "scripts" in package.json');
-    }
-
-    // 7. files (Sync "files" section with root directory)
+    // 7. files
     const rootEntries = await fs.readdir(repoPath, { withFileTypes: true });
     const sortedRootItems = rootEntries
       .filter(
@@ -458,24 +348,167 @@ export async function fixPackageJson(
     if (!isFilesIdentical) {
       pkg.files = sortedRootItems;
       changed = true;
-      Logger.info('Updated "files" section in package.json');
+      Logger.info(`Updated "files" section in ${relativePath}`);
+    }
+
+    // 8. repository, homepage, bugs
+    const expectedRepoUrl = `git://github.com/orassayag/${repoName}.git`;
+    if (
+      !pkg.repository ||
+      pkg.repository.type !== 'git' ||
+      pkg.repository.url !== expectedRepoUrl
+    ) {
+      pkg.repository = { type: 'git', url: expectedRepoUrl };
+      changed = true;
+      Logger.info(`Updated "repository" in ${relativePath}`);
+    }
+
+    const expectedHomepage = `https://github.com/orassayag/${repoName}#readme`;
+    if (pkg.homepage !== expectedHomepage) {
+      pkg.homepage = expectedHomepage;
+      changed = true;
+      Logger.info(`Updated "homepage" in ${relativePath}`);
+    }
+
+    const expectedBugsUrl = `https://github.com/orassayag/${repoName}/issues`;
+    if (!pkg.bugs || pkg.bugs.url !== expectedBugsUrl) {
+      pkg.bugs = { url: expectedBugsUrl };
+      changed = true;
+      Logger.info(`Updated "bugs" in ${relativePath}`);
+    }
+
+    // 9. scripts
+    if (!pkg.scripts) {
+      pkg.scripts = templatePkg.scripts;
+      changed = true;
+      Logger.info(`Updated "scripts" in ${relativePath}`);
+    } else {
+      const requiredScripts = Object.keys(templatePkg.scripts);
+      for (const script of requiredScripts) {
+        if (pkg.scripts[script] !== templatePkg.scripts[script]) {
+          pkg.scripts[script] = templatePkg.scripts[script];
+          changed = true;
+          Logger.info(`Updated script "${script}" in ${relativePath}`);
+        }
+      }
+      // Sort scripts
+      const scriptKeys = Object.keys(pkg.scripts);
+      const sortedScriptKeys = [...scriptKeys].sort();
+      if (JSON.stringify(scriptKeys) !== JSON.stringify(sortedScriptKeys)) {
+        const sortedScripts: Record<string, string> = {};
+        sortedScriptKeys.forEach((k) => {
+          sortedScripts[k] = pkg.scripts[k];
+        });
+        pkg.scripts = sortedScripts;
+        changed = true;
+        Logger.info(`Sorted "scripts" in ${relativePath}`);
+      }
+    }
+
+    // 10. dependencies and devDependencies
+    if (!pkg.dependencies && templatePkg.dependencies) {
+      pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
+      // Fetch dynamic versions
+      for (const dep of Object.keys(pkg.dependencies)) {
+        pkg.dependencies[dep] = getLatestVersion(dep);
+      }
+      changed = true;
+      Logger.info(`Added missing "dependencies" in ${relativePath}`);
+    } else if (pkg.dependencies) {
+      const depKeys = Object.keys(pkg.dependencies);
+      const sortedDepKeys = [...depKeys].sort();
+      if (JSON.stringify(depKeys) !== JSON.stringify(sortedDepKeys)) {
+        const sortedDeps: Record<string, string> = {};
+        sortedDepKeys.forEach((k) => {
+          sortedDeps[k] = pkg.dependencies[k];
+        });
+        pkg.dependencies = sortedDeps;
+        changed = true;
+        Logger.info(`Sorted "dependencies" in ${relativePath}`);
+      }
+    }
+
+    if (!pkg.devDependencies && templatePkg.devDependencies) {
+      pkg.devDependencies = JSON.parse(
+        JSON.stringify(templatePkg.devDependencies)
+      );
+      // Fetch dynamic versions
+      for (const dep of Object.keys(pkg.devDependencies)) {
+        pkg.devDependencies[dep] = getLatestVersion(dep);
+      }
+      changed = true;
+      Logger.info(`Added missing "devDependencies" in ${relativePath}`);
+    } else if (pkg.devDependencies) {
+      const devDepKeys = Object.keys(pkg.devDependencies);
+      const sortedDevDepKeys = [...devDepKeys].sort();
+      if (JSON.stringify(devDepKeys) !== JSON.stringify(sortedDevDepKeys)) {
+        const sortedDevDeps: Record<string, string> = {};
+        sortedDevDepKeys.forEach((k) => {
+          sortedDevDeps[k] = pkg.devDependencies[k];
+        });
+        pkg.devDependencies = sortedDevDeps;
+        changed = true;
+        Logger.info(`Sorted "devDependencies" in ${relativePath}`);
+      }
+    }
+
+    // 11. Overall key sorting
+    const keys = Object.keys(pkg);
+    const sortedPkg: any = {};
+    const importantKeys = [
+      'name',
+      'version',
+      'description',
+      'type',
+      'private',
+      'repository',
+      'keywords',
+      'main',
+      'scripts',
+      'author',
+      'contributors',
+      'files',
+      'license',
+      'bugs',
+      'funding',
+      'homepage',
+      'engines',
+      'dependencies',
+      'devDependencies',
+    ];
+
+    const finalKeys = [
+      ...importantKeys.filter((k) => keys.includes(k)),
+      ...keys.filter((k) => !importantKeys.includes(k)).sort(),
+    ];
+
+    if (JSON.stringify(keys) !== JSON.stringify(finalKeys)) {
+      finalKeys.forEach((k) => {
+        sortedPkg[k] = pkg[k];
+      });
+      changed = true;
+      Logger.info(`Sorted keys in ${relativePath}`);
     }
 
     if (changed) {
       if (settings.DRY_RUN) {
-        Logger.info(`[DRY RUN] Would fix package.json for ${repoName}`);
+        Logger.log(`🔍 [DRY RUN] Would update ${relativePath}`);
         return false;
       }
-      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
-      Logger.success(`Fixed package.json for ${repoName}`);
-      return true;
+      await fs.writeFile(
+        pkgPath,
+        JSON.stringify(
+          Object.keys(sortedPkg).length > 0 ? sortedPkg : pkg,
+          null,
+          2
+        ) + '\n',
+        'utf-8'
+      );
     }
 
-    return false;
+    return changed;
   } catch (err) {
-    Logger.warn(
-      `Could not fix package.json for ${repoName}: ${(err as Error).message}`
-    );
+    Logger.warn(`Could not fix ${relativePath}: ${(err as Error).message}`);
     return false;
   }
 }

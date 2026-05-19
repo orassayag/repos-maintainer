@@ -66,103 +66,100 @@ export const ISSUES = {
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_AUTHOR: {
-    message: 'package.json: Missing "author" key',
+    message: '{file}: Missing "author" key',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_AUTHOR_MISMATCH: {
-    message: 'package.json: "author" should be "{expectedAuthor}"',
+    message: '{file}: "author" should be "{expectedAuthor}"',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_LICENSE_MISMATCH: {
-    message: 'package.json: "license" should be "MIT"',
+    message: '{file}: "license" should be "MIT"',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_REPO_URL_MISMATCH: {
     message:
-      'package.json: "repository" should be { "type": "git", "url": "{expectedRepoUrl}" }',
+      '{file}: "repository" should be { "type": "git", "url": "{expectedRepoUrl}" }',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_HOMEPAGE: {
-    message: 'package.json: Missing "homepage" key',
+    message: '{file}: Missing "homepage" key',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_HOMEPAGE_MISMATCH: {
-    message: 'package.json: "homepage" should be "{expectedHomepage}"',
+    message: '{file}: "homepage" should be "{expectedHomepage}"',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_BUGS: {
-    message: 'package.json: Missing "bugs" key',
+    message: '{file}: Missing "bugs" key',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_BUGS_MISMATCH: {
-    message: 'package.json: "bugs" should be { "url": "{expectedBugsUrl}" }',
+    message: '{file}: "bugs" should be { "url": "{expectedBugsUrl}" }',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_FUNDING: {
-    message: 'package.json: Missing "funding" key',
+    message: '{file}: Missing "funding" key',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_FUNDING_MISMATCH: {
-    message:
-      'package.json: "funding" should be { "type": "github", "url": "https://github.com/sponsors/orassayag" }',
+    message: '{file}: "funding" should be "{expectedFunding}"',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_SCRIPTS: {
-    message: 'package.json: Missing "scripts" section',
+    message: '{file}: Missing "scripts" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_MAIN: {
-    message: 'package.json: Missing "main" field',
+    message: '{file}: Missing or empty "main" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_INVALID_MAIN: {
-    message:
-      'package.json: "main" field points to a missing or empty path: {path}',
+    message: '{file}: "main" path "{path}" does not exist',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_TYPE: {
-    message: 'package.json: Missing "type" field',
+    message: '{file}: Missing "type" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_FILES: {
-    message: 'package.json: Missing or empty "files" section',
+    message: '{file}: Missing or empty "files" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_FILES_NOT_IDENTICAL: {
     message:
-      'package.json: "files" section is not identical to root level files and folders.\nMissing: {missing}\nExtra: {extra}',
-    severity: Severity.LOW,
+      '{file}: "files" field does not match root directory contents.\nMissing: {missing}\nExtra: {extra}',
+    severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_FILES_NOT_SORTED: {
-    message: 'package.json: "files" section is not in alphabetical order',
+    message: '{file}: "files" field is not sorted correctly',
     severity: Severity.LOW,
   },
   PACKAGE_JSON_MISSING_DEPENDENCIES: {
-    message: 'package.json: Missing "dependencies" section',
+    message: '{file}: Missing "dependencies" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_DEV_DEPENDENCIES: {
-    message: 'package.json: Missing "devDependencies" section',
+    message: '{file}: Missing "devDependencies" field',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_KEYWORDS_COUNT: {
-    message:
-      'package.json: Keywords count is {actualCount} (expected 8-20 unique items)',
+    message: '{file}: "keywords" count is {actualCount} (expected 8-20)',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_KEYWORDS_MISMATCH: {
     message:
-      'package.json: Keywords do not match GitHub topics.\nExpected (from package.json): {expected}\nFound (on GitHub): {found}',
-    severity: Severity.LOW,
+      '{file}: Keywords do not match GitHub topics.\nExpected: {expected}\nFound: {found}',
+    severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_DESCRIPTION_LENGTH: {
     message:
-      'package.json: Description length is {actualLen} (expected 290-300 chars)',
+      '{file}: Description length is {actualLen} (expected {min}-{max} chars)',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_UNSORTED: {
-    message: 'package.json: The file is unsorted',
-    severity: Severity.VERY_LOW,
+    message: '{file}: Keys or scripts are not sorted alphabetically',
+    severity: Severity.LOW,
   },
   GITHUB_STAR_MISSING: {
     message: 'GitHub: Repository is NOT starred by you',
@@ -185,22 +182,25 @@ export const ISSUES = {
       'GitHub: Ruleset "{rulesetName}" is misconfigured (expected enforcement: {expected})',
     severity: Severity.MEDIUM,
   },
+  OUTDATED_DEPENDENCIES: {
+    message: '{file}: Outdated dependencies found:\n{deps}',
+    severity: Severity.LOW,
+  },
   DEPENDENCY_OUTDATED: {
     message: 'Dependency "{name}" is outdated: {current} -> {latest}',
     severity: Severity.LOW,
   },
   PACKAGE_JSON_MISSING_ENGINES: {
-    message: 'package.json: Missing "engines" key',
+    message: '{file}: Missing "engines" key',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_ENGINES_MISMATCH: {
     message:
-      'package.json: "engines" should contain node and npm/pnpm versions',
+      '{file}: "engines" should be { "node": ">=20.0.0", "pnpm": ">=8.0.0" }',
     severity: Severity.MEDIUM,
   },
   PACKAGE_JSON_MISSING_CONTRIBUTOR: {
-    message:
-      'package.json: Missing or incorrect "contributors" entry for Or Assayag',
+    message: '{file}: Missing Or Assayag as a contributor',
     severity: Severity.MEDIUM,
   },
   LINT_ISSUES: {
@@ -208,8 +208,8 @@ export const ISSUES = {
     severity: Severity.VERY_LOW,
   },
   PACKAGE_JSON_PRIVATE: {
-    message: 'package.json: "private" is set to true',
-    severity: Severity.LOW,
+    message: '{file}: "private" should not be true',
+    severity: Severity.MEDIUM,
   },
   LINT_COMMAND_FAILED: {
     message: 'Lint command failed when running via npx.',
@@ -305,4 +305,34 @@ export function sortIssuesByFile(issues: string[]): string[] {
 
     return a.localeCompare(b);
   });
+}
+
+/**
+ * Formats a list of issue messages into a string for the report.
+ * Groups package.json issues by their subfolder if applicable.
+ */
+export function formatIssuesForReport(issues: string[]): string {
+  const sortedIssues = sortIssuesByFile(issues);
+  let formatted = '';
+  let currentFolder = '';
+
+  for (const message of sortedIssues) {
+    // Check if message starts with "folder/package.json:" or "folder/subfolder/package.json:"
+    // This matches the relativePath we pass in scanner.ts
+    const match = message.match(/^(.+)\/package\.json: (.*)$/);
+    if (match) {
+      const folder = match[1];
+      const rest = match[2];
+
+      if (folder !== currentFolder) {
+        currentFolder = folder;
+        formatted += `\n${folder}\n`;
+      }
+      formatted += `-package.json: ${rest.trim()}\n`;
+    } else {
+      currentFolder = ''; // Reset folder grouping for non-package.json issues
+      formatted += `-${message.trim()}\n`;
+    }
+  }
+  return formatted;
 }

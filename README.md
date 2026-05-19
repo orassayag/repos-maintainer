@@ -143,6 +143,25 @@ You can also run specific scripts directly if needed:
 pnpm start
 ```
 
+## Repository Configuration
+
+The tool maintains a list of repositories in a JSON file. Each repository can be configured with specific metadata to control how it is processed:
+
+- **purpose**: `personal` (Standard project, normal validation) or `training` (Multiple sub-projects, skips `package.json` validation).
+- **structure**: `single` (Standard single-root project) or `multi` (Full-stack or mono-repo with multiple `package.json` files in root folders or `src/`).
+
+Example `project-repos-names.json` entry:
+
+```json
+{
+  "name": "my-cool-project",
+  "url": "https://github.com/orassayag/my-cool-project",
+  "type": "active",
+  "purpose": "personal",
+  "structure": "multi"
+}
+```
+
 ## Available Commands
 
 ### Add Repo
@@ -151,6 +170,8 @@ Interactive wizard to onboard a new repository. You provide a GitHub URL, and th
 
 - Validates the URL format (HTTPS or SSH).
 - Verifies the repository exists on GitHub.
+- Prompts for repository **Purpose** (`personal`/`training`) and **Structure** (`single`/`multi`).
+- Ask for descriptions and keywords/topics.
 - Clones the repository if it's missing locally.
 - Runs full standardization across all fixers.
 - Commits and pushes changes if updates were made.

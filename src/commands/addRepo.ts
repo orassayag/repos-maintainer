@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { input } from '../utils/prompts.js';
+import { input, select } from '../utils/prompts.js';
 import {
   parseGitHubUrl,
   repoExists,
@@ -111,6 +111,35 @@ export async function addRepoCommand(): Promise<{
   });
   const keywords = parseKeywordsString(keywordsStr);
 
+  // 4. Purpose and Structure
+  const purpose = await select<'personal' | 'training'>({
+    message: 'Select the purpose type:',
+    choices: [
+      {
+        name: 'personal - One standard project with the standard structure. It will be validated normally.',
+        value: 'personal',
+      },
+      {
+        name: 'training - Multiple projects with separate folders; package.json validations will be skipped.',
+        value: 'training',
+      },
+    ],
+  });
+
+  const structure = await select<'single' | 'multi'>({
+    message: 'Select the structure type:',
+    choices: [
+      {
+        name: 'single - One standard project with the standard structure. It will be validated normally.',
+        value: 'single',
+      },
+      {
+        name: 'multi - Multiple projects with separate folders; each package.json file in each folder will be validated, usually for full-stack projects that have a backend, client, and/or additional services.',
+        value: 'multi',
+      },
+    ],
+  });
+
   Logger.log('\n🚀 Starting repository standardization and setup...\n');
 
   const repoName = parsed.repo;
@@ -125,7 +154,7 @@ export async function addRepoCommand(): Promise<{
     }
 
     // 2. Update Repo List
-    await addOrUpdateRepoInList(repoName, repoUrl);
+    await addOrUpdateRepoInList(repoName, repoUrl, purpose, structure);
 
     // 3. Template Injection
     Logger.log('📄 Injecting standard templates...');

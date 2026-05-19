@@ -125,8 +125,8 @@ describe('cli', () => {
     }
 
     expect(syncRepoCommand).toHaveBeenCalled();
-    // After sync-repo, rescan should be called automatically with the synced repo
-    expect(scanRepoCommand).toHaveBeenCalledWith(mockRepo);
+    // After sync-repo, scanRepoCommand should NOT be called automatically anymore
+    expect(scanRepoCommand).not.toHaveBeenCalled();
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
   });
@@ -151,8 +151,8 @@ describe('cli', () => {
     }
 
     expect(addRepoCommand).toHaveBeenCalled();
-    // After add, rescan should be called automatically with the added repo
-    expect(scanRepoCommand).toHaveBeenCalledWith(mockRepo);
+    // After add, scanRepoCommand should NOT be called automatically anymore
+    expect(scanRepoCommand).not.toHaveBeenCalled();
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
   });

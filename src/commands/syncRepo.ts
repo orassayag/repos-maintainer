@@ -16,6 +16,7 @@ import { fixPackageJson } from '../fixers/packageJsonFixer.js';
 import { fixReadme, fixInstructions } from '../fixers/readmeFixer.js';
 import { syncTemplateFiles } from '../utils/fileFixer.js';
 import { TEMPLATE_FILES } from '../fixers/standardizer.js';
+import { Scanner } from '../utils/scanner.js';
 import { input } from '../utils/prompts.js';
 import {
   extractReadmeDescription,
@@ -68,14 +69,23 @@ export async function syncRepoCommand(): Promise<{
     const cloned = await ensureRepoCloned(repoUrl, selectedRepo.name);
     if (!cloned) return null;
 
-    const pkgPath = path.join(repoPath, 'package.json');
+    const isTraining = selectedRepo.purpose === 'training';
+    const isMulti = selectedRepo.structure === 'multi';
+
     let pkg: any;
-    try {
-      const pkgContent = await fs.readFile(pkgPath, 'utf-8');
-      pkg = JSON.parse(pkgContent);
-    } catch (err) {
-      Logger.error(`Could not read package.json: ${(err as Error).message}`);
-      return null;
+    if (!isTraining) {
+      const pkgPath = path.join(repoPath, 'package.json');
+      try {
+        const pkgContent = await fs.readFile(pkgPath, 'utf-8');
+        pkg = JSON.parse(pkgContent);
+      } catch (err) {
+        if (!isMulti) {
+          Logger.error(
+            `Could not read package.json: ${(err as Error).message}`
+          );
+          return null;
+        }
+      }
     }
 
     // 2. Validate and fix descriptions
@@ -83,16 +93,18 @@ export async function syncRepoCommand(): Promise<{
     let changed = false;
 
     // A. package.json description
-    const pkgDesc = pkg.description || '';
-    const pkgDescValidation = validatePackageDescription(pkgDesc);
-    if (pkgDescValidation !== true) {
-      Logger.warn(`package.json: ${pkgDescValidation}`);
-      const newPkgDesc = await input({
-        message: 'Enter description for package.json (290-300 characters):',
-        validate: validatePackageDescription,
-      });
-      pkg.description = newPkgDesc;
-      changed = true;
+    if (!isTraining && pkg) {
+      const pkgDesc = pkg.description || '';
+      const pkgDescValidation = validatePackageDescription(pkgDesc);
+      if (pkgDescValidation !== true) {
+        Logger.warn(`package.json: ${pkgDescValidation}`);
+        const newPkgDesc = await input({
+          message: 'Enter description for package.json (290-300 characters):',
+          validate: validatePackageDescription,
+        });
+        pkg.description = newPkgDesc;
+        changed = true;
+      }
     }
 
     // B. README.md description
@@ -150,23 +162,25 @@ export async function syncRepoCommand(): Promise<{
     }
 
     // D. package.json keywords
-    const keywords = pkg.keywords || [];
-    const keywordsValidation = validateKeywords(keywords);
-    if (keywordsValidation !== true) {
-      Logger.warn(`package.json keywords: ${keywordsValidation}`);
-      const newKeywordsStr = await input({
-        message:
-          'Enter keywords / topics (comma separated, 8-20 unique items):',
-        validate: validateKeywordsInput,
-      });
-      pkg.keywords = parseKeywordsString(newKeywordsStr);
-      changed = true;
+    if (!isTraining && pkg) {
+      const keywords = pkg.keywords || [];
+      const keywordsValidation = validateKeywords(keywords);
+      if (keywordsValidation !== true) {
+        Logger.warn(`package.json keywords: ${keywordsValidation}`);
+        const newKeywordsStr = await input({
+          message:
+            'Enter keywords / topics (comma separated, 8-20 unique items):',
+          validate: validateKeywordsInput,
+        });
+        pkg.keywords = parseKeywordsString(newKeywordsStr);
+        changed = true;
+      }
     }
 
     // 3. Sync Keywords & Standardize package.json
 
     // A. Keyword Sync (GitHub)
-    if (pkg.keywords && Array.isArray(pkg.keywords)) {
+    if (!isTraining && pkg && pkg.keywords && Array.isArray(pkg.keywords)) {
       const keywords = pkg.keywords;
       if (existsOnGitHub) {
         Logger.log('🌐 Syncing GitHub topics with package.json keywords...');
@@ -198,26 +212,28 @@ export async function syncRepoCommand(): Promise<{
     // C. Sync Documentation (README.md, INSTRUCTIONS.md)
     Logger.log('📝 Syncing documentation sections...');
     const readmeChanged = await fixReadme(repoPath);
-    if (readmeChanged) {
-      changed = true;
-      Logger.success('  - Updated README.md sections');
-    }
-
     const instructionsChanged = await fixInstructions(repoPath);
-    if (instructionsChanged) {
-      changed = true;
-      Logger.success('  - Updated INSTRUCTIONS.md section');
-    }
+    if (readmeChanged || instructionsChanged) changed = true;
 
-    // D. Standardize package.json (funding, engines, contributors, author, main, type, files)
-    if (changed) {
-      // If keywords or templates changed, write them first so fixPackageJson sees the update
-      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
-    }
-
-    const pkgFixed = await fixPackageJson(repoPath, selectedRepo.name);
-    if (pkgFixed) {
-      changed = true;
+    // D. Final package.json fix and sort
+    if (!isTraining) {
+      if (isMulti) {
+        const scanner = new Scanner();
+        const pkgPaths = await scanner.findMultiPackageJsonPaths(repoPath);
+        for (const pkgPath of pkgPaths) {
+          const relativePkgPath = path.relative(repoPath, pkgPath);
+          const pkgDir = path.dirname(pkgPath);
+          const pkgFixed = await fixPackageJson(
+            pkgDir,
+            selectedRepo.name,
+            relativePkgPath
+          );
+          if (pkgFixed) changed = true;
+        }
+      } else {
+        const pkgFixed = await fixPackageJson(repoPath, selectedRepo.name);
+        if (pkgFixed) changed = true;
+      }
     }
 
     // D. Sort package.json

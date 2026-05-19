@@ -79,15 +79,36 @@ The file should contain a JSON array of repository objects, e.g.:
   {
     "name": "actions-manager",
     "url": "https://github.com/orassayag/actions-manager",
-    "type": "active"
+    "type": "active",
+    "purpose": "personal",
+    "structure": "single"
+  },
+  {
+    "name": "fullstack-app",
+    "url": "https://github.com/orassayag/fullstack-app",
+    "type": "active",
+    "purpose": "personal",
+    "structure": "multi"
   },
   {
     "name": "angularil-lottery",
     "url": "https://github.com/orassayag/angularil-lottery",
-    "type": "legacy"
+    "type": "legacy",
+    "purpose": "training",
+    "structure": "multi"
   }
 ]
 ```
+
+### Configuration Fields
+
+- **type**: `active` or `legacy`. Legacy projects skip certain outdated scans.
+- **purpose**:
+  - `personal`: Standard project, normal `package.json` validation.
+  - `training`: Multiple sub-projects, skips all `package.json` validations.
+- **structure**:
+  - `single`: Standard single-root project.
+  - `multi`: Scans for multiple `package.json` files in root folders (e.g., `client`, `server`) or inside `src/`.
 
 ## GitHub Authentication
 
@@ -208,10 +229,12 @@ Used to onboard a new repository into your local maintenance workflow and apply 
 1. Select **Add Repo** from the main menu.
 2. Enter the full GitHub URL (e.g., `https://github.com/orassayag/new-project`).
 3. The tool parses the URL and checks GitHub for the repository's existence.
-4. If valid, it checks if the repo is already cloned locally in your projects root.
-5. If missing, it performs a `git clone`.
-6. It then runs the **Standardizer**, which executes all active fixers.
-7. Any changes made are committed and pushed back to GitHub.
+4. Select the **Purpose** (`personal` or `training`) and **Structure** (`single` or `multi`).
+5. Enter the required descriptions and keywords.
+6. If valid, it checks if the repo is already cloned locally in your projects root.
+7. If missing, it performs a `git clone`.
+8. It then runs the **Standardizer**, which executes all active fixers.
+9. Any changes made are committed and pushed back to GitHub.
 
 ### Repos Sync
 
