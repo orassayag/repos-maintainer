@@ -56,6 +56,8 @@ export async function showMainMenu(): Promise<void> {
       const synced = await syncRepoCommand();
       if (synced) {
         lastScannedRepo = synced;
+        // Automatically scan after sync
+        await scanRepoCommand(synced);
       }
       break;
     }

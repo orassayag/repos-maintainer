@@ -125,8 +125,8 @@ describe('cli', () => {
     }
 
     expect(syncRepoCommand).toHaveBeenCalled();
-    // After sync-repo, scanRepoCommand should NOT be called automatically anymore
-    expect(scanRepoCommand).not.toHaveBeenCalled();
+    // After sync-repo, scanRepoCommand should be called automatically
+    expect(scanRepoCommand).toHaveBeenCalledWith(mockRepo);
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
   });
