@@ -308,7 +308,41 @@ describe('addRepoCommand', () => {
           'k1,k2,k3,k4,k5,k6,k7,k8,k9,k10,k11,k12,k13,k14,k15,k16,k17,k18,k19,k20,k21'
         )
       ).toContain('between 8 and 20');
-      expect(keywordsValidate('k1,k2,k3,k4,k5,k6,k7,k8')).toBe(true);
+
+      // Valid case
+      expect(
+        keywordsValidate(
+          'node-js,automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git-integration'
+        )
+      ).toBe(true);
+
+      // Invalid cases
+      expect(
+        keywordsValidate(
+          'Node.js,automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git-integration'
+        )
+      ).toContain('contains uppercase letters');
+      expect(
+        keywordsValidate(
+          'node.js,automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git-integration'
+        )
+      ).toContain('contains invalid characters');
+      expect(
+        keywordsValidate(
+          'node-js,automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git integration'
+        )
+      ).toContain('contains spaces');
+      expect(
+        keywordsValidate(
+          '-node-js,automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git-integration'
+        )
+      ).toContain('must start with a letter or number');
+      expect(
+        keywordsValidate(
+          'a'.repeat(51) +
+            ',automation,npm,pnpm,package-updater,dependency-checker,outdated-packages,git-integration'
+        )
+      ).toContain('is too long');
     }
   });
 
