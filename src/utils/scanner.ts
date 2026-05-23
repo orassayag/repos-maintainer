@@ -50,6 +50,19 @@ export interface RepoScanResult {
   unlistedBinaries?: string[];
 }
 
+const INDEX_NAMES = [
+  'index.ts',
+  'index.tsx',
+  'index.js',
+  'index.jsx',
+  'index.mjs',
+  'index.cjs',
+];
+
+const IMPORT_RE =
+  /(?:^|\s)(?:import|export)\s+(?:(?:type\s+)?(?:[\w*{},\s]+)\s+from\s+|)['"]([^'"]+)['"]/gm;
+const REQUIRE_RE = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/gm;
+
 export class Scanner {
   private scanIssues: ScanIssue[] = [];
   private currentRepoName: string = '';
@@ -308,6 +321,15 @@ export class Scanner {
       }
     }
 
+    // 14.1. Invalid Import Scan (for active repos only)
+    if (isActive) {
+      try {
+        await this.scanInvalidImports(repoPath);
+      } catch {
+        // Ignore import scan errors
+      }
+    }
+
     // 15. GitHub Metadata Scan
     if (parsed) {
       try {
@@ -469,6 +491,104 @@ export class Scanner {
     ) {
       this.logIssue('KNIP_COMMAND_FAILED', { command });
     }
+  }
+
+  private async scanInvalidImports(repoPath: string): Promise<void> {
+    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
+    const files = await this.getAllFiles(repoPath);
+    const targetFiles = files.filter((f) =>
+      extensions.includes(path.extname(f))
+    );
+
+    for (const relPath of targetFiles) {
+      const filePath = path.join(repoPath, relPath);
+      // Skip index files themselves
+      if (INDEX_NAMES.includes(path.basename(filePath))) continue;
+
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+        const violations: number[] = [];
+
+        const check = (match: RegExpExecArray, importPath: string): void => {
+          if (!importPath.startsWith('.') && !importPath.startsWith('..'))
+            return;
+
+          const fileDir = path.dirname(filePath);
+          const bare = this.stripExtension(importPath, extensions);
+          const base = path.basename(bare);
+
+          if (base === 'index') return;
+
+          const abs = path.resolve(fileDir, bare);
+
+          // Check if it's a direct file import
+          let isDirect = false;
+          try {
+            readFileSync(abs); // Check if file exists (sync is easier here)
+            isDirect = true;
+          } catch {
+            // Not found as is, try with extensions
+            for (const ext of extensions) {
+              try {
+                readFileSync(abs + ext);
+                isDirect = true;
+                break;
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+
+          if (!isDirect) return;
+
+          // Check if the directory has an index file
+          const importedDir = path.dirname(abs);
+          const hasIndex = INDEX_NAMES.some((name) =>
+            existsSync(path.join(importedDir, name))
+          );
+
+          if (hasIndex) {
+            // Find line number
+            const offset = match.index ?? 0;
+            let acc = 0;
+            for (let i = 0; i < lines.length; i++) {
+              if (acc + lines[i].length + 1 > offset) {
+                violations.push(i + 1);
+                break;
+              }
+              acc += lines[i].length + 1;
+            }
+          }
+        };
+
+        let m: RegExpExecArray | null;
+        IMPORT_RE.lastIndex = 0;
+        while ((m = IMPORT_RE.exec(content)) !== null) {
+          check(m, m[1]);
+        }
+        REQUIRE_RE.lastIndex = 0;
+        while ((m = REQUIRE_RE.exec(content)) !== null) {
+          check(m, m[1]);
+        }
+
+        if (violations.length > 0) {
+          this.logIssue('INVALID_IMPORT', {
+            file: relPath,
+            lines: [...new Set(violations)].join(', '),
+          });
+        }
+      } catch {
+        /* ignore file read errors */
+      }
+    }
+  }
+
+  private stripExtension(p: string, exts: string[]): string {
+    for (const ext of exts) {
+      if (p.endsWith(ext)) return p.slice(0, -ext.length);
+    }
+    return p;
   }
 
   private logToReport(

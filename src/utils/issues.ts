@@ -287,6 +287,11 @@ export const ISSUES = {
     message: '.vscode/settings.json: Missing "cSpell.ignorePaths" section',
     severity: Severity.LOW,
   },
+  INVALID_IMPORT: {
+    message:
+      '{file}: Direct file import used instead of index export at lines: {lines}',
+    severity: Severity.VERY_LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;
