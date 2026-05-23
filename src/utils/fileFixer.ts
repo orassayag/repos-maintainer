@@ -305,6 +305,7 @@ export async function syncTemplateFiles(
     'tsconfig.node.json',
     'vitest.config.ts',
     'eslint.config.mjs',
+    'src/index.ts',
   ];
 
   for (const file of templateFiles) {
@@ -400,6 +401,12 @@ export async function syncTemplateFiles(
       continue;
     }
 
+    if (file === 'tsconfig.json') {
+      const tsconfigChange = await syncTsConfigTypes(destPath);
+      if (tsconfigChange) changes.push(tsconfigChange);
+      continue;
+    }
+
     // Default logic for other files: copy if missing
     if (!fileExists) {
       const created = await ensureTemplateFile(repoPath, file, true);
@@ -410,6 +417,44 @@ export async function syncTemplateFiles(
   }
 
   return changes;
+}
+
+async function syncTsConfigTypes(destPath: string): Promise<string | null> {
+  try {
+    const content = await fs.readFile(destPath, 'utf-8');
+    const tsconfig = JSON.parse(content);
+
+    const expectedTypes = ['node', 'vitest'];
+    const currentTypes = tsconfig.compilerOptions?.types;
+
+    const isIdentical =
+      Array.isArray(currentTypes) &&
+      currentTypes.length === expectedTypes.length &&
+      currentTypes.every((t: string, i: number) => t === expectedTypes[i]);
+
+    if (!isIdentical) {
+      if (!tsconfig.compilerOptions) {
+        tsconfig.compilerOptions = {};
+      }
+      tsconfig.compilerOptions.types = expectedTypes;
+
+      if (!settings.DRY_RUN) {
+        await fs.writeFile(
+          destPath,
+          JSON.stringify(tsconfig, null, 2) + '\n',
+          'utf-8'
+        );
+        return 'Updated tsconfig.json types to ["node", "vitest"]';
+      } else {
+        return '[DRY RUN] Would update tsconfig.json types to ["node", "vitest"]';
+      }
+    }
+  } catch (err) {
+    Logger.error(
+      `Failed to sync tsconfig.json types: ${(err as Error).message}`
+    );
+  }
+  return null;
 }
 
 async function syncGitignore(

@@ -251,6 +251,10 @@ export const ISSUES = {
     message: 'Vitest: Missing "vitest.config.ts" in the root',
     severity: Severity.MEDIUM,
   },
+  TSCONFIG_TYPES_MISMATCH: {
+    message: '{file}: "compilerOptions.types" should be ["node", "vitest"]',
+    severity: Severity.LOW,
+  },
   TSCONFIG_JSON_MISSING: {
     message: 'Missing template file: tsconfig.json',
     severity: Severity.MEDIUM,

@@ -172,6 +172,7 @@ export async function addRepoCommand(): Promise<{
       'tsconfig.json',
       'tsconfig.node.json',
       'vitest.config.ts',
+      'src/index.ts',
       '.github/rulesets/main-protection.json',
       '.vscode/settings.json',
     ];
@@ -180,21 +181,11 @@ export async function addRepoCommand(): Promise<{
       await ensureTemplateFile(repoPath, template, true);
     }
 
-    // Create empty misc and src folders
+    // Create empty misc folder
     try {
       await fs.mkdir(path.join(repoPath, 'misc'), { recursive: true });
-      await fs.mkdir(path.join(repoPath, 'src'), { recursive: true });
-      // Create empty index.ts in src
-      const indexPath = path.join(repoPath, 'src', 'index.ts');
-      try {
-        await fs.access(indexPath);
-      } catch {
-        await fs.writeFile(indexPath, '', 'utf-8');
-      }
     } catch (err) {
-      Logger.warn(
-        `Failed to create misc/src folders or index.ts: ${(err as Error).message}`
-      );
+      Logger.warn(`Failed to create misc folder: ${(err as Error).message}`);
     }
 
     Logger.success('Created all the template files and folders');

@@ -99,6 +99,7 @@ export class Scanner {
     url: string;
     purpose?: string;
     structure?: string;
+    type?: string;
   }): Promise<RepoScanResult> {
     this.scanIssues = [];
     this.foundUnlistedBinaries = [];
@@ -109,6 +110,7 @@ export class Scanner {
 
     const isTraining = repo.purpose === 'training';
     const isMulti = repo.structure === 'multi';
+    const isActive = repo.type === 'active';
 
     // 1. Local existence
     try {
@@ -270,6 +272,11 @@ export class Scanner {
     // 8. Formatter Scan
     if (!skipPrettifyAndKnip) {
       this.scanFormatters(repoPath);
+    }
+
+    // 8.1. tsconfig.json types validation (for active repos only)
+    if (isActive && hasTsFiles && !excludedPaths.includes('tsconfig.json')) {
+      await this.scanTsConfig(repoPath);
     }
 
     // 9. Lint Scan (via npx if node_modules missing)
@@ -643,6 +650,28 @@ export class Scanner {
       }
     } catch {
       // Already reported
+    }
+  }
+
+  private async scanTsConfig(repoPath: string): Promise<void> {
+    const tsconfigPath = path.join(repoPath, 'tsconfig.json');
+    try {
+      const content = await fs.readFile(tsconfigPath, 'utf-8');
+      const tsconfig = JSON.parse(content);
+      const types = tsconfig.compilerOptions?.types;
+
+      const expectedTypes = ['node', 'vitest'];
+      const isIdentical =
+        Array.isArray(types) &&
+        types.length === expectedTypes.length &&
+        types.every((t, i) => t === expectedTypes[i]);
+
+      if (!isIdentical) {
+        this.logIssue('TSCONFIG_TYPES_MISMATCH', { file: 'tsconfig.json' });
+      }
+    } catch {
+      // If it fails to read or parse, it's likely already caught by MISSING_TEMPLATE_FILE
+      // or it's just invalid JSON, which we don't handle specifically here.
     }
   }
 

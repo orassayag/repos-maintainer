@@ -11,11 +11,13 @@ export async function scanRepoCommand(repo?: {
   url: string;
   purpose?: 'personal' | 'training';
   structure?: 'single' | 'multi';
+  type?: string;
 }): Promise<{
   name: string;
   url: string;
   purpose?: 'personal' | 'training';
   structure?: 'single' | 'multi';
+  type?: string;
 } | null> {
   try {
     Logger.log('\nScan Repo:');

@@ -69,6 +69,7 @@ export async function scanReposCommand(): Promise<void> {
         url: repoUrl,
         purpose: repoEntry?.purpose,
         structure: repoEntry?.structure,
+        type: repoEntry?.type,
       });
       results.push(result);
       if (result.unlistedBinaries) {

@@ -41,6 +41,7 @@ export const TEMPLATE_FILES = [
   'tsconfig.json',
   'tsconfig.node.json',
   'vitest.config.ts',
+  'src/index.ts',
   '.github/rulesets/main-protection.json',
   '.vscode/settings.json',
 ];
@@ -127,6 +128,7 @@ export async function standardizeRepo(
     'tsconfig.node.json',
     'vitest.config.ts',
     'eslint.config.mjs',
+    'src/index.ts',
   ];
 
   for (const file of TEMPLATE_FILES) {
@@ -173,20 +175,8 @@ export async function standardizeRepo(
   // ── Step 5.1: Ensure folders ──────────────────────────────────────────
   try {
     await fs.mkdir(path.join(localPath, 'misc'), { recursive: true });
-    await fs.mkdir(path.join(localPath, 'src'), { recursive: true });
-
-    // Only create index.ts if it's a TypeScript project
-    if (hasTsFiles) {
-      const indexPath = path.join(localPath, 'src', 'index.ts');
-      try {
-        await fs.access(indexPath);
-      } catch {
-        await fs.writeFile(indexPath, '', 'utf-8');
-        changes.push('src/index.ts: Created empty file');
-      }
-    }
   } catch (err) {
-    const msg = `Folders/index.ts: ${(err as Error).message}`;
+    const msg = `Folders: ${(err as Error).message}`;
     errors.push(msg);
     Logger.error(msg);
   }

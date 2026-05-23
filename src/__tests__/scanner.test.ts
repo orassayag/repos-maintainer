@@ -1213,4 +1213,99 @@ describe('Scanner', () => {
       expect(prettierCall?.[0]).toContain('npx --yes');
     });
   });
+
+  describe('TSConfig Validation', () => {
+    it('should log an issue if tsconfig.json types do not match for active repos', async (): Promise<void> => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      vi.mocked(fs.readFile).mockImplementation((p: any): any => {
+        if (p.toString().endsWith('tsconfig.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              compilerOptions: {
+                types: ['node'], // Mismatch, should be ['node', 'vitest']
+              },
+            })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo({
+        ...mockRepo,
+        type: 'active',
+      });
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes(
+            'compilerOptions.types" should be ["node", "vitest"]'
+          )
+        )
+      ).toBe(true);
+    });
+
+    it('should NOT log an issue if tsconfig.json types match for active repos', async (): Promise<void> => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      vi.mocked(fs.readFile).mockImplementation((p: any): any => {
+        if (p.toString().endsWith('tsconfig.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              compilerOptions: {
+                types: ['node', 'vitest'],
+              },
+            })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo({
+        ...mockRepo,
+        type: 'active',
+      });
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes(
+            'compilerOptions.types" should be ["node", "vitest"]'
+          )
+        )
+      ).toBe(false);
+    });
+
+    it('should NOT log an issue if types do not match but repo is NOT active', async (): Promise<void> => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      vi.mocked(fs.readFile).mockImplementation((p: any): any => {
+        if (p.toString().endsWith('tsconfig.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              compilerOptions: {
+                types: ['node'],
+              },
+            })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo({
+        ...mockRepo,
+        type: 'other',
+      });
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes(
+            'compilerOptions.types" should be ["node", "vitest"]'
+          )
+        )
+      ).toBe(false);
+    });
+  });
 });
