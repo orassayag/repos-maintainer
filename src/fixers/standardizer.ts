@@ -14,6 +14,7 @@ import { fixReadme } from './readmeFixer.js';
 import { fixMetadata } from './metadataFixer.js';
 import { fixRulesets } from './rulesetsFixer.js';
 import { isTypeScriptProject } from '../utils/projectType.js';
+import { isLegacyProject } from '../utils/excludes.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -131,8 +132,16 @@ export async function standardizeRepo(
     'src/index.ts',
   ];
 
+  const isLegacy = isLegacyProject(repoName);
+
   for (const file of TEMPLATE_FILES) {
     const isTsFile = tsTemplateFiles.includes(file);
+
+    // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
+    // ONLY FOR SPECIFIC "src/index.ts", keep the other logic of the validations on template files
+    if (file === 'src/index.ts' && isLegacy) {
+      continue;
+    }
 
     // Skip TypeScript template files if no .ts files are found
     if (isTsFile && !hasTsFiles) {

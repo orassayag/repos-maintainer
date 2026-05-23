@@ -219,6 +219,12 @@ export class Scanner {
         continue;
       }
 
+      // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
+      // ONLY FOR SPECIFIC "src/index.ts", keep the other logic of the validations on template files
+      if (file === 'src/index.ts' && !isActive) {
+        continue;
+      }
+
       const targetFilePath = path.join(repoPath, file);
       try {
         await fs.access(targetFilePath);

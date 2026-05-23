@@ -12,6 +12,7 @@ import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixMetadata } from '../fixers/metadataFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
 import { isTypeScriptProject } from '../utils/projectType.js';
+import { isLegacyProject } from '../utils/excludes.js';
 import { settings } from '../settings.js';
 
 vi.mock('../utils/git.js');
@@ -24,6 +25,7 @@ vi.mock('../fixers/metadataFixer.js');
 vi.mock('../fixers/rulesetsFixer.js');
 vi.mock('../utils/logger.js');
 vi.mock('../utils/projectType.js');
+vi.mock('../utils/excludes.js');
 vi.mock('fs/promises');
 vi.mock('../settings.js', () => ({
   settings: {
@@ -36,10 +38,16 @@ vi.mock('../settings.js', () => ({
 describe('standardizer', () => {
   const mockRepoUrl = 'https://github.com/user/test-repo';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const fsPromises = await import('fs/promises');
+    vi.mocked(fsPromises.mkdir).mockResolvedValue(undefined as any);
+    vi.mocked(fsPromises.access).mockResolvedValue(undefined);
+    vi.mocked(fsPromises.writeFile).mockResolvedValue(undefined as any);
+
     settings.GIT_CLEAN_ENABLED = false;
     vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+    vi.mocked(isLegacyProject).mockReturnValue(false);
     vi.mocked(parseGitHubUrl).mockReturnValue({
       owner: 'user',
       repo: 'test-repo',
@@ -197,21 +205,25 @@ describe('standardizer', () => {
     expect(result.errors).toContain('Repo list: Step 2 Fail');
     expect(result.errors).toContain('package.json: Step 3 Fail');
     expect(result.errors).toContain('README.md: Step 4 Fail');
-    expect(result.errors).toContain('LICENSE: Step 5 Fail'); // One of TEMPLATE_FILES
-    expect(result.errors).toContain('Folders/index.ts: Step 5.1 Fail');
+    expect(result.errors).toContain('LICENSE: Step 5 Fail');
     expect(result.errors).toContain('Metadata: Step 6 Fail');
     expect(result.errors).toContain('Rulesets: Step 7 Fail');
     expect(result.errors).toContain('Git clean: Step 9 Fail');
     expect(result.errors).toContain('Git commit: Step 10 Fail');
   });
 
-  it('should cover src/index.ts creation catch block', async () => {
-    const fsPromises = await import('fs/promises');
-    vi.mocked(fsPromises.mkdir).mockResolvedValue(undefined);
-    vi.mocked(fsPromises.access).mockRejectedValue(new Error('not found'));
-    vi.mocked(fsPromises.writeFile).mockRejectedValue(new Error('write fail'));
+  it('should skip src/index.ts for legacy projects', async () => {
+    vi.mocked(isLegacyProject).mockReturnValue(true);
 
     const result = await standardizeRepo(mockRepoUrl);
-    expect(result.errors).toContain('Folders/index.ts: write fail');
+
+    expect(result.success).toBe(true);
+    // TEMPLATE_FILES includes 'src/index.ts'
+    // If it was not skipped, ensureTemplateFile would have been called with it
+    expect(ensureTemplateFile).not.toHaveBeenCalledWith(
+      expect.any(String),
+      'src/index.ts',
+      expect.any(Boolean)
+    );
   });
 });

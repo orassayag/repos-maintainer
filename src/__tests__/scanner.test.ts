@@ -193,6 +193,66 @@ describe('Scanner', () => {
       );
       expect(missingTsConfig).toBeDefined();
     });
+
+    it('should ignore missing src/index.ts for non-active projects', async (): Promise<void> => {
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        const normalizedTemplatesDir = templatesDir.replace(/\\/g, '/');
+
+        if (pathStr === normalizedTemplatesDir) {
+          return Promise.resolve([
+            {
+              name: 'src',
+              isDirectory: (): boolean => true,
+            },
+          ] as any);
+        }
+        if (pathStr === `${normalizedTemplatesDir}/src`) {
+          return Promise.resolve([
+            {
+              name: 'index.ts',
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        if (pathStr.includes('src/index.ts'))
+          return Promise.reject(new Error('Not found'));
+        return Promise.resolve(undefined);
+      });
+
+      // Case 1: Active project (should report)
+      const activeRepo = { ...mockRepo, type: 'active' };
+      const resultActive = await scanner.scanRepo(activeRepo);
+      expect(
+        resultActive.issues.some((i) =>
+          i.message.includes('Missing template file: src/index.ts')
+        )
+      ).toBe(true);
+
+      // Case 2: Legacy project (should NOT report)
+      const legacyRepo = { ...mockRepo, type: 'legacy' };
+      const resultLegacy = await scanner.scanRepo(legacyRepo);
+      expect(
+        resultLegacy.issues.some((i) =>
+          i.message.includes('Missing template file: src/index.ts')
+        )
+      ).toBe(false);
+
+      // Case 3: Undefined type (should NOT report)
+      const unknownRepo = { ...mockRepo, type: undefined };
+      const resultUnknown = await scanner.scanRepo(unknownRepo);
+      expect(
+        resultUnknown.issues.some((i) =>
+          i.message.includes('Missing template file: src/index.ts')
+        )
+      ).toBe(false);
+    });
   });
 
   describe('scanLint', () => {
