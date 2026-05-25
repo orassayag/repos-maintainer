@@ -292,6 +292,11 @@ export const ISSUES = {
       '{file}: Direct file import used instead of index export at lines: {lines}',
     severity: Severity.VERY_LOW,
   },
+  DUPLICATE_MD_TITLE: {
+    message:
+      '{file}: Duplicate MD title "{title}" (level {level}) at lines: {lines}',
+    severity: Severity.LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;

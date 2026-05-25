@@ -252,6 +252,11 @@ export class Scanner {
       await this.scanReadmeFile(repoPath, repo.name);
     }
 
+    // 6.1. All MD files duplicate title scan
+    if (!isTraining) {
+      await this.scanMdDuplicates(repoPath, excludedPaths);
+    }
+
     // 7. package.json deep scan
     let githubMetadata: RepoMetadata | null = null;
     let metadataError: string | null = null;
@@ -1620,5 +1625,131 @@ export class Scanner {
       }
     }
     return [...files];
+  }
+
+  private async scanMdDuplicates(
+    repoPath: string,
+    excludedPaths: string[]
+  ): Promise<void> {
+    const files = await this.getAllFiles(repoPath);
+    const mdFiles = files.filter((f) => {
+      const lowerF = f.toLowerCase();
+      if (!lowerF.endsWith('.md')) return false;
+
+      // Skip common ignored directories that might not be caught by getAllFiles
+      const parts = f.split(/[\\/]/);
+      const ignoredDirs = ['node_modules', '.git', 'dist', 'build', 'coverage'];
+      if (parts.some((part) => ignoredDirs.includes(part))) return false;
+
+      return !excludedPaths.some((p) => f === p || f.startsWith(p + '/'));
+    });
+
+    for (const relPath of mdFiles) {
+      const filePath = path.join(repoPath, relPath);
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const headings = this.parseMdHeadings(content);
+        const duplicates = this.findMdDuplicates(headings);
+
+        for (const dup of duplicates) {
+          this.logIssue('DUPLICATE_MD_TITLE', {
+            file: relPath,
+            title: dup.text,
+            level: dup.level,
+            lines: dup.lines.join(', '),
+          });
+        }
+      } catch {
+        // Ignore file read errors
+      }
+    }
+  }
+
+  private parseMdHeadings(content: string): {
+    line: number;
+    level: number;
+    text: string;
+  }[] {
+    const headings: { line: number; level: number; text: string }[] = [];
+    const lines = content.split('\n');
+
+    let inFencedBlock = false;
+    let fenceChar = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+
+      // Track fenced code blocks so we skip headings inside them
+      const fenceMatch = raw.match(/^(`{3,}|~{3,})/);
+      if (fenceMatch) {
+        if (!inFencedBlock) {
+          inFencedBlock = true;
+          fenceChar = fenceMatch[1][0];
+        } else if (
+          raw
+            .trimEnd()
+            .split('')
+            .every((c) => c === fenceChar)
+        ) {
+          inFencedBlock = false;
+          fenceChar = '';
+        }
+        continue;
+      }
+
+      if (inFencedBlock) continue;
+
+      // ATX heading: optional leading spaces (up to 3), 1-6 #, at least one space
+      const match = raw.match(/^#{1,6}(?=\s)/);
+      if (!match) continue;
+
+      const level = match[0].length;
+      // Strip optional trailing hashes and whitespace
+      const text = raw
+        .slice(level)
+        .trim()
+        .replace(/\s+#+\s*$/, '')
+        .trim();
+
+      if (text.length === 0) continue; // skip blank headings
+
+      headings.push({ line: i + 1, level, text });
+    }
+
+    return headings;
+  }
+
+  private findMdDuplicates(
+    headings: { line: number; level: number; text: string }[]
+  ): { level: number; text: string; lines: number[] }[] {
+    const index = new Map<
+      string,
+      { text: string; level: number; lines: number[] }
+    >();
+
+    for (const h of headings) {
+      const key = `${h.level}:${h.text.toLowerCase()}`;
+
+      if (!index.has(key)) {
+        index.set(key, { text: h.text, level: h.level, lines: [] });
+      }
+      index.get(key)!.lines.push(h.line);
+    }
+
+    const duplicates: { level: number; text: string; lines: number[] }[] = [];
+    for (const entry of index.values()) {
+      if (entry.lines.length > 1) {
+        duplicates.push({
+          level: entry.level,
+          text: entry.text,
+          lines: entry.lines,
+        });
+      }
+    }
+
+    // Sort by first occurrence for deterministic output
+    duplicates.sort((a, b) => a.lines[0] - b.lines[0]);
+
+    return duplicates;
   }
 }
