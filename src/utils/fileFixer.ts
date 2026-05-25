@@ -296,7 +296,8 @@ export async function ensureTemplateFile(
  */
 export async function syncTemplateFiles(
   repoPath: string,
-  templateFiles: string[]
+  templateFiles: string[],
+  isTraining: boolean = false
 ): Promise<string[]> {
   const changes: string[] = [];
   const hasTsFiles = await isTypeScriptProject(repoPath);
@@ -346,6 +347,8 @@ export async function syncTemplateFiles(
 
     // Special logic for ESLint config: copy if missing AND no legacy config exists
     if (file === 'eslint.config.mjs') {
+      if (isTraining) continue;
+
       const hasLegacyConfig =
         (await fs
           .access(path.join(repoPath, 'eslintrc.json'))

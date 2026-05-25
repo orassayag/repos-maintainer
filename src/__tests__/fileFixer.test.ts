@@ -304,6 +304,27 @@ path1`;
       expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
+    it('should NOT copy eslint.config.mjs if it is a training repo', async () => {
+      vi.mocked(fs.access).mockImplementation((path) => {
+        if (path.toString().endsWith('eslintrc.json'))
+          return Promise.reject(new Error('not found'));
+        if (path.toString().endsWith('eslint.config.mjs'))
+          return Promise.reject(new Error('not found'));
+        return Promise.resolve(undefined);
+      });
+
+      const result = await syncTemplateFiles(
+        repoPath,
+        ['eslint.config.mjs'],
+        true
+      );
+
+      expect(result).not.toContain(
+        'Created missing ESLint config: eslint.config.mjs'
+      );
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
     it('should warn if LICENSE has no year', async () => {
       const templateLicense = 'Copyright (c) #YEAR# Or Assayag\nMIT License';
       const existingLicense = 'Copyright (c) Or Assayag\nOld Content';

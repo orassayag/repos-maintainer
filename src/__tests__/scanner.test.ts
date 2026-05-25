@@ -1241,6 +1241,49 @@ describe('Scanner', () => {
     });
   });
 
+  describe('Purpose-based Scanning', () => {
+    it('should ignore ESLint missing issue for training repositories', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
+        const ps = p.toString();
+        // Return false for all eslint related files
+        if (ps.includes('eslintrc') || ps.includes('eslint.config'))
+          return false;
+        return false;
+      });
+
+      const result = await scanner.scanRepo({
+        ...mockRepo,
+        purpose: 'training',
+      });
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('ESLint: Missing both "eslintrc.json"')
+        )
+      ).toBe(false);
+    });
+
+    it('should NOT ignore ESLint missing issue for non-training repositories', async (): Promise<void> => {
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
+        const ps = p.toString();
+        if (ps.includes('eslintrc') || ps.includes('eslint.config'))
+          return false;
+        return false;
+      });
+
+      const result = await scanner.scanRepo({
+        ...mockRepo,
+        purpose: 'personal',
+      });
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('ESLint: Missing both "eslintrc.json"')
+        )
+      ).toBe(true);
+    });
+  });
+
   describe('resolveRunner', () => {
     it('should use local bin if exists', async (): Promise<void> => {
       vi.mocked(existsSync).mockImplementation((p: any): boolean => {

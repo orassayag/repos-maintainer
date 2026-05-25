@@ -197,7 +197,11 @@ export async function syncRepoCommand(): Promise<{
 
     // B. Sync Template Files (.gitignore, LICENSE, and other missing files)
     Logger.log('📄 Syncing template files...');
-    const templateChanges = await syncTemplateFiles(repoPath, TEMPLATE_FILES);
+    const templateChanges = await syncTemplateFiles(
+      repoPath,
+      TEMPLATE_FILES,
+      isTraining
+    );
     if (templateChanges.length > 0) {
       changed = true;
       templateChanges.forEach((change) => {

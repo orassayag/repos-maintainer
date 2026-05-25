@@ -214,8 +214,11 @@ export class Scanner {
         continue;
       }
 
-      // Skip package.json if it's a training repo
-      if (file === 'package.json' && isTraining) {
+      // Skip package.json and eslint.config.mjs if it's a training repo
+      if (
+        (file === 'package.json' || file === 'eslint.config.mjs') &&
+        isTraining
+      ) {
         continue;
       }
 
@@ -306,7 +309,7 @@ export class Scanner {
     }
 
     // 10. ESLint Config Scan
-    this.scanEslintConfig(repoPath);
+    this.scanEslintConfig(repoPath, isTraining);
 
     // 11. VSCode Settings Scan
     this.scanVsCodeSettings(repoPath);
@@ -1205,7 +1208,7 @@ export class Scanner {
     }
   }
 
-  private scanEslintConfig(repoPath: string): void {
+  private scanEslintConfig(repoPath: string, isTraining: boolean): void {
     const legacyFiles = [
       'eslintrc.json',
       '.eslintrc.json',
@@ -1221,7 +1224,9 @@ export class Scanner {
     const hasFlatConfig = existsSync(path.join(repoPath, 'eslint.config.mjs'));
 
     if (!hasLegacyConfig && !hasFlatConfig) {
-      this.logIssue('ESLINT_CONFIG_MISSING');
+      if (!isTraining) {
+        this.logIssue('ESLINT_CONFIG_MISSING');
+      }
     } else if (hasLegacyConfig && !hasFlatConfig) {
       // If project is Legacy, we don't care about migrating to flat config
       if (!isLegacyProject(this.currentRepoName)) {
