@@ -160,7 +160,12 @@ describe('syncRepoCommand', () => {
 
     await syncRepoCommand();
 
-    expect(fixPackageJson).toHaveBeenCalledWith(mockRepoPath, 'test-repo');
+    expect(fixPackageJson).toHaveBeenCalledWith(
+      mockRepoPath,
+      'test-repo',
+      'package.json',
+      undefined
+    );
   });
 
   it('should call syncTemplateFiles during sync', async () => {

@@ -280,7 +280,8 @@ export class Scanner {
             path.dirname(pkgPath),
             repo.name,
             githubMetadata ? githubMetadata.topics : null,
-            relativePkgPath
+            relativePkgPath,
+            isActive
           );
           this.scanPackageJsonSorting(path.dirname(pkgPath), relativePkgPath);
         }
@@ -288,7 +289,9 @@ export class Scanner {
         await this.scanPackageJson(
           repoPath,
           repo.name,
-          githubMetadata ? githubMetadata.topics : null
+          githubMetadata ? githubMetadata.topics : null,
+          'package.json',
+          isActive
         );
         this.scanPackageJsonSorting(repoPath);
       }
@@ -813,7 +816,8 @@ export class Scanner {
     repoPath: string,
     repoName: string,
     githubTopics: string[] | null = null,
-    relativePath: string = 'package.json'
+    relativePath: string = 'package.json',
+    isActive: boolean = true
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -904,13 +908,17 @@ export class Scanner {
       }
 
       // Engines Validation
-      if (!pkg.engines) {
-        this.logIssue('PACKAGE_JSON_MISSING_ENGINES', { file: relativePath });
-      } else if (
-        typeof pkg.engines !== 'object' ||
-        Object.keys(pkg.engines).length === 0
-      ) {
-        this.logIssue('PACKAGE_JSON_ENGINES_MISMATCH', { file: relativePath });
+      if (isActive) {
+        if (!pkg.engines) {
+          this.logIssue('PACKAGE_JSON_MISSING_ENGINES', { file: relativePath });
+        } else if (
+          typeof pkg.engines !== 'object' ||
+          Object.keys(pkg.engines).length === 0
+        ) {
+          this.logIssue('PACKAGE_JSON_ENGINES_MISMATCH', {
+            file: relativePath,
+          });
+        }
       }
 
       const expectedContributor = {
@@ -945,10 +953,12 @@ export class Scanner {
           });
         }
       }
-      if (!pkg.type)
-        this.logIssue('PACKAGE_JSON_MISSING_TYPE', { file: relativePath });
-      if (!pkg.scripts)
-        this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS', { file: relativePath });
+      if (isActive) {
+        if (!pkg.type)
+          this.logIssue('PACKAGE_JSON_MISSING_TYPE', { file: relativePath });
+        if (!pkg.scripts)
+          this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS', { file: relativePath });
+      }
       if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {
         this.logIssue('PACKAGE_JSON_MISSING_FILES', { file: relativePath });
       } else {
@@ -1011,20 +1021,22 @@ export class Scanner {
       }
       const skipOutdated = isOutdatedScanExcluded(this.currentRepoName);
 
-      if (!pkg.dependencies) {
-        this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES', {
-          file: relativePath,
-        });
-      } else if (!skipOutdated) {
-        await this.checkDependenciesVersion(pkg.dependencies);
-      }
+      if (isActive) {
+        if (!pkg.dependencies) {
+          this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES', {
+            file: relativePath,
+          });
+        } else if (!skipOutdated) {
+          await this.checkDependenciesVersion(pkg.dependencies);
+        }
 
-      if (!pkg.devDependencies) {
-        this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES', {
-          file: relativePath,
-        });
-      } else if (!skipOutdated) {
-        await this.checkDependenciesVersion(pkg.devDependencies);
+        if (!pkg.devDependencies) {
+          this.logIssue('PACKAGE_JSON_MISSING_DEV_DEPENDENCIES', {
+            file: relativePath,
+          });
+        } else if (!skipOutdated) {
+          await this.checkDependenciesVersion(pkg.devDependencies);
+        }
       }
 
       const keywords = pkg.keywords || [];

@@ -230,12 +230,18 @@ export async function syncRepoCommand(): Promise<{
           const pkgFixed = await fixPackageJson(
             pkgDir,
             selectedRepo.name,
-            relativePkgPath
+            relativePkgPath,
+            selectedRepo.type
           );
           if (pkgFixed) changed = true;
         }
       } else {
-        const pkgFixed = await fixPackageJson(repoPath, selectedRepo.name);
+        const pkgFixed = await fixPackageJson(
+          repoPath,
+          selectedRepo.name,
+          'package.json',
+          selectedRepo.type
+        );
         if (pkgFixed) changed = true;
       }
     }

@@ -460,5 +460,35 @@ describe('packageJsonFixer', () => {
       expect(written.scripts).toBeDefined();
       expect(written.scripts.test).toBe('vitest');
     });
+
+    it('should NOT fix restricted keys if repoType is not active', async () => {
+      const originalPkg = {
+        name: 'test',
+        type: 'commonjs',
+        scripts: { test: 'old' },
+        dependencies: { old: '1.0.0' },
+        devDependencies: { old: '1.0.0' },
+        engines: { node: '>=14' },
+      };
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(JSON.stringify(originalPkg))
+        .mockResolvedValueOnce(template);
+
+      await fixPackageJson(repoPath, 'test-repo', 'package.json', 'legacy');
+
+      expect(fs.writeFile).toHaveBeenCalled();
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+
+      expect(written.type).toBe('commonjs');
+      expect(written.scripts.test).toBe('old');
+      expect(written.dependencies.old).toBe('1.0.0');
+      expect(written.devDependencies.old).toBe('1.0.0');
+      expect(written.engines.node).toBe('>=14');
+
+      // But author should still be fixed (part of "rest of elements")
+      expect(written.author.name).toBe('Or Assayag');
+    });
   });
 });

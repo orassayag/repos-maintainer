@@ -7,6 +7,7 @@ import { parseGitHubUrl } from '../github.js';
 export interface SelectedRepo {
   name: string;
   url: string;
+  type?: string;
   purpose?: 'personal' | 'training';
   structure?: 'single' | 'multi';
 }
@@ -38,10 +39,10 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
       : repoNameOrUrl.toLowerCase();
 
     for (const entry of repoList) {
-      const { name, url, purpose, structure } = entry;
+      const { name, url, type, purpose, structure } = entry;
 
       if (name.toLowerCase() === inputName || url === repoNameOrUrl) {
-        selectedRepo = { name, url, purpose, structure };
+        selectedRepo = { name, url, type, purpose, structure };
         break;
       }
     }
@@ -67,6 +68,7 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
             selectedRepo = {
               name: entry.name,
               url: entry.url,
+              type: entry.type,
               purpose: entry.purpose,
               structure: entry.structure,
             };

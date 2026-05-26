@@ -177,7 +177,8 @@ function rankFile(rel: string): number {
 export async function fixPackageJson(
   repoPath: string,
   repoName: string,
-  relativePath: string = 'package.json'
+  relativePath: string = 'package.json',
+  repoType: string = 'active'
 ): Promise<boolean> {
   const pkgPath = path.join(repoPath, 'package.json');
   const templatePath = path.join(settings.TEMPLATES_DIR, 'package.json');
@@ -201,17 +202,19 @@ export async function fixPackageJson(
     }
 
     // 2. engines
-    const expectedEngines = {
-      node: '>=20.0.0',
-      pnpm: '>=8.0.0',
-    };
-    if (
-      !pkg.engines ||
-      JSON.stringify(pkg.engines) !== JSON.stringify(expectedEngines)
-    ) {
-      pkg.engines = expectedEngines;
-      changed = true;
-      Logger.info(`Updated "engines" in ${relativePath}`);
+    if (repoType === 'active') {
+      const expectedEngines = {
+        node: '>=20.0.0',
+        pnpm: '>=8.0.0',
+      };
+      if (
+        !pkg.engines ||
+        JSON.stringify(pkg.engines) !== JSON.stringify(expectedEngines)
+      ) {
+        pkg.engines = expectedEngines;
+        changed = true;
+        Logger.info(`Updated "engines" in ${relativePath}`);
+      }
     }
 
     // 3. author
@@ -313,7 +316,7 @@ export async function fixPackageJson(
     }
 
     // 6. type
-    if (pkg.type !== 'module') {
+    if (repoType === 'active' && pkg.type !== 'module') {
       pkg.type = 'module';
       changed = true;
       Logger.info(`Updated "type" to "module" in ${relativePath}`);
@@ -378,77 +381,81 @@ export async function fixPackageJson(
     }
 
     // 9. scripts
-    if (!pkg.scripts) {
-      pkg.scripts = templatePkg.scripts;
-      changed = true;
-      Logger.info(`Updated "scripts" in ${relativePath}`);
-    } else {
-      const requiredScripts = Object.keys(templatePkg.scripts);
-      for (const script of requiredScripts) {
-        if (pkg.scripts[script] !== templatePkg.scripts[script]) {
-          pkg.scripts[script] = templatePkg.scripts[script];
-          changed = true;
-          Logger.info(`Updated script "${script}" in ${relativePath}`);
-        }
-      }
-      // Sort scripts
-      const scriptKeys = Object.keys(pkg.scripts);
-      const sortedScriptKeys = [...scriptKeys].sort();
-      if (JSON.stringify(scriptKeys) !== JSON.stringify(sortedScriptKeys)) {
-        const sortedScripts: Record<string, string> = {};
-        sortedScriptKeys.forEach((k) => {
-          sortedScripts[k] = pkg.scripts[k];
-        });
-        pkg.scripts = sortedScripts;
+    if (repoType === 'active') {
+      if (!pkg.scripts) {
+        pkg.scripts = templatePkg.scripts;
         changed = true;
-        Logger.info(`Sorted "scripts" in ${relativePath}`);
+        Logger.info(`Updated "scripts" in ${relativePath}`);
+      } else {
+        const requiredScripts = Object.keys(templatePkg.scripts);
+        for (const script of requiredScripts) {
+          if (pkg.scripts[script] !== templatePkg.scripts[script]) {
+            pkg.scripts[script] = templatePkg.scripts[script];
+            changed = true;
+            Logger.info(`Updated script "${script}" in ${relativePath}`);
+          }
+        }
+        // Sort scripts
+        const scriptKeys = Object.keys(pkg.scripts);
+        const sortedScriptKeys = [...scriptKeys].sort();
+        if (JSON.stringify(scriptKeys) !== JSON.stringify(sortedScriptKeys)) {
+          const sortedScripts: Record<string, string> = {};
+          sortedScriptKeys.forEach((k) => {
+            sortedScripts[k] = pkg.scripts[k];
+          });
+          pkg.scripts = sortedScripts;
+          changed = true;
+          Logger.info(`Sorted "scripts" in ${relativePath}`);
+        }
       }
     }
 
     // 10. dependencies and devDependencies
-    if (!pkg.dependencies && templatePkg.dependencies) {
-      pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
-      // Fetch dynamic versions
-      for (const dep of Object.keys(pkg.dependencies)) {
-        pkg.dependencies[dep] = getLatestVersion(dep);
-      }
-      changed = true;
-      Logger.info(`Added missing "dependencies" in ${relativePath}`);
-    } else if (pkg.dependencies) {
-      const depKeys = Object.keys(pkg.dependencies);
-      const sortedDepKeys = [...depKeys].sort();
-      if (JSON.stringify(depKeys) !== JSON.stringify(sortedDepKeys)) {
-        const sortedDeps: Record<string, string> = {};
-        sortedDepKeys.forEach((k) => {
-          sortedDeps[k] = pkg.dependencies[k];
-        });
-        pkg.dependencies = sortedDeps;
+    if (repoType === 'active') {
+      if (!pkg.dependencies && templatePkg.dependencies) {
+        pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
+        // Fetch dynamic versions
+        for (const dep of Object.keys(pkg.dependencies)) {
+          pkg.dependencies[dep] = getLatestVersion(dep);
+        }
         changed = true;
-        Logger.info(`Sorted "dependencies" in ${relativePath}`);
+        Logger.info(`Added missing "dependencies" in ${relativePath}`);
+      } else if (pkg.dependencies) {
+        const depKeys = Object.keys(pkg.dependencies);
+        const sortedDepKeys = [...depKeys].sort();
+        if (JSON.stringify(depKeys) !== JSON.stringify(sortedDepKeys)) {
+          const sortedDeps: Record<string, string> = {};
+          sortedDepKeys.forEach((k) => {
+            sortedDeps[k] = pkg.dependencies[k];
+          });
+          pkg.dependencies = sortedDeps;
+          changed = true;
+          Logger.info(`Sorted "dependencies" in ${relativePath}`);
+        }
       }
-    }
 
-    if (!pkg.devDependencies && templatePkg.devDependencies) {
-      pkg.devDependencies = JSON.parse(
-        JSON.stringify(templatePkg.devDependencies)
-      );
-      // Fetch dynamic versions
-      for (const dep of Object.keys(pkg.devDependencies)) {
-        pkg.devDependencies[dep] = getLatestVersion(dep);
-      }
-      changed = true;
-      Logger.info(`Added missing "devDependencies" in ${relativePath}`);
-    } else if (pkg.devDependencies) {
-      const devDepKeys = Object.keys(pkg.devDependencies);
-      const sortedDevDepKeys = [...devDepKeys].sort();
-      if (JSON.stringify(devDepKeys) !== JSON.stringify(sortedDevDepKeys)) {
-        const sortedDevDeps: Record<string, string> = {};
-        sortedDevDepKeys.forEach((k) => {
-          sortedDevDeps[k] = pkg.devDependencies[k];
-        });
-        pkg.devDependencies = sortedDevDeps;
+      if (!pkg.devDependencies && templatePkg.devDependencies) {
+        pkg.devDependencies = JSON.parse(
+          JSON.stringify(templatePkg.devDependencies)
+        );
+        // Fetch dynamic versions
+        for (const dep of Object.keys(pkg.devDependencies)) {
+          pkg.devDependencies[dep] = getLatestVersion(dep);
+        }
         changed = true;
-        Logger.info(`Sorted "devDependencies" in ${relativePath}`);
+        Logger.info(`Added missing "devDependencies" in ${relativePath}`);
+      } else if (pkg.devDependencies) {
+        const devDepKeys = Object.keys(pkg.devDependencies);
+        const sortedDevDepKeys = [...devDepKeys].sort();
+        if (JSON.stringify(devDepKeys) !== JSON.stringify(sortedDevDepKeys)) {
+          const sortedDevDeps: Record<string, string> = {};
+          sortedDevDepKeys.forEach((k) => {
+            sortedDevDeps[k] = pkg.devDependencies[k];
+          });
+          pkg.devDependencies = sortedDevDeps;
+          changed = true;
+          Logger.info(`Sorted "devDependencies" in ${relativePath}`);
+        }
       }
     }
 

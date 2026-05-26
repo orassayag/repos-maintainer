@@ -101,7 +101,13 @@ export async function standardizeRepo(
 
   // ── Step 3: package.json ───────────────────────────────────────────────
   try {
-    const pkgFixed = await fixPackageJson(localPath, repoName);
+    const repoType = isLegacyProject(repoName) ? 'legacy' : 'active';
+    const pkgFixed = await fixPackageJson(
+      localPath,
+      repoName,
+      'package.json',
+      repoType
+    );
     if (pkgFixed) {
       changes.push('package.json: Standardized (author, engines, type, etc.)');
     }
