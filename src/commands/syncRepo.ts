@@ -91,6 +91,7 @@ export async function syncRepoCommand(): Promise<{
     // 2. Validate and fix descriptions
     Logger.log('🔍 Validating descriptions...');
     let changed = false;
+    let pkgChanged = false;
 
     // A. package.json description
     if (!isTraining && pkg) {
@@ -103,6 +104,7 @@ export async function syncRepoCommand(): Promise<{
           validate: validatePackageDescription,
         });
         pkg.description = newPkgDesc;
+        pkgChanged = true;
         changed = true;
       }
     }
@@ -173,8 +175,16 @@ export async function syncRepoCommand(): Promise<{
           validate: validateKeywordsInput,
         });
         pkg.keywords = parseKeywordsString(newKeywordsStr);
+        pkgChanged = true;
         changed = true;
       }
+    }
+
+    // Save package.json if it was changed by manual input (description or keywords)
+    if (pkgChanged && !isTraining && pkg) {
+      const pkgPath = path.join(repoPath, 'package.json');
+      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+      Logger.success('Updated package.json with manual inputs');
     }
 
     // 3. Sync Keywords & Standardize package.json
