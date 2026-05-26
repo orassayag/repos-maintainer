@@ -269,6 +269,8 @@ export class Scanner {
       }
     }
 
+    const isLegacy = isLegacyProject(this.currentRepoName);
+
     if (!isTraining) {
       if (isMulti) {
         const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
@@ -281,7 +283,8 @@ export class Scanner {
             repo.name,
             githubMetadata ? githubMetadata.topics : null,
             relativePkgPath,
-            isActive
+            isActive,
+            isLegacy
           );
           this.scanPackageJsonSorting(path.dirname(pkgPath), relativePkgPath);
         }
@@ -291,7 +294,8 @@ export class Scanner {
           repo.name,
           githubMetadata ? githubMetadata.topics : null,
           'package.json',
-          isActive
+          isActive,
+          isLegacy
         );
         this.scanPackageJsonSorting(repoPath);
       }
@@ -817,7 +821,8 @@ export class Scanner {
     repoName: string,
     githubTopics: string[] | null = null,
     relativePath: string = 'package.json',
-    isActive: boolean = true
+    isActive: boolean = true,
+    isLegacy: boolean = false
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -953,7 +958,7 @@ export class Scanner {
           });
         }
       }
-      if (isActive) {
+      if (isActive || isLegacy) {
         if (!pkg.type)
           this.logIssue('PACKAGE_JSON_MISSING_TYPE', { file: relativePath });
         if (!pkg.scripts)
@@ -1021,7 +1026,7 @@ export class Scanner {
       }
       const skipOutdated = isOutdatedScanExcluded(this.currentRepoName);
 
-      if (isActive) {
+      if (isActive || isLegacy) {
         if (!pkg.dependencies) {
           this.logIssue('PACKAGE_JSON_MISSING_DEPENDENCIES', {
             file: relativePath,

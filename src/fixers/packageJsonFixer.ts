@@ -320,6 +320,10 @@ export async function fixPackageJson(
       pkg.type = 'module';
       changed = true;
       Logger.info(`Updated "type" to "module" in ${relativePath}`);
+    } else if (repoType === 'legacy' && !pkg.type) {
+      pkg.type = 'commonjs';
+      changed = true;
+      Logger.info(`Added missing "type" as "commonjs" in ${relativePath}`);
     }
 
     // 7. files
@@ -408,6 +412,10 @@ export async function fixPackageJson(
           Logger.info(`Sorted "scripts" in ${relativePath}`);
         }
       }
+    } else if (repoType === 'legacy' && !pkg.scripts) {
+      pkg.scripts = {};
+      changed = true;
+      Logger.info(`Added missing "scripts" in ${relativePath}`);
     }
 
     // 10. dependencies and devDependencies
@@ -456,6 +464,17 @@ export async function fixPackageJson(
           changed = true;
           Logger.info(`Sorted "devDependencies" in ${relativePath}`);
         }
+      }
+    } else if (repoType === 'legacy') {
+      if (!pkg.dependencies) {
+        pkg.dependencies = {};
+        changed = true;
+        Logger.info(`Added missing "dependencies" in ${relativePath}`);
+      }
+      if (!pkg.devDependencies) {
+        pkg.devDependencies = {};
+        changed = true;
+        Logger.info(`Added missing "devDependencies" in ${relativePath}`);
       }
     }
 
