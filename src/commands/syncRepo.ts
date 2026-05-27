@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { Logger } from '../utils/logger.js';
@@ -45,6 +46,7 @@ export async function syncRepoCommand(): Promise<{
   if (!selectedRepo) return null;
 
   const repoPath = getLocalRepoPath(selectedRepo.name);
+  const rootPkgPath = path.join(repoPath, 'package.json');
   let parsed = parseGitHubUrl(selectedRepo.url);
 
   // Fallback: If no valid URL, assume default owner and use the repo name
@@ -74,9 +76,8 @@ export async function syncRepoCommand(): Promise<{
 
     let pkg: any;
     if (!isTraining) {
-      const pkgPath = path.join(repoPath, 'package.json');
       try {
-        const pkgContent = await fs.readFile(pkgPath, 'utf-8');
+        const pkgContent = await fs.readFile(rootPkgPath, 'utf-8');
         pkg = JSON.parse(pkgContent);
       } catch (err) {
         if (!isMulti) {
@@ -182,8 +183,11 @@ export async function syncRepoCommand(): Promise<{
 
     // Save package.json if it was changed by manual input (description or keywords)
     if (pkgChanged && !isTraining && pkg) {
-      const pkgPath = path.join(repoPath, 'package.json');
-      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+      await fs.writeFile(
+        rootPkgPath,
+        JSON.stringify(pkg, null, 2) + '\n',
+        'utf-8'
+      );
       Logger.success('Updated package.json with manual inputs');
     }
 
@@ -246,28 +250,32 @@ export async function syncRepoCommand(): Promise<{
           if (pkgFixed) changed = true;
         }
       } else {
-        const pkgFixed = await fixPackageJson(
-          repoPath,
-          selectedRepo.name,
-          'package.json',
-          selectedRepo.type
-        );
-        if (pkgFixed) changed = true;
+        if (existsSync(rootPkgPath)) {
+          const pkgFixed = await fixPackageJson(
+            repoPath,
+            selectedRepo.name,
+            'package.json',
+            selectedRepo.type
+          );
+          if (pkgFixed) changed = true;
+        }
       }
     }
 
     // D. Sort package.json
-    Logger.log('🧹 Sorting package.json...');
-    try {
-      execSync('npx --yes sort-package-json', {
-        cwd: repoPath,
-        stdio: 'ignore',
-      });
-      // We assume it might have changed something if it ran successfully
-      // or we could check if it actually changed, but the instruction just says "fix it by running"
-      changed = true;
-    } catch (err) {
-      Logger.error(`Failed to sort package.json: ${(err as Error).message}`);
+    if (existsSync(rootPkgPath)) {
+      Logger.log('🧹 Sorting package.json...');
+      try {
+        execSync('npx --yes sort-package-json', {
+          cwd: repoPath,
+          stdio: 'ignore',
+        });
+        // We assume it might have changed something if it ran successfully
+        // or we could check if it actually changed, but the instruction just says "fix it by running"
+        changed = true;
+      } catch (err) {
+        Logger.error(`Failed to sort package.json: ${(err as Error).message}`);
+      }
     }
 
     if (changed) {

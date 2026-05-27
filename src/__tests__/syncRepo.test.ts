@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { syncRepoCommand } from '../commands/syncRepo.js';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import { Logger } from '../utils/logger.js';
 import { selectRepo } from '../utils/repoSelector.js';
 import { ensureRepoCloned } from '../utils/git.js';
@@ -16,6 +17,7 @@ import { syncTemplateFiles } from '../utils/fileFixer.js';
 import { input } from '../utils/prompts.js';
 
 vi.mock('fs/promises');
+vi.mock('fs');
 vi.mock('../utils/logger.js');
 vi.mock('../utils/repoSelector.js');
 vi.mock('../utils/git.js');
@@ -34,6 +36,7 @@ describe('syncRepoCommand', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(selectRepo).mockResolvedValue(mockRepo);
     vi.mocked(getLocalRepoPath).mockReturnValue(mockRepoPath);
     vi.mocked(parseGitHubUrl).mockReturnValue({
@@ -188,6 +191,16 @@ describe('syncRepoCommand', () => {
 
     expect(Logger.error).toHaveBeenCalledWith(
       expect.stringContaining('Sync failed: Clone failed')
+    );
+  });
+
+  it('should skip sorting if package.json does not exist', async () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    await syncRepoCommand();
+
+    expect(Logger.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('Sorting package.json...')
     );
   });
 });
