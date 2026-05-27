@@ -4,11 +4,13 @@ import fs from 'fs/promises';
 import { Logger } from '../utils/logger.js';
 import { readRepoList } from '../utils/repoList.js';
 import { input } from '../utils/prompts.js';
+import { selectRepo } from '../utils/repoSelector.js';
 import { getLocalRepoPath } from '../settings.js';
 
 // Mock dependencies
 vi.mock('fs/promises');
 vi.mock('../utils/repoList.js');
+vi.mock('../utils/repoSelector.js');
 vi.mock('../utils/prompts.js');
 vi.mock('../utils/logger.js');
 vi.mock('../github.js');
@@ -19,6 +21,7 @@ vi.mock('../utils/excludes.js', () => ({
   isProjectExcluded: vi.fn(() => false),
   isKnipScanExcluded: vi.fn(() => false),
   isOutdatedScanExcluded: vi.fn(() => false),
+  isLegacyProject: vi.fn(() => false),
   getExcludedKnipPackages: vi.fn(() => []),
 }));
 vi.mock('fs', async (importOriginal) => {
@@ -49,13 +52,18 @@ vi.mock('child_process', () => ({
     status: 0,
   }),
 }));
-vi.mock('enquirer', () => ({
-  default: {
-    AutoComplete: vi.fn().mockImplementation(() => ({
-      run: vi.fn().mockResolvedValue('test-repo'),
-    })),
-  },
-}));
+vi.mock('enquirer', () => {
+  class MockSelect {
+    run = vi.fn().mockResolvedValue('test-repo');
+  }
+  return {
+    Select: MockSelect,
+    default: {
+      Select: MockSelect,
+      AutoComplete: MockSelect,
+    },
+  };
+});
 
 describe('scanRepoCommand', () => {
   const mockRepoList = [
@@ -68,6 +76,10 @@ describe('scanRepoCommand', () => {
     const { existsSync } = await import('fs');
     vi.mocked(existsSync).mockReturnValue(true);
 
+    vi.mocked(selectRepo).mockResolvedValue({
+      name: 'test-repo',
+      url: 'https://github.com/user/test-repo',
+    });
     vi.mocked(readRepoList).mockResolvedValue(mockRepoList);
     vi.mocked(input).mockResolvedValue('test-repo');
     vi.mocked(getLocalRepoPath).mockReturnValue(mockRepoPath);
@@ -232,7 +244,7 @@ describe('scanRepoCommand', () => {
   });
 
   it('should handle scan failure', async () => {
-    vi.mocked(readRepoList).mockRejectedValue(new Error('scan failed'));
+    vi.mocked(selectRepo).mockRejectedValue(new Error('scan failed'));
 
     await scanRepoCommand();
 

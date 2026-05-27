@@ -3,24 +3,28 @@ import { select, input } from '../utils/prompts.js';
 
 // Mock enquirer
 vi.mock('enquirer', () => {
+  class Select {
+    constructor(public config: any) {}
+    run = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          this.config.result
+            ? this.config.result(this.config.choices[0])
+            : this.config.choices[0]
+        )
+      );
+  }
+  class Input {
+    run = vi.fn().mockResolvedValue('test-input');
+  }
+
   return {
+    Select,
+    Input,
     default: {
-      Select: function (config: any): {} {
-        return {
-          run: vi
-            .fn()
-            .mockResolvedValue(
-              config.result
-                ? config.result(config.choices[0])
-                : config.choices[0]
-            ),
-        };
-      },
-      Input: function (): {} {
-        return {
-          run: vi.fn().mockResolvedValue('test-input'),
-        };
-      },
+      Select,
+      Input,
     },
   };
 });
