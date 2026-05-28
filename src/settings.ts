@@ -1,5 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Logger } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,22 +99,49 @@ export const settings: MaintainerSettings = {
   GIT_CLEAN_ENABLED: false,
   DRY_RUN: false,
 
+  // Overwrite policies
   OVERWRITE_POLICY: {
-    LICENSE: 'always',
-    'SECURITY.md': 'if-missing',
-    'CODE_OF_CONDUCT.md': 'if-missing',
-    'CONTRIBUTING.md': 'if-missing',
-    'CHANGELOG.md': 'if-missing',
-    '.gitignore': 'if-missing',
+    LICENSE: 'if-missing',
+    CONTRIBUTING: 'if-missing',
+    SECURITY: 'if-missing',
+    CODE_OF_CONDUCT: 'if-missing',
+    CHANGELOG: 'if-missing',
+    README: 'if-missing',
+    GITIGNORE: 'if-missing',
+    PACKAGE_JSON: 'if-missing',
+    PRETTIER: 'if-missing',
+    ESLINT: 'if-missing',
+    VITEST: 'if-missing',
+    TSCONFIG: 'if-missing',
+    MAIN_PROTECTION: 'always',
   },
 };
+
+/**
+ * Logs the current settings for debugging.
+ */
+export function logSettings(): void {
+  Logger.setContext('Settings');
+  Logger.debug('Current settings loaded:', {
+    PROJECTS_ROOT: settings.PROJECTS_ROOT,
+    REPOS_LIST_FILE: settings.REPOS_LIST_FILE,
+    TEMPLATES_DIR: settings.TEMPLATES_DIR,
+    RULESETS_PATH: settings.RULESETS_PATH,
+    GIT_CLEAN_ENABLED: settings.GIT_CLEAN_ENABLED,
+    DRY_RUN: settings.DRY_RUN,
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Path helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const getReposListPath = (): string =>
-  path.join(path.dirname(settings.PROJECTS_ROOT), settings.REPOS_LIST_FILE);
+export function getReposListPath(): string {
+  return path.join(
+    path.dirname(settings.PROJECTS_ROOT),
+    settings.REPOS_LIST_FILE
+  );
+}
 
 export const getLocalRepoPath = (repoName: string): string =>
   path.join(settings.PROJECTS_ROOT, repoName);

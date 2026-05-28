@@ -39,11 +39,18 @@ export async function syncRepoCommand(): Promise<{
   name: string;
   url: string;
 } | null> {
+  Logger.setContext('SyncRepo');
+  Logger.debug('Starting syncRepoCommand');
   Logger.log('\nSync Repo:');
   Logger.log('==========\n');
 
   const selectedRepo = await selectRepo();
-  if (!selectedRepo) return null;
+  if (!selectedRepo) {
+    Logger.debug('No repository selected, returning null');
+    return null;
+  }
+
+  Logger.debug('Repository selected', selectedRepo);
 
   const repoPath = getLocalRepoPath(selectedRepo.name);
   const rootPkgPath = path.join(repoPath, 'package.json');
@@ -52,6 +59,7 @@ export async function syncRepoCommand(): Promise<{
   // Fallback: If no valid URL, assume default owner and use the repo name
   if (!parsed) {
     parsed = { owner: settings.AUTHOR_GITHUB, repo: selectedRepo.name };
+    Logger.debug('Fallback parsed owner/repo', parsed);
   }
 
   try {
@@ -60,16 +68,26 @@ export async function syncRepoCommand(): Promise<{
     const repoUrl =
       selectedRepo.url || `https://github.com/${parsed.owner}/${parsed.repo}`;
 
+    Logger.debug(`Ensuring repo is cloned: ${repoUrl}`);
+
     // Verify the repo exists on GitHub if we want to sync topics
     const existsOnGitHub = await repoExists(parsed.owner, parsed.repo);
     if (!existsOnGitHub) {
+      Logger.debug(
+        `Repository ${parsed.owner}/${parsed.repo} not found on GitHub`
+      );
       Logger.warn(
         `Repository ${parsed.owner}/${parsed.repo} not found on GitHub. GitHub sync will be skipped.`
       );
     }
 
     const cloned = await ensureRepoCloned(repoUrl, selectedRepo.name);
-    if (!cloned) return null;
+    if (!cloned) {
+      Logger.error(`Failed to ensure repo is cloned: ${selectedRepo.name}`);
+      return null;
+    }
+
+    Logger.debug('Repo is cloned and ready');
 
     const isTraining = selectedRepo.purpose === 'training';
     const isMulti = selectedRepo.structure === 'multi';

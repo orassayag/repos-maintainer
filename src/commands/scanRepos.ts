@@ -10,11 +10,14 @@ import { readRepoList, RepoEntry } from '../utils/repoList.js';
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
 export async function scanReposCommand(): Promise<void> {
+  Logger.setContext('ScanRepos');
+  Logger.debug('Starting scanReposCommand');
   Logger.log('\n🔎 Scan Repos — Starting full repository scan...\n');
 
   // 1. Get all directories in PROJECTS_ROOT
   let projectDirs: string[] = [];
   try {
+    Logger.debug(`Reading projects root: ${settings.PROJECTS_ROOT}`);
     const entries = await fs.readdir(settings.PROJECTS_ROOT, {
       withFileTypes: true,
     });
@@ -26,22 +29,31 @@ export async function scanReposCommand(): Promise<void> {
           !isProjectExcluded(dirent.name)
       )
       .map((dirent) => dirent.name);
+    Logger.debug(
+      `Found ${projectDirs.length} non-excluded project directories`
+    );
   } catch (err) {
-    Logger.error(`Failed to read projects root: ${(err as Error).message}`);
+    Logger.error(
+      `Failed to read projects root: ${(err as Error).message}`,
+      err
+    );
     return;
   }
 
   if (projectDirs.length === 0) {
+    Logger.warn(`No directories found in ${settings.PROJECTS_ROOT}`);
     Logger.error(`No directories found in ${settings.PROJECTS_ROOT}`);
     return;
   }
 
   // 2. Load existing repo list for URLs and metadata
+  Logger.debug('Reading repo list...');
   const repoList = await readRepoList();
   const repoMap = new Map<string, RepoEntry>();
   for (const entry of repoList) {
     repoMap.set(entry.name.toLowerCase(), entry);
   }
+  Logger.debug(`Loaded ${repoList.length} repos from list`);
 
   Logger.log(`📦 Found ${projectDirs.length} directories to scan.\n`);
 
@@ -62,6 +74,9 @@ export async function scanReposCommand(): Promise<void> {
       `https://github.com/${settings.AUTHOR_GITHUB}/${repoName}`;
 
     spinner.text = `Scanning [${i + 1}/${projectDirs.length}]: ${repoName}`;
+    Logger.debug(`Scanning repo ${i + 1}/${projectDirs.length}: ${repoName}`, {
+      repoUrl,
+    });
 
     try {
       const result = await scanner.scanRepo({
@@ -72,10 +87,15 @@ export async function scanReposCommand(): Promise<void> {
         type: repoEntry?.type,
       });
       results.push(result);
+      Logger.debug(`Scan finished for ${repoName}`, {
+        issueCount: result.issues.length,
+        maxSeverity: result.maxSeverity,
+      });
       if (result.unlistedBinaries) {
         result.unlistedBinaries.forEach((b) => allUnlistedBinaries.add(b));
       }
     } catch (err) {
+      Logger.error(`Scan failed for ${repoName}`, err);
       results.push({
         repoName,
         issues: [

@@ -20,8 +20,19 @@ export function resetOctokitInstance(): void {
 
 export function getOctokit(): any {
   if (!octokitInstance) {
+    Logger.setContext('GitHub');
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      Logger.debug('GITHUB_TOKEN is missing in environment variables');
+    } else {
+      Logger.debug('Creating Octokit instance with provided token', {
+        tokenPrefix: token.substring(0, 4) + '...',
+        tokenLength: token.length,
+      });
+    }
+
     octokitInstance = new MyOctokit({
-      auth: process.env.GITHUB_TOKEN,
+      auth: token,
       throttle: {
         onRateLimit: (retryAfter: number, _options: object): boolean => {
           Logger.warn(
@@ -32,7 +43,10 @@ export function getOctokit(): any {
         onSecondaryRateLimit: (
           _retryAfter: number,
           _options: object
-        ): boolean => true,
+        ): boolean => {
+          Logger.warn('Secondary rate limit hit.');
+          return true;
+        },
       },
     });
   }
@@ -44,13 +58,16 @@ export function getOctokit(): any {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function checkGitHubAuth(): Promise<boolean> {
+  Logger.setContext('GitHub');
   try {
     const octokit = getOctokit();
+    Logger.debug('Calling octokit.users.getAuthenticated()...');
     const { data } = await octokit.users.getAuthenticated();
+    Logger.debug('Successfully authenticated', { login: data.login });
     Logger.success(`GitHub authenticated as: ${data.login}`);
     return true;
-  } catch {
-    Logger.error('GitHub authentication failed.');
+  } catch (error: any) {
+    Logger.error('GitHub authentication failed.', error);
     Logger.log('   Set GITHUB_TOKEN env var or run: gh auth login');
     return false;
   }

@@ -38,6 +38,8 @@ export async function addRepoCommand(): Promise<{
   name: string;
   url: string;
 } | null> {
+  Logger.setContext('AddRepo');
+  Logger.debug('Starting addRepoCommand');
   Logger.log('\nAdd Repo:');
   Logger.log('=========\n');
 
@@ -56,19 +58,24 @@ export async function addRepoCommand(): Promise<{
       })
     ).trim();
 
+    Logger.debug(`User entered URL: ${repoUrl}`);
+
     // Remove .git suffix if present
     if (repoUrl.toLowerCase().endsWith('.git')) {
       repoUrl = repoUrl.slice(0, -4);
+      Logger.debug(`Stripped .git suffix: ${repoUrl}`);
     }
 
     parsed = parseGitHubUrl(repoUrl);
     if (!parsed) {
-      Logger.error('Invalid GitHub URL format.');
+      Logger.error('Invalid GitHub URL format.', { repoUrl });
       Logger.log(
         'Please enter a valid GitHub repository URL (e.g., https://github.com/owner/repo).\n'
       );
       continue;
     }
+
+    Logger.debug('Parsed GitHub URL', parsed);
 
     // Verify the repo exists on GitHub
     Logger.log(
@@ -76,20 +83,28 @@ export async function addRepoCommand(): Promise<{
     );
     const exists = await repoExists(parsed.owner, parsed.repo);
     if (!exists) {
-      Logger.error(`Repository not found: ${parsed.owner}/${parsed.repo}`);
+      Logger.error(`Repository not found: ${parsed.owner}/${parsed.repo}`, {
+        owner: parsed.owner,
+        repo: parsed.repo,
+      });
       Logger.log("Please enter the repo's URL once it's created.\n");
       continue;
     }
 
     // New Validation: Check if the repository is empty
+    Logger.debug('Checking if repository is empty...');
     const isEmpty = await isRepoEmpty(parsed.owner, parsed.repo);
     if (!isEmpty) {
-      Logger.error(`Repository ${parsed.owner}/${parsed.repo} is not empty!`);
+      Logger.error(`Repository ${parsed.owner}/${parsed.repo} is not empty!`, {
+        owner: parsed.owner,
+        repo: parsed.repo,
+      });
       Logger.log('The "Add Repo" flow requires a fresh, empty repository.');
       Logger.log('Returning to main menu...\n');
       return null; // Back to main menu
     }
 
+    Logger.debug('Repository validation passed');
     break;
   }
 
