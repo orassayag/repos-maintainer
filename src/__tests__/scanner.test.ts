@@ -846,6 +846,35 @@ describe('Scanner', () => {
         result.issues.some((i) => i.message.includes('vitest.config.ts'))
       ).toBe(false);
     });
+
+    it('should NOT report VITEST_CONFIG_MISSING for JS projects even if test script exists', async (): Promise<void> => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(false);
+
+      vi.mocked(readFileSync).mockImplementation((p: any): string => {
+        if (p.toString().endsWith('package.json')) {
+          return JSON.stringify({
+            name: 'js-repo',
+            scripts: { test: 'vitest' },
+          });
+        }
+        return '';
+      });
+
+      vi.mocked(existsSync).mockImplementation((p: any): boolean => {
+        if (p.toString().endsWith('vitest.config.ts')) return false;
+        if (p.toString().endsWith('package.json')) return true;
+        return false;
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      expect(
+        result.issues.some(
+          (i) => i.message === 'Vitest: Missing "vitest.config.ts" in the root'
+        )
+      ).toBe(false);
+    });
   });
 
   describe('scanRepo templates', () => {

@@ -328,7 +328,7 @@ export class Scanner {
 
     // 13. Test Scan (via npx if node_modules missing)
     try {
-      this.scanTests(repoPath, skipPrettifyAndKnip);
+      this.scanTests(repoPath, hasTsFiles, skipPrettifyAndKnip);
     } catch {
       // Ignore test scan errors
     }
@@ -1139,13 +1139,17 @@ export class Scanner {
     return pkgPaths;
   }
 
-  private scanTests(repoPath: string, skipVitestConfigCheck = false): void {
+  private scanTests(
+    repoPath: string,
+    isTypeScript: boolean,
+    skipVitestConfigCheck = false
+  ): void {
     const pkg = this.readPkg(repoPath);
     if (!pkg.scripts?.test) return;
 
     const hasVitestConfig = existsSync(path.join(repoPath, 'vitest.config.ts'));
     if (!hasVitestConfig) {
-      if (!skipVitestConfigCheck) {
+      if (!skipVitestConfigCheck && isTypeScript) {
         this.logIssue('VITEST_CONFIG_MISSING');
       }
       return;
