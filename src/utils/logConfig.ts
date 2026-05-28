@@ -14,8 +14,8 @@ export interface LogEntry {
 }
 
 export const LOG_CONFIG = {
-  level: (process.env.LOG_LEVEL as LogLevel) || LogLevel.DEBUG,
+  level: (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO,
   logDir: 'logs',
-  enableConsole: process.env.ENABLE_CONSOLE_LOGGING === 'true', // Default to false as requested
+  enableConsole: process.env.ENABLE_CONSOLE_LOGGING !== 'false', // Default to true
   enableFile: true,
 };

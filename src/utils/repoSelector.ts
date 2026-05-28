@@ -33,6 +33,12 @@ export async function selectRepo(): Promise<SelectedRepo | null> {
     });
 
     const selectedName = await prompt.run();
+
+    // Cleanup to prevent terminal issues
+    if (prompt.close) {
+      prompt.close();
+    }
+
     const entry = repoList.find((s) => s.name === selectedName);
 
     if (entry) {

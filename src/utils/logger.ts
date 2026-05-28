@@ -67,7 +67,11 @@ export class Logger {
     };
 
     if (LOG_CONFIG.enableConsole && this.shouldLog(level)) {
-      const formattedMessage = `[${level.toUpperCase()}] [${this.context}] ${message}`;
+      const formattedMessage =
+        level === LogLevel.INFO
+          ? message
+          : `[${level.toUpperCase()}] [${this.context}] ${message}`;
+
       if (level === LogLevel.ERROR) {
         console.error(formattedMessage);
       } else if (level === LogLevel.WARN) {

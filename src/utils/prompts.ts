@@ -61,7 +61,9 @@ export async function select<T = string>(config: SelectConfig<T>): Promise<T> {
 
   patchCancel(prompt);
 
-  return await prompt.run();
+  const result = await prompt.run();
+  if (prompt.close) prompt.close();
+  return result;
 }
 
 export async function multiSelect<T = string>(
@@ -84,7 +86,9 @@ export async function multiSelect<T = string>(
 
   patchCancel(prompt);
 
-  return await prompt.run();
+  const result = await prompt.run();
+  if (prompt.close) prompt.close();
+  return result;
 }
 
 export interface InputConfig {
@@ -105,5 +109,7 @@ export async function input(config: InputConfig): Promise<string> {
 
   patchCancel(prompt);
 
-  return await prompt.run();
+  const result = await prompt.run();
+  if (prompt.close) prompt.close();
+  return result;
 }
