@@ -139,8 +139,8 @@ async function collectSourceFiles(
  * Rank a relative file path by how likely it is to be the main entry point.
  * Lower score = more likely.
  */
-function rankFile(rel: string): number {
-  const parts = rel.split(path.sep);
+export function rankFile(rel: string): number {
+  const parts = rel.split('/');
   const depth = parts.length - 1;
   const noExt = path.basename(rel, path.extname(rel)).toLowerCase();
   const dirSeg = parts.slice(0, -1).join('/').toLowerCase();
@@ -295,6 +295,29 @@ export async function fixPackageJson(
             resolved = cand;
             break;
           } catch {}
+        }
+      }
+
+      if (!resolved) {
+        // Try root level of src first
+        const srcDir = path.join(repoPath, 'src');
+        try {
+          const entries = await fs.readdir(srcDir, { withFileTypes: true });
+          const candidates = entries
+            .filter(
+              (e) =>
+                e.isFile() &&
+                ['.js', '.ts'].includes(path.extname(e.name)) &&
+                !/\.(test|spec)\.(js|ts)$/.test(e.name)
+            )
+            .map((e) => `src/${e.name}`);
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => rankFile(a) - rankFile(b));
+            resolved = candidates[0];
+          }
+        } catch {
+          // src directory might not exist
         }
       }
 
