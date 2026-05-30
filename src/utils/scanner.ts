@@ -15,6 +15,7 @@ import {
   isKnipUnusedDepsExcluded,
   isOutdatedScanExcluded,
   isLegacyProject,
+  isGithubHomepageWarningExcluded,
 } from './excludes.js';
 import {
   parseGitHubUrl,
@@ -1312,7 +1313,10 @@ export class Scanner {
     const data = metadata || (await getRepoMetadata(owner, repo));
     if (!data) return;
 
-    if (data.homepage !== 'https://linkedin.com/in/orassayag') {
+    if (
+      data.homepage !== 'https://linkedin.com/in/orassayag' &&
+      !isGithubHomepageWarningExcluded(this.currentRepoName)
+    ) {
       this.logIssue('GITHUB_HOMEPAGE_MISMATCH', {
         actual: data.homepage || 'none',
       });

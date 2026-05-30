@@ -15,6 +15,7 @@ export interface Excludes {
   EXCLUDED_KNIP_PATHS: Record<string, string[]>;
   EXCLUDED_KNIP_SCAN: string[];
   EXCLUDED_KNIP_UNUSED_DEPS_SCAN: string[];
+  EXCLUDED_GITHUB_HOMEPAGE_WARNING: string[];
 }
 
 const EXCLUDES_PATH = path.join(
@@ -66,6 +67,7 @@ export function loadExcludes(): Excludes {
     EXCLUDED_KNIP_PATHS: {},
     EXCLUDED_KNIP_SCAN: [],
     EXCLUDED_KNIP_UNUSED_DEPS_SCAN: [],
+    EXCLUDED_GITHUB_HOMEPAGE_WARNING: [],
   };
 }
 
@@ -73,6 +75,10 @@ const excludes = loadExcludes();
 
 export function isProjectExcluded(repoName: string): boolean {
   return excludes.EXCLUDED_PROJECTS.includes(repoName);
+}
+
+export function isGithubHomepageWarningExcluded(repoName: string): boolean {
+  return (excludes.EXCLUDED_GITHUB_HOMEPAGE_WARNING || []).includes(repoName);
 }
 
 export function isIssueExcluded(repoName: string, issueKey: string): boolean {

@@ -31,6 +31,7 @@ vi.mock('../utils/excludes.js', () => ({
   getExcludedKnipPaths: vi.fn(() => []),
   isOutdatedScanExcluded: vi.fn(() => false),
   isLegacyProject: vi.fn(() => false),
+  isGithubHomepageWarningExcluded: vi.fn(() => false),
 }));
 vi.mock('../github.js', () => ({
   parseGitHubUrl: vi.fn(() => ({ owner: 'user', repo: 'repo' })),
@@ -391,6 +392,24 @@ describe('Scanner', () => {
       expect(
         result.issues.some((i) => i.message.includes('Homepage should be'))
       ).toBe(true);
+    });
+
+    it('should skip homepage warning if excluded', async (): Promise<void> => {
+      const { getRepoMetadata } = await import('../github.js');
+      const { isGithubHomepageWarningExcluded } =
+        await import('../utils/excludes.js');
+      vi.mocked(getRepoMetadata).mockResolvedValue({
+        homepage: 'wrong-homepage',
+        description: 'A'.repeat(345),
+        topics: ['t1', 't2', 't3', 't4', 't5'],
+        defaultBranch: 'main',
+      });
+      vi.mocked(isGithubHomepageWarningExcluded).mockReturnValue(true);
+
+      const result = await scanner.scanRepo(mockRepo);
+      expect(
+        result.issues.some((i) => i.message.includes('Homepage should be'))
+      ).toBe(false);
     });
 
     it('should report incorrect description length', async (): Promise<void> => {
