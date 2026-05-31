@@ -16,6 +16,7 @@ export interface Excludes {
   EXCLUDED_KNIP_SCAN: string[];
   EXCLUDED_KNIP_UNUSED_DEPS_SCAN: string[];
   EXCLUDED_GITHUB_HOMEPAGE_WARNING: string[];
+  EXCLUDED_IMPORT_VALIDATION_PATHS: string[];
 }
 
 const EXCLUDES_PATH = path.join(
@@ -68,10 +69,15 @@ export function loadExcludes(): Excludes {
     EXCLUDED_KNIP_SCAN: [],
     EXCLUDED_KNIP_UNUSED_DEPS_SCAN: [],
     EXCLUDED_GITHUB_HOMEPAGE_WARNING: [],
+    EXCLUDED_IMPORT_VALIDATION_PATHS: [],
   };
 }
 
 const excludes = loadExcludes();
+
+export function getExcludedImportValidationPaths(): string[] {
+  return excludes.EXCLUDED_IMPORT_VALIDATION_PATHS || [];
+}
 
 export function isProjectExcluded(repoName: string): boolean {
   return excludes.EXCLUDED_PROJECTS.includes(repoName);

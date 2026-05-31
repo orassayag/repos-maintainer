@@ -16,6 +16,7 @@ import {
   isOutdatedScanExcluded,
   isLegacyProject,
   isGithubHomepageWarningExcluded,
+  getExcludedImportValidationPaths,
 } from './excludes.js';
 import {
   parseGitHubUrl,
@@ -518,9 +519,17 @@ export class Scanner {
   private async scanInvalidImports(repoPath: string): Promise<void> {
     const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
     const files = await this.getAllFiles(repoPath);
-    const targetFiles = files.filter((f) =>
-      extensions.includes(path.extname(f))
-    );
+    const excludedImportPaths = getExcludedImportValidationPaths();
+
+    const targetFiles = files.filter((f) => {
+      if (!extensions.includes(path.extname(f))) return false;
+
+      // Check if file is in an excluded path
+      const isExcluded = excludedImportPaths.some(
+        (excluded) => f === excluded || f.startsWith(excluded + path.sep)
+      );
+      return !isExcluded;
+    });
 
     for (const relPath of targetFiles) {
       const filePath = path.join(repoPath, relPath);
