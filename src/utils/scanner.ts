@@ -225,8 +225,8 @@ export class Scanner {
       }
 
       // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
-      // ONLY FOR SPECIFIC "src/index.ts", keep the other logic of the validations on template files
-      if (file === 'src/index.ts' && !isActive) {
+      // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files
+      if ((file === 'src/index.ts' || file === '.npmrc') && !isActive) {
         continue;
       }
 
@@ -659,6 +659,10 @@ export class Scanner {
 
     if (fileName === '.gitignore') {
       this.validateGitignore(targetContent, templateContent);
+    } else if (fileName === '.npmrc') {
+      if (!targetContent.includes('minimum-release-age=0')) {
+        this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
+      }
     } else if (
       fileName === 'CODE_OF_CONDUCT.md' ||
       fileName === 'SECURITY.md'

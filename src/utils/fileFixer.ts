@@ -410,6 +410,12 @@ export async function syncTemplateFiles(
       continue;
     }
 
+    if (file === '.npmrc') {
+      const npmrcChange = await syncNpmrc(destPath, templatePath);
+      if (npmrcChange) changes.push(npmrcChange);
+      continue;
+    }
+
     // Default logic for other files: copy if missing
     if (!fileExists) {
       const created = await ensureTemplateFile(repoPath, file, true);
@@ -456,6 +462,50 @@ async function syncTsConfigTypes(destPath: string): Promise<string | null> {
     Logger.error(
       `Failed to sync tsconfig.json types: ${(err as Error).message}`
     );
+  }
+  return null;
+}
+
+async function syncNpmrc(
+  destPath: string,
+  templatePath: string
+): Promise<string | null> {
+  try {
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+    const requiredLine = 'minimum-release-age=0';
+
+    let destContent: string;
+    try {
+      destContent = await fs.readFile(destPath, 'utf-8');
+    } catch {
+      // .npmrc doesn't exist, create it from template
+      if (!settings.DRY_RUN) {
+        await fs.writeFile(destPath, templateContent, 'utf-8');
+        return 'Created missing .npmrc from template';
+      } else {
+        return '[DRY RUN] Would create missing .npmrc from template';
+      }
+    }
+
+    // Check if it has the required line with the correct value
+    // We check for the exact line to ensure no other value is set for this key
+    const lines = destContent.split('\n').map((l) => l.trim());
+    const hasCorrectLine = lines.some((l) => l === requiredLine);
+
+    if (!hasCorrectLine) {
+      if (!settings.DRY_RUN) {
+        // If it has a different value for minimum-release-age, or doesn't have it at all,
+        // the user said "override it and put the value: minimum-release-age=0".
+        // To be safe and clean, we'll just overwrite with the template content
+        // since the template only contains this one line.
+        await fs.writeFile(destPath, templateContent, 'utf-8');
+        return 'Updated .npmrc to include minimum-release-age=0';
+      } else {
+        return '[DRY RUN] Would update .npmrc to include minimum-release-age=0';
+      }
+    }
+  } catch (err) {
+    Logger.error(`Failed to sync .npmrc: ${(err as Error).message}`);
   }
   return null;
 }

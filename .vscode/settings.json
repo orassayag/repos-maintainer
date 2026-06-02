@@ -12,6 +12,8 @@
     "gofmt",
     "headerless",
     "Kmsu",
+    "maxtimeout",
+    "mintimeout",
     "msvc",
     "newkw",
     "orassayag",

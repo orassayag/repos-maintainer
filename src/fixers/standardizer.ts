@@ -37,6 +37,7 @@ export const TEMPLATE_FILES = [
   '.gitignore',
   'README.md',
   'INSTRUCTIONS.md',
+  '.npmrc',
   '.prettierrc',
   'eslint.config.mjs',
   'tsconfig.json',

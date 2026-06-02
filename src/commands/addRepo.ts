@@ -182,6 +182,7 @@ export async function addRepoCommand(): Promise<{
       '.gitignore',
       'README.md',
       'INSTRUCTIONS.md',
+      '.npmrc',
       '.prettierrc',
       'eslint.config.mjs',
       'tsconfig.json',

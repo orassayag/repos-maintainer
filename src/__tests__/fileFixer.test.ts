@@ -343,5 +343,55 @@ path1`;
       );
       expect(fs.writeFile).not.toHaveBeenCalled();
     });
+
+    it('should sync .npmrc and update value if incorrect', async () => {
+      const templateNpmrc = 'minimum-release-age=0';
+      const existingNpmrc = 'minimum-release-age=10';
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateNpmrc);
+        return Promise.resolve(existingNpmrc);
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['.npmrc']);
+
+      expect(result).toContain(
+        'Updated .npmrc to include minimum-release-age=0'
+      );
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.npmrc'),
+        templateNpmrc,
+        'utf-8'
+      );
+    });
+
+    it('should sync .npmrc and create if missing', async () => {
+      const templateNpmrc = 'minimum-release-age=0';
+
+      vi.mocked(fs.access).mockImplementation((path) => {
+        if (path.toString().endsWith('.npmrc'))
+          return Promise.reject(new Error('not found'));
+        return Promise.resolve(undefined);
+      });
+
+      vi.mocked(fs.readFile).mockImplementation((path) => {
+        if (path.toString().includes('templates')) {
+          return Promise.resolve(templateNpmrc);
+        }
+        // destPath read should fail if missing
+        return Promise.reject(new Error('not found'));
+      });
+
+      const result = await syncTemplateFiles(repoPath, ['.npmrc']);
+
+      expect(result).toContain('Created missing .npmrc from template');
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.npmrc'),
+        templateNpmrc,
+        'utf-8'
+      );
+    });
   });
 });

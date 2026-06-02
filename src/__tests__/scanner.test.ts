@@ -254,6 +254,89 @@ describe('Scanner', () => {
         )
       ).toBe(false);
     });
+
+    it('should ignore missing .npmrc for non-active projects', async (): Promise<void> => {
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        const normalizedTemplatesDir = templatesDir.replace(/\\/g, '/');
+
+        if (pathStr === normalizedTemplatesDir) {
+          return Promise.resolve([
+            {
+              name: '.npmrc',
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        if (pathStr.includes('.npmrc'))
+          return Promise.reject(new Error('Not found'));
+        return Promise.resolve(undefined);
+      });
+
+      // Case 1: Active project (should report)
+      const activeRepo = { ...mockRepo, type: 'active' };
+      const resultActive = await scanner.scanRepo(activeRepo);
+      expect(
+        resultActive.issues.some((i) =>
+          i.message.includes('Missing template file: .npmrc')
+        )
+      ).toBe(true);
+
+      // Case 2: Legacy project (should NOT report)
+      const legacyRepo = { ...mockRepo, type: 'legacy' };
+      const resultLegacy = await scanner.scanRepo(legacyRepo);
+      expect(
+        resultLegacy.issues.some((i) =>
+          i.message.includes('Missing template file: .npmrc')
+        )
+      ).toBe(false);
+    });
+
+    it('should report mismatching .npmrc content', async (): Promise<void> => {
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        const normalizedTemplatesDir = templatesDir.replace(/\\/g, '/');
+
+        if (pathStr === normalizedTemplatesDir) {
+          return Promise.resolve([
+            {
+              name: '.npmrc',
+              isDirectory: (): boolean => false,
+            },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        if (pathStr.includes('templates/.npmrc')) {
+          return Promise.resolve('minimum-release-age=0');
+        }
+        if (pathStr.endsWith('.npmrc')) {
+          return Promise.resolve('minimum-release-age=10'); // Mismatch
+        }
+        return Promise.resolve('');
+      });
+
+      const activeRepo = { ...mockRepo, type: 'active' };
+      const result = await scanner.scanRepo(activeRepo);
+      expect(
+        result.issues.some((i) =>
+          i.message.includes(
+            ".npmrc content is incomplete or doesn't match template"
+          )
+        )
+      ).toBe(true);
+    });
   });
 
   describe('scanLint', () => {
