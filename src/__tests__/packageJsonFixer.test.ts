@@ -437,7 +437,7 @@ describe('packageJsonFixer', () => {
       expect(written.dependencies['mock-dep']).toBe('^2.0.0');
     });
 
-    it('should add scripts if missing in package.json', async () => {
+    it('should add empty scripts if missing in package.json', async () => {
       const templateWithScripts = JSON.stringify({
         author: {
           name: 'Or Assayag',
@@ -457,8 +457,34 @@ describe('packageJsonFixer', () => {
       const written = JSON.parse(
         vi.mocked(fs.writeFile).mock.calls[0][1] as string
       );
-      expect(written.scripts).toBeDefined();
-      expect(written.scripts.test).toBe('vitest');
+      expect(written.scripts).toEqual({});
+    });
+
+    it('should NOT touch existing scripts even if they differ from template', async () => {
+      const pkg = JSON.stringify({
+        name: 'test',
+        scripts: { custom: 'echo hi' },
+      });
+      const templateWithScripts = JSON.stringify({
+        author: {
+          name: 'Or Assayag',
+          email: 'orassayag@gmail.com',
+          url: 'https://github.com/orassayag',
+        },
+        scripts: { test: 'vitest' },
+      });
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(pkg)
+        .mockResolvedValueOnce(templateWithScripts);
+
+      await fixPackageJson(repoPath, 'test-repo');
+
+      const written = JSON.parse(
+        vi.mocked(fs.writeFile).mock.calls[0][1] as string
+      );
+      expect(written.scripts).toEqual({ custom: 'echo hi' });
+      expect(written.scripts.test).toBeUndefined();
     });
 
     it('should NOT fix restricted keys if repoType is not active', async () => {

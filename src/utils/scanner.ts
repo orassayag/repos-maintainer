@@ -978,6 +978,18 @@ export class Scanner {
         if (!pkg.scripts)
           this.logIssue('PACKAGE_JSON_MISSING_SCRIPTS', { file: relativePath });
       }
+
+      // START OF TEMPORARY SCAN LOGIC
+      // TODO: This logic is temporary and should be removed once the script migration is complete.
+      // If the "start:live" script exists in package.json, log a warning with severity level 1.
+      if (pkg.scripts && pkg.scripts['start:live']) {
+        this.logToReport(
+          `${relativePath}: Possible invalid scripts`,
+          Severity.HIGH
+        );
+      }
+      // END OF TEMPORARY SCAN LOGIC
+
       if (!pkg.files || !Array.isArray(pkg.files) || pkg.files.length === 0) {
         this.logIssue('PACKAGE_JSON_MISSING_FILES', { file: relativePath });
       } else {

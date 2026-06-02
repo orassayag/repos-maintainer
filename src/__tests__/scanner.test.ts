@@ -86,6 +86,51 @@ describe('Scanner', () => {
     vi.mocked(isDotNetOrWindowsProject).mockResolvedValue(false);
   });
 
+  describe('Temporary Scan Logic', () => {
+    it('should report "Possible invalid scripts" if "start:live" exists in package.json', async () => {
+      vi.mocked(fs.readFile).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              name: 'test-repo',
+              scripts: { 'start:live': 'node index.js' },
+            })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      const issue = result.issues.find((i) =>
+        i.message.includes('Possible invalid scripts')
+      );
+
+      expect(issue).toBeDefined();
+      expect(issue?.severity).toBe('1 - High - Most critical - Fix ASAP');
+    });
+
+    it('should NOT report "Possible invalid scripts" if "start:live" does NOT exist', async () => {
+      vi.mocked(fs.readFile).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              name: 'test-repo',
+              scripts: { start: 'node index.js' },
+            })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      const issue = result.issues.find((i) =>
+        i.message.includes('Possible invalid scripts')
+      );
+
+      expect(issue).toBeUndefined();
+    });
+  });
+
   describe('isDotNetOrWindowsProject Skipping', () => {
     it('should skip scanFormatters and scanKnip for .NET projects', async (): Promise<void> => {
       const { isDotNetOrWindowsProject } =

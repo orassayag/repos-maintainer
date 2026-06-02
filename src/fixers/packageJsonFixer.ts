@@ -408,38 +408,12 @@ export async function fixPackageJson(
     }
 
     // 9. scripts
-    if (repoType === 'active') {
-      if (!pkg.scripts) {
-        pkg.scripts = templatePkg.scripts;
-        changed = true;
-        Logger.info(`Updated "scripts" in ${relativePath}`);
-      } else {
-        const requiredScripts = Object.keys(templatePkg.scripts);
-        for (const script of requiredScripts) {
-          if (pkg.scripts[script] !== templatePkg.scripts[script]) {
-            pkg.scripts[script] = templatePkg.scripts[script];
-            changed = true;
-            Logger.info(`Updated script "${script}" in ${relativePath}`);
-          }
-        }
-        // Sort scripts
-        const scriptKeys = Object.keys(pkg.scripts);
-        const sortedScriptKeys = [...scriptKeys].sort();
-        if (JSON.stringify(scriptKeys) !== JSON.stringify(sortedScriptKeys)) {
-          const sortedScripts: Record<string, string> = {};
-          sortedScriptKeys.forEach((k) => {
-            sortedScripts[k] = pkg.scripts[k];
-          });
-          pkg.scripts = sortedScripts;
-          changed = true;
-          Logger.info(`Sorted "scripts" in ${relativePath}`);
-        }
-      }
-    } else if (repoType === 'legacy' && !pkg.scripts) {
+    if (!pkg.scripts) {
       pkg.scripts = {};
       changed = true;
-      Logger.info(`Added missing "scripts" in ${relativePath}`);
+      Logger.info(`Created missing "scripts" as empty in ${relativePath}`);
     }
+    // If it exists, we don't touch it as per user requirement.
 
     // 10. dependencies and devDependencies
     if (repoType === 'active') {
