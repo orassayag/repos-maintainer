@@ -1,3 +1,4 @@
+// @ts-nocheck
 import inquirer from 'inquirer';
 import { addRepoCommand } from './commands/addRepo';
 import { reposSyncCommand } from './commands/reposSync';

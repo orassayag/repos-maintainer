@@ -171,16 +171,39 @@ describe('syncRepoCommand', () => {
     );
   });
 
-  it('should call syncTemplateFiles during sync', async () => {
+  it('should call syncTemplateFiles during sync and pass isActive status', async () => {
     const pkg = { name: 'test-repo' };
+    const activeRepo = { ...mockRepo, type: 'active' };
+    vi.mocked(selectRepo).mockResolvedValue(activeRepo);
     vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkg));
     vi.mocked(syncTemplateFiles).mockResolvedValue(['Created missing LICENSE']);
 
     await syncRepoCommand();
 
-    expect(syncTemplateFiles).toHaveBeenCalled();
+    expect(syncTemplateFiles).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      false,
+      true
+    );
     expect(Logger.success).toHaveBeenCalledWith(
       expect.stringContaining('Created missing LICENSE')
+    );
+  });
+
+  it('should call syncTemplateFiles during sync and pass isActive=false for legacy projects', async () => {
+    const pkg = { name: 'test-repo' };
+    const legacyRepo = { ...mockRepo, type: 'legacy' };
+    vi.mocked(selectRepo).mockResolvedValue(legacyRepo);
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkg));
+
+    await syncRepoCommand();
+
+    expect(syncTemplateFiles).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      false,
+      false
     );
   });
 

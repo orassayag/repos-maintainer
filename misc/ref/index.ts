@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { checkGitHubAuth } from './github';
 import { showMainMenu } from './cli';
 import { settings } from './settings';

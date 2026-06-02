@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getRepoMetadata, updateRepoMetadata } from '../github';
 import { settings } from '../settings';
 

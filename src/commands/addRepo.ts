@@ -22,6 +22,7 @@ import { settings, getLocalRepoPath } from '../settings.js';
 import { addOrUpdateRepoInList } from '../utils/repoList.js';
 import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
+import { isLegacyProject } from '../utils/excludes.js';
 import {
   validateGitHubDescription,
   validatePackageDescription,
@@ -171,6 +172,8 @@ export async function addRepoCommand(): Promise<{
     // 2. Update Repo List
     await addOrUpdateRepoInList(repoName, repoUrl, purpose, structure);
 
+    const isLegacy = isLegacyProject(repoName);
+
     // 3. Template Injection
     Logger.log('📄 Injecting standard templates...');
     const templates = [
@@ -194,6 +197,11 @@ export async function addRepoCommand(): Promise<{
     ];
 
     for (const template of templates) {
+      // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
+      // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files
+      if ((template === 'src/index.ts' || template === '.npmrc') && isLegacy) {
+        continue;
+      }
       await ensureTemplateFile(repoPath, template, true);
     }
 

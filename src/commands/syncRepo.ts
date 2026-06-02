@@ -232,7 +232,8 @@ export async function syncRepoCommand(): Promise<{
     const templateChanges = await syncTemplateFiles(
       repoPath,
       TEMPLATE_FILES,
-      isTraining
+      isTraining,
+      selectedRepo.type === 'active'
     );
     if (templateChanges.length > 0) {
       changed = true;

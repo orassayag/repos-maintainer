@@ -5,10 +5,17 @@ import parserTypescript from '@typescript-eslint/parser';
 export default [
   eslintConfigPrettier,
   {
-    ignores: ['misc/**', 'vitest.config.ts', 'dist/**', 'node_modules/**'],
+    ignores: [
+      'misc/**',
+      'poc/**',
+      'vitest.config.ts',
+      'dist/**',
+      'node_modules/**',
+    ],
   },
   {
     files: ['**/*.ts', '**/*.cts', '**/*.mts'],
+    ignores: ['misc/**', 'poc/**'],
     languageOptions: {
       parser: parserTypescript,
       parserOptions: {

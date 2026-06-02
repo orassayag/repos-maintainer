@@ -1,3 +1,4 @@
+// @ts-nocheck
 import inquirer from 'inquirer';
 import { parseGitHubUrl } from '../github';
 import { standardizeRepo } from '../fixers/standardizer';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import simpleGit from 'simple-git';
 import fs from 'fs/promises';
 import path from 'path';

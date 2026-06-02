@@ -190,7 +190,7 @@ dist/
 path1`;
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates'))
           return Promise.resolve(templateGitignore);
         return Promise.resolve(existingGitignore);
@@ -202,7 +202,7 @@ path1`;
       expect(result).toContain('Merged and updated .gitignore');
       const writtenContent = vi
         .mocked(fs.writeFile)
-        .mock.calls.find((call) =>
+        .mock.calls.find((call: any) =>
           call[0].toString().includes('.gitignore')
         )![1] as string;
 
@@ -230,7 +230,7 @@ path1`;
       const existingLicense = 'Copyright (c) 2023 Or Assayag\nOld Content';
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates'))
           return Promise.resolve(templateLicense);
         return Promise.resolve(existingLicense);
@@ -251,7 +251,7 @@ path1`;
       const existingLicense = 'Copyright (c) 2017-2023 Or Assayag\nOld Content';
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates'))
           return Promise.resolve(templateLicense);
         return Promise.resolve(existingLicense);
@@ -268,7 +268,7 @@ path1`;
     });
 
     it('should copy eslint.config.mjs if missing and no legacy config exists', async () => {
-      vi.mocked(fs.access).mockImplementation((path) => {
+      vi.mocked(fs.access).mockImplementation((path: any) => {
         if (path.toString().endsWith('eslintrc.json'))
           return Promise.reject(new Error('not found'));
         if (path.toString().endsWith('.eslintrc.json'))
@@ -288,7 +288,7 @@ path1`;
     });
 
     it('should NOT copy eslint.config.mjs if legacy config exists', async () => {
-      vi.mocked(fs.access).mockImplementation((path) => {
+      vi.mocked(fs.access).mockImplementation((path: any) => {
         if (path.toString().endsWith('eslintrc.json'))
           return Promise.resolve(undefined);
         if (path.toString().endsWith('eslint.config.mjs'))
@@ -305,7 +305,7 @@ path1`;
     });
 
     it('should NOT copy eslint.config.mjs if it is a training repo', async () => {
-      vi.mocked(fs.access).mockImplementation((path) => {
+      vi.mocked(fs.access).mockImplementation((path: any) => {
         if (path.toString().endsWith('eslintrc.json'))
           return Promise.reject(new Error('not found'));
         if (path.toString().endsWith('eslint.config.mjs'))
@@ -330,7 +330,7 @@ path1`;
       const existingLicense = 'Copyright (c) Or Assayag\nOld Content';
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates'))
           return Promise.resolve(templateLicense);
         return Promise.resolve(existingLicense);
@@ -349,7 +349,7 @@ path1`;
       const existingNpmrc = 'minimum-release-age=10';
 
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates'))
           return Promise.resolve(templateNpmrc);
         return Promise.resolve(existingNpmrc);
@@ -370,13 +370,13 @@ path1`;
     it('should sync .npmrc and create if missing', async () => {
       const templateNpmrc = 'minimum-release-age=0';
 
-      vi.mocked(fs.access).mockImplementation((path) => {
+      vi.mocked(fs.access).mockImplementation((path: any) => {
         if (path.toString().endsWith('.npmrc'))
           return Promise.reject(new Error('not found'));
         return Promise.resolve(undefined);
       });
 
-      vi.mocked(fs.readFile).mockImplementation((path) => {
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
         if (path.toString().includes('templates')) {
           return Promise.resolve(templateNpmrc);
         }
@@ -392,6 +392,27 @@ path1`;
         templateNpmrc,
         'utf-8'
       );
+    });
+
+    it('should NOT sync .npmrc if isActive is false', async () => {
+      const templateNpmrc = 'minimum-release-age=0';
+
+      vi.mocked(fs.access).mockImplementation((path: any) => {
+        if (path.toString().endsWith('.npmrc'))
+          return Promise.reject(new Error('not found'));
+        return Promise.resolve(undefined);
+      });
+      vi.mocked(fs.readFile).mockResolvedValue(templateNpmrc);
+
+      const result = await syncTemplateFiles(
+        repoPath,
+        ['.npmrc'],
+        false,
+        false
+      );
+
+      expect(result).not.toContain('Created missing .npmrc from template');
+      expect(fs.writeFile).not.toHaveBeenCalled();
     });
   });
 });

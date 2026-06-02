@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getRulesets, updateRulesets } from '../github';
 import fs from 'fs/promises';
 import { settings } from '../settings';

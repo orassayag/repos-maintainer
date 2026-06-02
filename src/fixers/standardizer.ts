@@ -145,8 +145,8 @@ export async function standardizeRepo(
     const isTsFile = tsTemplateFiles.includes(file);
 
     // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
-    // ONLY FOR SPECIFIC "src/index.ts", keep the other logic of the validations on template files
-    if (file === 'src/index.ts' && isLegacy) {
+    // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files
+    if ((file === 'src/index.ts' || file === '.npmrc') && isLegacy) {
       continue;
     }
 

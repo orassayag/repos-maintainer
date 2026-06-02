@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { readRepoList } from '../utils/repoList';
 import { standardizeRepo } from '../fixers/standardizer';
 import { settings } from '../settings';

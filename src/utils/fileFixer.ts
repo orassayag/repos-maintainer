@@ -297,7 +297,8 @@ export async function ensureTemplateFile(
 export async function syncTemplateFiles(
   repoPath: string,
   templateFiles: string[],
-  isTraining: boolean = false
+  isTraining: boolean = false,
+  isActive: boolean = true
 ): Promise<string[]> {
   const changes: string[] = [];
   const hasTsFiles = await isTypeScriptProject(repoPath);
@@ -312,6 +313,11 @@ export async function syncTemplateFiles(
   for (const file of templateFiles) {
     const isTsFile = tsTemplateFiles.includes(file);
     const destPath = path.join(repoPath, file);
+
+    // Skip .npmrc if project is NOT active
+    if (file === '.npmrc' && !isActive) {
+      continue;
+    }
 
     // Skip TypeScript template files if no .ts files are found
     if (isTsFile && !hasTsFiles) {
