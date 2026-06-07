@@ -239,12 +239,12 @@ export const ISSUES = {
   },
   ESLINT_CONFIG_MISSING: {
     message:
-      'ESLint: Missing both "eslintrc.json" (Legacy) or "eslint.config.mjs" (Latest)',
+      '{prefix}ESLint: Missing both "eslintrc.json" (Legacy) or "eslint.config.mjs" (Latest)',
     severity: Severity.MEDIUM,
   },
   ESLINT_LEGACY_CONFIG: {
     message:
-      'ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to flat config)',
+      '{prefix}ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to flat config)',
     severity: Severity.MEDIUM,
   },
   VITEST_CONFIG_MISSING: {
@@ -276,11 +276,11 @@ export const ISSUES = {
     severity: Severity.LOW,
   },
   KNIP_ISSUES: {
-    message: 'Knip found unused dependencies or exports:\n{issues}',
+    message: '{prefix}Knip found unused dependencies or exports:\n{issues}',
     severity: Severity.VERY_LOW,
   },
   KNIP_COMMAND_FAILED: {
-    message: 'Knip command failed when running via {command}.',
+    message: '{prefix}Knip command failed when running via {command}.',
     severity: Severity.VERY_LOW,
   },
   VSCODE_SETTINGS_MISSING_CSPELL_IGNORE_PATHS: {

@@ -191,6 +191,19 @@ export async function fixPackageJson(
 
     let changed = false;
 
+    // 0. name
+    let expectedName = repoName;
+    if (relativePath !== 'package.json') {
+      const folderName = path.basename(repoPath);
+      expectedName = `${repoName}-${folderName}`;
+    }
+
+    if (pkg.name !== expectedName && pkg.name !== repoName) {
+      pkg.name = expectedName;
+      changed = true;
+      Logger.info(`Updated "name" to "${expectedName}" in ${relativePath}`);
+    }
+
     // 1. funding
     if (
       !pkg.funding ||

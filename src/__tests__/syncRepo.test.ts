@@ -164,7 +164,7 @@ describe('syncRepoCommand', () => {
     await syncRepoCommand();
 
     expect(fixPackageJson).toHaveBeenCalledWith(
-      mockRepoPath,
+      expect.stringContaining('test-repo'),
       'test-repo',
       'package.json',
       undefined

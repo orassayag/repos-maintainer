@@ -219,7 +219,7 @@ export class Scanner {
       // Skip package.json and eslint.config.mjs if it's a training repo
       if (
         (file === 'package.json' || file === 'eslint.config.mjs') &&
-        isTraining
+        (isTraining || isMulti)
       ) {
         continue;
       }
@@ -276,6 +276,11 @@ export class Scanner {
     if (!isTraining) {
       if (isMulti) {
         const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
+        if (pkgPaths.length === 0) {
+          this.logIssue('MISSING_TEMPLATE_FILE', {
+            file: 'package.json (Missing in all sub-projects)',
+          });
+        }
         for (const pkgPath of pkgPaths) {
           const relativePkgPath = path.relative(repoPath, pkgPath);
           if (excludedPaths.includes(relativePkgPath)) continue;
@@ -323,7 +328,14 @@ export class Scanner {
     }
 
     // 10. ESLint Config Scan
-    this.scanEslintConfig(repoPath, isTraining);
+    if (isMulti && !isTraining) {
+      const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
+      for (const pkgPath of pkgPaths) {
+        this.scanEslintConfig(path.dirname(pkgPath), isTraining);
+      }
+    } else {
+      this.scanEslintConfig(repoPath, isTraining);
+    }
 
     // 11. VSCode Settings Scan
     this.scanVsCodeSettings(repoPath);
@@ -338,7 +350,14 @@ export class Scanner {
     // 14. Knip Scan (Unused dependencies/exports)
     if (!skipPrettifyAndKnip) {
       try {
-        this.scanKnip(repoPath);
+        if (isMulti && !isTraining) {
+          const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
+          for (const pkgPath of pkgPaths) {
+            this.scanKnip(path.dirname(pkgPath));
+          }
+        } else {
+          this.scanKnip(repoPath);
+        }
       } catch {
         // Ignore knip scan errors
       }
@@ -376,6 +395,13 @@ export class Scanner {
 
     const pkg = this.readPkg(repoPath);
     if (!pkg.name) return;
+
+    const rootPath = getLocalRepoPath(this.currentRepoName);
+    const relativePathToRoot = path.relative(rootPath, repoPath);
+    const prefix =
+      relativePathToRoot && relativePathToRoot !== '.'
+        ? `${relativePathToRoot}: `
+        : '';
 
     const isPnpm = existsSync(path.join(repoPath, 'pnpm-lock.yaml'));
     const baseCommand = isPnpm ? 'pnpm dlx knip' : 'npx --yes knip';
@@ -505,6 +531,7 @@ export class Scanner {
 
       if (issues.length > 0) {
         this.logIssue('KNIP_ISSUES', {
+          prefix,
           issues: issues.map((i) => `  - ${i}`).join('\n'),
         });
       }
@@ -512,7 +539,7 @@ export class Scanner {
       result.combined.toLowerCase().includes('error') &&
       !result.combined.includes('No issues found')
     ) {
-      this.logIssue('KNIP_COMMAND_FAILED', { command });
+      this.logIssue('KNIP_COMMAND_FAILED', { prefix, command });
     }
   }
 
@@ -843,9 +870,15 @@ export class Scanner {
       const content = await fs.readFile(filePath, 'utf-8');
       const pkg = JSON.parse(content);
 
-      if (pkg.name !== repoName)
+      let expectedName = repoName;
+      if (relativePath !== 'package.json') {
+        const folderName = path.basename(repoPath);
+        expectedName = `${repoName}-${folderName}`;
+      }
+
+      if (pkg.name !== expectedName && pkg.name !== repoName)
         this.logToReport(
-          `${relativePath}: "name" should be "${repoName}"`,
+          `${relativePath}: "name" should be "${expectedName}"`,
           Severity.MEDIUM
         );
 
@@ -1275,14 +1308,21 @@ export class Scanner {
     );
     const hasFlatConfig = existsSync(path.join(repoPath, 'eslint.config.mjs'));
 
+    const relativePath = path.relative(
+      getLocalRepoPath(this.currentRepoName),
+      repoPath
+    );
+    const prefix =
+      relativePath && relativePath !== '.' ? `${relativePath}: ` : '';
+
     if (!hasLegacyConfig && !hasFlatConfig) {
       if (!isTraining) {
-        this.logIssue('ESLINT_CONFIG_MISSING');
+        this.logIssue('ESLINT_CONFIG_MISSING', { prefix });
       }
     } else if (hasLegacyConfig && !hasFlatConfig) {
       // If project is Legacy, we don't care about migrating to flat config
       if (!isLegacyProject(this.currentRepoName)) {
-        this.logIssue('ESLINT_LEGACY_CONFIG');
+        this.logIssue('ESLINT_LEGACY_CONFIG', { prefix });
       }
     }
   }

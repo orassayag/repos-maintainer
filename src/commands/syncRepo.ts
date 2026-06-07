@@ -92,39 +92,77 @@ export async function syncRepoCommand(): Promise<{
     const isTraining = selectedRepo.purpose === 'training';
     const isMulti = selectedRepo.structure === 'multi';
 
-    let pkg: any;
+    // 0. Identify all package.json files
+    let pkgPaths: string[] = [];
     if (!isTraining) {
-      try {
-        const pkgContent = await fs.readFile(rootPkgPath, 'utf-8');
-        pkg = JSON.parse(pkgContent);
-      } catch (err) {
-        if (!isMulti) {
-          Logger.error(
-            `Could not read package.json: ${(err as Error).message}`
-          );
-          return null;
+      if (isMulti) {
+        const scanner = new Scanner();
+        pkgPaths = await scanner.findMultiPackageJsonPaths(repoPath);
+        if (pkgPaths.length === 0) {
+          Logger.warn('No package.json files found in multi-structure project');
         }
+      } else if (existsSync(rootPkgPath)) {
+        pkgPaths = [rootPkgPath];
       }
     }
 
+    let firstPkg: any = null;
+    let changed = false;
+
     // 2. Validate and fix descriptions
     Logger.log('🔍 Validating descriptions...');
-    let changed = false;
-    let pkgChanged = false;
 
-    // A. package.json description
-    if (!isTraining && pkg) {
+    for (const pkgPath of pkgPaths) {
+      const relativePkgPath = path.relative(repoPath, pkgPath);
+      let pkg: any;
+      try {
+        const pkgContent = await fs.readFile(pkgPath, 'utf-8');
+        pkg = JSON.parse(pkgContent);
+      } catch (err) {
+        Logger.error(
+          `Could not read ${relativePkgPath}: ${(err as Error).message}`
+        );
+        continue;
+      }
+
+      if (!firstPkg) firstPkg = pkg;
+
+      // A. package.json description
       const pkgDesc = pkg.description || '';
       const pkgDescValidation = validatePackageDescription(pkgDesc);
       if (pkgDescValidation !== true) {
-        Logger.warn(`package.json: ${pkgDescValidation}`);
+        Logger.warn(`${relativePkgPath}: ${pkgDescValidation}`);
         const newPkgDesc = await input({
-          message: 'Enter description for package.json (290-300 characters):',
+          message: `Enter description for ${relativePkgPath} (290-300 characters):`,
           validate: validatePackageDescription,
         });
         pkg.description = newPkgDesc;
-        pkgChanged = true;
         changed = true;
+        await fs.writeFile(
+          pkgPath,
+          JSON.stringify(pkg, null, 2) + '\n',
+          'utf-8'
+        );
+        Logger.success(`Updated ${relativePkgPath} description`);
+      }
+
+      // D. package.json keywords (moved here to be inside the loop)
+      const keywords = pkg.keywords || [];
+      const keywordsValidation = validateKeywords(keywords);
+      if (keywordsValidation !== true) {
+        Logger.warn(`${relativePkgPath} keywords: ${keywordsValidation}`);
+        const newKeywordsStr = await input({
+          message: `Enter keywords / topics for ${relativePkgPath} (comma separated, 8-20 unique items):`,
+          validate: validateKeywordsInput,
+        });
+        pkg.keywords = parseKeywordsString(newKeywordsStr);
+        changed = true;
+        await fs.writeFile(
+          pkgPath,
+          JSON.stringify(pkg, null, 2) + '\n',
+          'utf-8'
+        );
+        Logger.success(`Updated ${relativePkgPath} keywords`);
       }
     }
 
@@ -182,38 +220,16 @@ export async function syncRepoCommand(): Promise<{
       }
     }
 
-    // D. package.json keywords
-    if (!isTraining && pkg) {
-      const keywords = pkg.keywords || [];
-      const keywordsValidation = validateKeywords(keywords);
-      if (keywordsValidation !== true) {
-        Logger.warn(`package.json keywords: ${keywordsValidation}`);
-        const newKeywordsStr = await input({
-          message:
-            'Enter keywords / topics (comma separated, 8-20 unique items):',
-          validate: validateKeywordsInput,
-        });
-        pkg.keywords = parseKeywordsString(newKeywordsStr);
-        pkgChanged = true;
-        changed = true;
-      }
-    }
-
-    // Save package.json if it was changed by manual input (description or keywords)
-    if (pkgChanged && !isTraining && pkg) {
-      await fs.writeFile(
-        rootPkgPath,
-        JSON.stringify(pkg, null, 2) + '\n',
-        'utf-8'
-      );
-      Logger.success('Updated package.json with manual inputs');
-    }
-
     // 3. Sync Keywords & Standardize package.json
 
-    // A. Keyword Sync (GitHub)
-    if (!isTraining && pkg && pkg.keywords && Array.isArray(pkg.keywords)) {
-      const keywords = pkg.keywords;
+    // A. Keyword Sync (GitHub) - Use the first package.json for sync
+    if (
+      !isTraining &&
+      firstPkg &&
+      firstPkg.keywords &&
+      Array.isArray(firstPkg.keywords)
+    ) {
+      const keywords = firstPkg.keywords;
       if (existsOnGitHub) {
         Logger.log('🌐 Syncing GitHub topics with package.json keywords...');
         try {
@@ -246,6 +262,27 @@ export async function syncRepoCommand(): Promise<{
       });
     }
 
+    // B.1 Sync sub-project template files (ESLint, Prettier)
+    if (isMulti && !isTraining) {
+      Logger.log('📄 Syncing sub-project template files...');
+      for (const pkgPath of pkgPaths) {
+        const pkgDir = path.dirname(pkgPath);
+        const relDir = path.relative(repoPath, pkgDir);
+        const subTemplateChanges = await syncTemplateFiles(
+          pkgDir,
+          ['eslint.config.mjs', '.prettierrc'],
+          isTraining,
+          selectedRepo.type === 'active'
+        );
+        if (subTemplateChanges.length > 0) {
+          changed = true;
+          subTemplateChanges.forEach((change) => {
+            Logger.success(`  - [${relDir}] ${change}`);
+          });
+        }
+      }
+    }
+
     // C. Sync Documentation (README.md, INSTRUCTIONS.md)
     Logger.log('📝 Syncing documentation sections...');
     const readmeChanged = await fixReadme(repoPath);
@@ -254,46 +291,31 @@ export async function syncRepoCommand(): Promise<{
 
     // D. Final package.json fix and sort
     if (!isTraining) {
-      if (isMulti) {
-        const scanner = new Scanner();
-        const pkgPaths = await scanner.findMultiPackageJsonPaths(repoPath);
-        for (const pkgPath of pkgPaths) {
-          const relativePkgPath = path.relative(repoPath, pkgPath);
-          const pkgDir = path.dirname(pkgPath);
-          const pkgFixed = await fixPackageJson(
-            pkgDir,
-            selectedRepo.name,
-            relativePkgPath,
-            selectedRepo.type
-          );
-          if (pkgFixed) changed = true;
-        }
-      } else {
-        if (existsSync(rootPkgPath)) {
-          const pkgFixed = await fixPackageJson(
-            repoPath,
-            selectedRepo.name,
-            'package.json',
-            selectedRepo.type
-          );
-          if (pkgFixed) changed = true;
-        }
-      }
-    }
+      for (const pkgPath of pkgPaths) {
+        const relativePkgPath = path.relative(repoPath, pkgPath);
+        const pkgDir = path.dirname(pkgPath);
+        const pkgFixed = await fixPackageJson(
+          pkgDir,
+          selectedRepo.name,
+          relativePkgPath,
+          selectedRepo.type
+        );
+        if (pkgFixed) changed = true;
 
-    // D. Sort package.json
-    if (existsSync(rootPkgPath)) {
-      Logger.log('🧹 Sorting package.json...');
-      try {
-        execSync('npx --yes sort-package-json', {
-          cwd: repoPath,
-          stdio: 'ignore',
-        });
-        // We assume it might have changed something if it ran successfully
-        // or we could check if it actually changed, but the instruction just says "fix it by running"
-        changed = true;
-      } catch (err) {
-        Logger.error(`Failed to sort package.json: ${(err as Error).message}`);
+        // Sort each package.json
+        Logger.log(`🧹 Sorting ${relativePkgPath}...`);
+        try {
+          // Run in the package directory and use relative path to avoid Windows absolute path issues
+          execSync('npx --yes sort-package-json package.json', {
+            cwd: pkgDir,
+            stdio: 'ignore',
+          });
+          changed = true;
+        } catch (err) {
+          Logger.error(
+            `Failed to sort ${relativePkgPath}: ${(err as Error).message}`
+          );
+        }
       }
     }
 
