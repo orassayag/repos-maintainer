@@ -63,7 +63,7 @@ describe('syncRepoCommand', () => {
       }
       if (p.endsWith('README.md')) {
         return Promise.resolve(
-          '# Test Repo\n\nValid description that is at least 300 characters long and does not exceed 600 characters for the README.md description test. This is just a long string to satisfy the length requirement of the validation logic which is between 300 and 600 characters for README.md. And even more text to be sure.'
+          "# Test Repo\n\nThis is a long description that is at least 500 characters long and does not exceed 600 characters for the README.md description test. This is just a long string to satisfy the length requirement of the validation logic which is between 500 and 600 characters for README.md. We need to make sure this string is sufficiently long to pass the validation check. Adding more text here to ensure we reach the 500 character mark. This should be enough now, let's keep going a bit more just to be absolutely sure."
         );
       }
       return Promise.resolve('');

@@ -796,7 +796,7 @@ export class Scanner {
       if (validationResult !== true) {
         this.logIssue('README_DESCRIPTION_LENGTH', {
           actualLen: description.length,
-          min: 300,
+          min: 500,
           max: 600,
         });
       }

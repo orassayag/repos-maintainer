@@ -1,8 +1,8 @@
 # #REPO-NAME#
 
-A Node.js + Puppeteer.js application to fetch and validate email addresses by crawling web pages from search engine results using specific and random search keys.
+A professional Node.js and Puppeteer.js application designed to fetch, extract, and validate email addresses by crawling web pages from search engine results using specific and random search keys. This tool is built with a focus on efficiency and reliability, making it ideal for lead generation and data collection.
 
-Built in February 2020. This application automates the process of discovering email addresses across the web using intelligent search strategies, advanced validation, and MongoDB storage.
+Built in February 2020, this application automates the process of discovering email addresses across the web using intelligent search strategies, advanced validation, and MongoDB storage. It includes tools for handling browser sessions and ensuring data quality.
 
 ## Features
 

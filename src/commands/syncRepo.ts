@@ -175,7 +175,7 @@ export async function syncRepoCommand(): Promise<{
       if (readmeDescValidation !== true) {
         Logger.warn(`README.md: ${readmeDescValidation}`);
         const newReadmeDesc = await input({
-          message: 'Enter description for README.md (300-600 characters):',
+          message: 'Enter description for README.md (500-600 characters):',
           validate: validateReadmeDescription,
         });
         const updatedReadmeContent = updateReadmeDescription(

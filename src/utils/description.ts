@@ -14,12 +14,12 @@ export function validatePackageDescription(desc: string): string | true {
 
 /**
  * Validates a README.md description.
- * Expected length: 300-600 characters.
+ * Expected length: 500-600 characters.
  */
 export function validateReadmeDescription(desc: string): string | true {
   const len = desc.trim().length;
-  if (len < 300 || len > 600) {
-    return `Description length is ${len} (expected 300-600 chars)`;
+  if (len < 500 || len > 600) {
+    return `Description length is ${len} (expected 500-600 chars)`;
   }
   return true;
 }
