@@ -1442,7 +1442,7 @@ export class Scanner {
         },
         check: (dir: string): string[] => {
           const bin = this.resolveRunner(dir, 'prettier');
-          const r = this.runCmd(`${bin} --check . --log-level warn`, dir);
+          const r = this.runCmd(`${bin} --check . --loglevel warn`, dir);
           return this.parsePrettierCheck(r.combined);
         },
       },

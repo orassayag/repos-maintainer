@@ -271,14 +271,14 @@ const FORMATTERS: Formatter[] = [
     run(dir) {
       const bin = resolveRunner(dir, 'prettier');
       const changed = changedFiles(dir, () => {
-        runCmd(`${bin} --write . --log-level warn`, dir);
+        runCmd(`${bin} --write . --loglevel warn`, dir);
       });
       return { name: 'Prettier', changed };
     },
     check(dir) {
       const bin = resolveRunner(dir, 'prettier');
       // --check exits 1 when files need formatting, which is expected
-      const r = runCmd(`${bin} --check . --log-level warn`, dir);
+      const r = runCmd(`${bin} --check . --loglevel warn`, dir);
       const changed = parsePrettierCheck(r.combined, dir);
       return { name: 'Prettier', changed };
     },
