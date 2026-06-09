@@ -171,6 +171,89 @@ describe('Scanner', () => {
         )
       ).toBe(false);
     });
+
+    it('should NOT report missing package.json or ESLint config for .NET projects', async (): Promise<void> => {
+      const { isDotNetOrWindowsProject } =
+        await import('../utils/projectType.js');
+      vi.mocked(isDotNetOrWindowsProject).mockResolvedValue(true);
+
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        const normalizedTemplatesDir = templatesDir.replace(/\\/g, '/');
+        if (pathStr === normalizedTemplatesDir) {
+          return Promise.resolve([
+            { name: 'package.json', isDirectory: () => false },
+            { name: 'eslint.config.mjs', isDirectory: () => false },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        // Simulate both files missing
+        if (
+          pathStr.includes('package.json') ||
+          pathStr.includes('eslint.config.mjs') ||
+          pathStr.includes('eslintrc.json')
+        ) {
+          return Promise.reject(new Error('Not found'));
+        }
+        return Promise.resolve(undefined);
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('Missing template file: package.json')
+        )
+      ).toBe(false);
+      expect(
+        result.issues.some((i) => i.message.includes('ESLint: Missing both'))
+      ).toBe(false);
+    });
+
+    it('should report package.json detection in .NET projects', async (): Promise<void> => {
+      const { isDotNetOrWindowsProject } =
+        await import('../utils/projectType.js');
+      vi.mocked(isDotNetOrWindowsProject).mockResolvedValue(true);
+
+      const templatesDir = path.join(process.cwd(), 'src', 'templates');
+      vi.mocked(fs.readdir).mockImplementation((p: any): Promise<any> => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        const normalizedTemplatesDir = templatesDir.replace(/\\/g, '/');
+        if (pathStr === normalizedTemplatesDir) {
+          return Promise.resolve([
+            { name: 'package.json', isDirectory: () => false },
+          ] as any);
+        }
+        return Promise.resolve([]);
+      });
+
+      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+        // Simulate package.json exists
+        return Promise.resolve(undefined);
+      });
+
+      vi.mocked(fs.readFile).mockImplementation((p: any): Promise<any> => {
+        if (p.toString().endsWith('package.json')) {
+          return Promise.resolve(
+            JSON.stringify({ name: 'test', version: '1.0.0' })
+          );
+        }
+        return Promise.resolve('');
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+
+      expect(
+        result.issues.some((i) =>
+          i.message.includes('package.json: Detected in .NET legacy project')
+        )
+      ).toBe(true);
+    });
   });
 
   describe('Template Scan', () => {

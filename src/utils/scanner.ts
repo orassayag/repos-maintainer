@@ -127,6 +127,8 @@ export class Scanner {
     const isMulti = repo.structure === 'multi';
     const isActive = repo.type === 'active';
 
+    const isDotNet = await isDotNetOrWindowsProject(repoPath);
+
     // 1. Local existence
     try {
       await fs.access(repoPath);
@@ -239,7 +241,16 @@ export class Scanner {
           targetFilePath,
           path.join(templatesDir, rawFile)
         );
+
+        // Requirement: If package.json is detected in a .NET legacy project, report it
+        if (file === 'package.json' && isDotNet) {
+          this.logToReport('package.json: Detected in .NET legacy project');
+        }
       } catch {
+        // Requirement: Skip "Missing template file: package.json" for .NET legacy projects
+        if (file === 'package.json' && isDotNet) {
+          continue;
+        }
         this.logIssue('MISSING_TEMPLATE_FILE', { file });
       }
     }
@@ -308,7 +319,7 @@ export class Scanner {
       }
     }
 
-    const skipPrettifyAndKnip = await isDotNetOrWindowsProject(repoPath);
+    const skipPrettifyAndKnip = isDotNet;
 
     // 8. Formatter Scan
     if (!skipPrettifyAndKnip) {
@@ -331,10 +342,10 @@ export class Scanner {
     if (isMulti && !isTraining) {
       const pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
       for (const pkgPath of pkgPaths) {
-        this.scanEslintConfig(path.dirname(pkgPath), isTraining);
+        this.scanEslintConfig(path.dirname(pkgPath), isTraining, isDotNet);
       }
     } else {
-      this.scanEslintConfig(repoPath, isTraining);
+      this.scanEslintConfig(repoPath, isTraining, isDotNet);
     }
 
     // 11. VSCode Settings Scan
@@ -1293,7 +1304,11 @@ export class Scanner {
     }
   }
 
-  private scanEslintConfig(repoPath: string, isTraining: boolean): void {
+  private scanEslintConfig(
+    repoPath: string,
+    isTraining: boolean,
+    isDotNet: boolean = false
+  ): void {
     const legacyFiles = [
       'eslintrc.json',
       '.eslintrc.json',
@@ -1316,7 +1331,7 @@ export class Scanner {
       relativePath && relativePath !== '.' ? `${relativePath}: ` : '';
 
     if (!hasLegacyConfig && !hasFlatConfig) {
-      if (!isTraining) {
+      if (!isTraining && !isDotNet) {
         this.logIssue('ESLINT_CONFIG_MISSING', { prefix });
       }
     } else if (hasLegacyConfig && !hasFlatConfig) {
