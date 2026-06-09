@@ -131,6 +131,67 @@ describe('Scanner', () => {
     });
   });
 
+  describe('ESLint Flat Config Packages', () => {
+    it('should report missing ESLint packages when eslint.config.mjs exists', async () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        if (pathStr.endsWith('eslint.config.mjs')) return true;
+        if (pathStr.endsWith('package.json')) return true;
+        return false;
+      });
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json')) {
+          return JSON.stringify({
+            name: 'test-repo',
+            devDependencies: {},
+          });
+        }
+        return '';
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      const issue = result.issues.find((i) =>
+        i.message.includes('Missing required packages for ESLint flat config')
+      );
+
+      expect(issue).toBeDefined();
+      expect(issue?.message).toContain(
+        'eslint-config-prettier, typescript-eslint'
+      );
+      expect(issue?.severity).toContain('2 - Medium');
+    });
+
+    it('should NOT report if both packages exist', async () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const pathStr = p.toString().replace(/\\/g, '/');
+        if (pathStr.endsWith('eslint.config.mjs')) return true;
+        if (pathStr.endsWith('package.json')) return true;
+        return false;
+      });
+
+      vi.mocked(readFileSync).mockImplementation((p: any) => {
+        if (p.toString().endsWith('package.json')) {
+          return JSON.stringify({
+            name: 'test-repo',
+            devDependencies: {
+              'eslint-config-prettier': '^10.1.8',
+              'typescript-eslint': '^8.60.1',
+            },
+          });
+        }
+        return '';
+      });
+
+      const result = await scanner.scanRepo(mockRepo);
+      const issue = result.issues.find((i) =>
+        i.message.includes('Missing required packages for ESLint flat config')
+      );
+
+      expect(issue).toBeUndefined();
+    });
+  });
+
   describe('isDotNetOrWindowsProject Skipping', () => {
     it('should skip scanFormatters and scanKnip for .NET projects', async (): Promise<void> => {
       const { isDotNetOrWindowsProject } =
@@ -232,7 +293,7 @@ describe('Scanner', () => {
         return Promise.resolve([]);
       });
 
-      vi.mocked(fs.access).mockImplementation((p: any): Promise<void> => {
+      vi.mocked(fs.access).mockImplementation((): Promise<void> => {
         // Simulate package.json exists
         return Promise.resolve(undefined);
       });
@@ -476,10 +537,16 @@ describe('Scanner', () => {
         if (pathStr.endsWith('vitest.config.ts')) return true;
         return false;
       });
-      // We need to provide a pkg with a lint script
+      // We need to provide a pkg with a lint script and required ESLint packages
       vi.mocked(readFileSync).mockImplementation((p: any): string => {
         if (p.toString().endsWith('package.json'))
-          return JSON.stringify({ scripts: { lint: 'eslint' } });
+          return JSON.stringify({
+            scripts: { lint: 'eslint' },
+            devDependencies: {
+              'eslint-config-prettier': '^10.1.8',
+              'typescript-eslint': '^8.60.1',
+            },
+          });
         return '';
       });
 

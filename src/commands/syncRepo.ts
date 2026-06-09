@@ -283,6 +283,50 @@ export async function syncRepoCommand(): Promise<{
       }
     }
 
+    // B.2 Sync ESLint packages if flat config exists
+    if (!isTraining) {
+      Logger.log('🔍 Checking for missing ESLint packages...');
+      for (const pkgPath of pkgPaths) {
+        const pkgDir = path.dirname(pkgPath);
+        const hasFlatConfig = existsSync(
+          path.join(pkgDir, 'eslint.config.mjs')
+        );
+        if (hasFlatConfig) {
+          const pkgContent = await fs.readFile(pkgPath, 'utf-8');
+          const pkg = JSON.parse(pkgContent);
+          let pkgChanged = false;
+
+          const required = {
+            'eslint-config-prettier': '^10.1.8',
+            'typescript-eslint': '^8.60.1',
+          };
+
+          for (const [name, version] of Object.entries(required)) {
+            if (!pkg.devDependencies?.[name] && !pkg.dependencies?.[name]) {
+              if (!pkg.devDependencies) pkg.devDependencies = {};
+              pkg.devDependencies[name] = version;
+              pkgChanged = true;
+              Logger.success(
+                `  - Added ${name}@${version} to ${path.relative(
+                  repoPath,
+                  pkgPath
+                )}`
+              );
+            }
+          }
+
+          if (pkgChanged) {
+            await fs.writeFile(
+              pkgPath,
+              JSON.stringify(pkg, null, 2) + '\n',
+              'utf-8'
+            );
+            changed = true;
+          }
+        }
+      }
+    }
+
     // C. Sync Documentation (README.md, INSTRUCTIONS.md)
     Logger.log('📝 Syncing documentation sections...');
     const readmeChanged = await fixReadme(repoPath);

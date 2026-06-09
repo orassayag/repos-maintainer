@@ -247,6 +247,11 @@ export const ISSUES = {
       '{prefix}ESLint: "eslintrc.json" exists but "eslint.config.mjs" is missing (should migrate to flat config)',
     severity: Severity.MEDIUM,
   },
+  ESLINT_FLAT_CONFIG_MISSING_PACKAGES: {
+    message:
+      '{prefix}package.json: Missing required packages for ESLint flat config: {packages}',
+    severity: Severity.MEDIUM,
+  },
   VITEST_CONFIG_MISSING: {
     message: 'Vitest: Missing "vitest.config.ts" in the root',
     severity: Severity.MEDIUM,

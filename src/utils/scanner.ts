@@ -1340,6 +1340,20 @@ export class Scanner {
         this.logIssue('ESLINT_LEGACY_CONFIG', { prefix });
       }
     }
+
+    // If flat config exists, check for required packages
+    if (hasFlatConfig) {
+      const pkg = this.readPkg(repoPath);
+      const requiredPackages = ['eslint-config-prettier', 'typescript-eslint'];
+      const missing = requiredPackages.filter((p) => !this.hasDep(pkg, p));
+
+      if (missing.length > 0) {
+        this.logIssue('ESLINT_FLAT_CONFIG_MISSING_PACKAGES', {
+          prefix,
+          packages: missing.join(', '),
+        });
+      }
+    }
   }
 
   private scanVsCodeSettings(repoPath: string): void {

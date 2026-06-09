@@ -207,6 +207,38 @@ describe('syncRepoCommand', () => {
     );
   });
 
+  it('should auto-add missing ESLint packages if eslint.config.mjs exists', async () => {
+    vi.mocked(existsSync).mockImplementation((p: any) => {
+      const pathStr = p.toString().replace(/\\/g, '/');
+      if (pathStr.endsWith('eslint.config.mjs')) return true;
+      if (pathStr.endsWith('package.json')) return true;
+      return false;
+    });
+
+    const pkg = { name: 'test-repo', devDependencies: {} };
+    vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(pkg));
+    vi.mocked(fs.readdir).mockResolvedValue([]);
+
+    await syncRepoCommand();
+
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('package.json'),
+      expect.stringContaining('"eslint-config-prettier": "^10.1.8"'),
+      'utf-8'
+    );
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('package.json'),
+      expect.stringContaining('"typescript-eslint": "^8.60.1"'),
+      'utf-8'
+    );
+    expect(Logger.success).toHaveBeenCalledWith(
+      expect.stringContaining('Added eslint-config-prettier@^10.1.8')
+    );
+    expect(Logger.success).toHaveBeenCalledWith(
+      expect.stringContaining('Added typescript-eslint@^8.60.1')
+    );
+  });
+
   it('should handle errors during sync', async () => {
     vi.mocked(ensureRepoCloned).mockRejectedValue(new Error('Clone failed'));
 
