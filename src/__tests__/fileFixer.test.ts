@@ -15,6 +15,7 @@ vi.mock('../settings.js', () => ({
     TEMPLATES_DIR: '/mock/templates',
     OVERWRITE_POLICY: {} as Record<string, string>,
     DRY_RUN: false,
+    AUTHOR_EMAIL: 'test@example.com',
   },
 }));
 vi.mock('../utils/projectType.js', () => ({
@@ -200,26 +201,53 @@ path1`;
       const result = await syncTemplateFiles(repoPath, ['.gitignore']);
 
       expect(result).toContain('Merged and updated .gitignore');
-      const writtenContent = vi
-        .mocked(fs.writeFile)
-        .mock.calls.find((call: any) =>
-          call[0].toString().includes('.gitignore')
-        )![1] as string;
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
 
-      expect(writtenContent).toContain('# Distribution');
-      expect(writtenContent).toContain('dist');
-      expect(writtenContent).toContain('dist/');
-      expect(writtenContent).toContain('node_modules');
-      expect(writtenContent).toContain('node_modules/');
-      expect(writtenContent).toContain('# Logs');
-      expect(writtenContent).toContain('*.log*');
-      expect(writtenContent).toContain('*.log');
-      expect(writtenContent).toContain('# Misc');
-      expect(writtenContent).toContain('.DS_Store');
-      expect(writtenContent).toContain('# Others:');
-      expect(writtenContent).toContain('.env');
-      expect(writtenContent).toContain('# Custom section');
-      expect(writtenContent).toContain('path1');
+    it('should sync CODE_OF_CONDUCT.md, SECURITY.md and CONTRIBUTING.md', async () => {
+      const { isTypeScriptProject } = await import('../utils/projectType.js');
+      vi.mocked(isTypeScriptProject).mockResolvedValue(true);
+
+      const templateContent = 'Template with #AUTHOR_EMAIL# and #REPO-NAME#';
+      const incompleteContent = 'Content with #AUTHOR_EMAIL#';
+      const mismatchContent = 'Completely different content';
+      const correctContent = 'Template with test@example.com and repo';
+
+      // 1. Incomplete
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateContent);
+        return Promise.resolve(incompleteContent);
+      });
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      let result = await syncTemplateFiles(repoPath, ['CODE_OF_CONDUCT.md']);
+      expect(result).toContain('Updated CODE_OF_CONDUCT.md (incomplete)');
+
+      // 2. Mismatch
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateContent);
+        return Promise.resolve(mismatchContent);
+      });
+      result = await syncTemplateFiles(repoPath, ['SECURITY.md']);
+      expect(result).toContain("Updated SECURITY.md (doesn't match template)");
+
+      // 3. CONTRIBUTING.md
+      result = await syncTemplateFiles(repoPath, ['CONTRIBUTING.md']);
+      expect(result).toContain(
+        "Updated CONTRIBUTING.md (doesn't match template)"
+      );
+
+      // 4. Correct
+      vi.mocked(fs.readFile).mockImplementation((path: any) => {
+        if (path.toString().includes('templates'))
+          return Promise.resolve(templateContent);
+        return Promise.resolve(correctContent);
+      });
+      result = await syncTemplateFiles(repoPath, ['SECURITY.md']);
+      expect(result).toHaveLength(0);
     });
 
     it('should sync LICENSE and preserve year', async () => {

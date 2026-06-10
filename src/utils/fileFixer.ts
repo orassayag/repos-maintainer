@@ -256,13 +256,16 @@ export async function ensureTemplateFile(
     return false;
   }
 
-  // Replace placeholders
-  const currentYear = new Date().getFullYear().toString();
-  const repoName = path.basename(repoPath);
+  // Replace placeholders - skip for CODE_OF_CONDUCT.md and SECURITY.md
+  if (templateName !== 'CODE_OF_CONDUCT.md' && templateName !== 'SECURITY.md') {
+    const currentYear = new Date().getFullYear().toString();
+    const repoName = path.basename(repoPath);
 
-  content = content.replace(/#YEAR#/g, currentYear);
-  content = content.replace(/#REPO-NAME#/g, repoName);
-  content = content.replace(/#PROJECT_NAME#/g, repoName); // Keep support for old placeholder just in case
+    content = content.replace(/#YEAR#/g, currentYear);
+    content = content.replace(/#REPO-NAME#/g, repoName);
+    content = content.replace(/#PROJECT_NAME#/g, repoName); // Keep support for old placeholder just in case
+    content = content.replace(/#AUTHOR_EMAIL#/g, settings.AUTHOR_EMAIL);
+  }
 
   // For CHANGELOG.md — never overwrite (content is repo-specific)
   if (templateName === 'CHANGELOG.md' && fileExists) {
@@ -404,6 +407,16 @@ export async function syncTemplateFiles(
       continue;
     }
 
+    if (
+      file === 'CODE_OF_CONDUCT.md' ||
+      file === 'SECURITY.md' ||
+      file === 'CONTRIBUTING.md'
+    ) {
+      const mdChange = await syncMarkdownFile(repoPath, file, templatePath);
+      if (mdChange) changes.push(mdChange);
+      continue;
+    }
+
     if (file === '.vscode/settings.json') {
       const settingsChange = await syncVsCodeSettings(destPath, templatePath);
       if (settingsChange) changes.push(settingsChange);
@@ -447,7 +460,10 @@ async function syncTsConfigTypes(destPath: string): Promise<string | null> {
       currentTypes.length === expectedTypes.length &&
       currentTypes.every((t: string, i: number) => t === expectedTypes[i]);
 
-    if (!isIdentical) {
+    const hasJest =
+      Array.isArray(currentTypes) && currentTypes.includes('jest');
+
+    if (!isIdentical && !hasJest) {
       if (!tsconfig.compilerOptions) {
         tsconfig.compilerOptions = {};
       }
@@ -679,6 +695,87 @@ export async function getChangelogCommitMessage(
     }
   } catch {
     // File not found or other error
+  }
+  return null;
+}
+
+/**
+ * Syncs a markdown file by comparing it with the template.
+ * Replaces if incomplete (contains placeholders) or doesn't match the template.
+ */
+async function syncMarkdownFile(
+  repoPath: string,
+  file: string,
+  templatePath: string
+): Promise<string | null> {
+  try {
+    const destPath = path.join(repoPath, file);
+    const templateContent = await fs.readFile(templatePath, 'utf-8');
+
+    // For CODE_OF_CONDUCT.md and SECURITY.md, use exact template without placeholders
+    let processedTemplate: string;
+    if (file === 'CODE_OF_CONDUCT.md' || file === 'SECURITY.md') {
+      processedTemplate = templateContent;
+    } else {
+      const currentYear = new Date().getFullYear().toString();
+      const repoName = path.basename(repoPath);
+      processedTemplate = templateContent
+        .replace(/#YEAR#/g, currentYear)
+        .replace(/#REPO-NAME#/g, repoName)
+        .replace(/#PROJECT_NAME#/g, repoName)
+        .replace(/#AUTHOR_EMAIL#/g, settings.AUTHOR_EMAIL);
+    }
+
+    let destContent: string;
+    try {
+      destContent = await fs.readFile(destPath, 'utf-8');
+    } catch {
+      // File doesn't exist, create it
+      if (!settings.DRY_RUN) {
+        const parentDir = path.dirname(destPath);
+        await fs.mkdir(parentDir, { recursive: true });
+        await fs.writeFile(destPath, processedTemplate, 'utf-8');
+        return `Created missing ${file}`;
+      } else {
+        return `[DRY RUN] Would create missing ${file}`;
+      }
+    }
+
+    // For CODE_OF_CONDUCT.md and SECURITY.md: check with super robust normalization (ignore all whitespace differences)
+    const normalize = (s: string): string => s.replace(/\s+/g, ' ').trim();
+    let isMismatch = false;
+    if (file === 'CODE_OF_CONDUCT.md' || file === 'SECURITY.md') {
+      isMismatch = normalize(destContent) !== normalize(processedTemplate);
+    } else {
+      // Check if incomplete (contains placeholders)
+      const placeholders = [
+        '#YEAR#',
+        '#REPO-NAME#',
+        '#PROJECT_NAME#',
+        '#AUTHOR_EMAIL#',
+        '[INSERT YOUR EMAIL ADDRESS HERE]',
+        'security@yourproject.org',
+      ];
+      const isIncomplete = placeholders.some((p) => destContent.includes(p));
+
+      // Check if doesn't match template (ignoring minor whitespace)
+      const normalizeTrim = (s: string): string =>
+        s.replace(/\r\n/g, '\n').trim();
+      isMismatch =
+        isIncomplete ||
+        normalizeTrim(destContent) !== normalizeTrim(processedTemplate);
+    }
+
+    if (isMismatch) {
+      if (!settings.DRY_RUN) {
+        await fs.writeFile(destPath, processedTemplate, 'utf-8');
+        return `Updated ${file}`;
+      } else {
+        return `[DRY RUN] Would update ${file}`;
+      }
+    }
+  } catch (err) {
+    Logger.error(`Failed to sync ${file}: ${(err as Error).message}`);
   }
   return null;
 }

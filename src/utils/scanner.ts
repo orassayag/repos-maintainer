@@ -705,7 +705,9 @@ export class Scanner {
       fileName === 'CODE_OF_CONDUCT.md' ||
       fileName === 'SECURITY.md'
     ) {
-      if (!targetContent.includes(templateContent.trim())) {
+      // Super robust normalization: ignore ALL whitespace differences
+      const normalize = (s: string): string => s.replace(/\s+/g, ' ').trim();
+      if (normalize(targetContent) !== normalize(templateContent)) {
         this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
       }
     } else if (fileName === 'LICENSE') {
@@ -1251,8 +1253,18 @@ export class Scanner {
       return;
     }
 
-    // Run test command via npx
-    const cmd = `npx --yes ${pkg.scripts.test}`;
+    // Detect which package manager the project uses
+    let cmd: string;
+    if (existsSync(path.join(repoPath, 'pnpm-lock.yaml'))) {
+      cmd = 'pnpm test';
+    } else if (existsSync(path.join(repoPath, 'yarn.lock'))) {
+      cmd = 'yarn test';
+    } else if (existsSync(path.join(repoPath, 'package-lock.json'))) {
+      cmd = 'npm test';
+    } else {
+      cmd = `npx --yes ${pkg.scripts.test}`;
+    }
+
     const result = this.runCmd(cmd, repoPath);
 
     if (
@@ -1288,8 +1300,18 @@ export class Scanner {
     const nodeModulesPath = path.join(repoPath, 'node_modules');
     if (existsSync(nodeModulesPath)) return;
 
-    // Run lint command via npx
-    const cmd = `npx --yes ${pkg.scripts.lint}`;
+    // Detect which package manager the project uses
+    let cmd: string;
+    if (existsSync(path.join(repoPath, 'pnpm-lock.yaml'))) {
+      cmd = 'pnpm lint';
+    } else if (existsSync(path.join(repoPath, 'yarn.lock'))) {
+      cmd = 'yarn lint';
+    } else if (existsSync(path.join(repoPath, 'package-lock.json'))) {
+      cmd = 'npm run lint';
+    } else {
+      cmd = `npx --yes ${pkg.scripts.lint}`;
+    }
+
     const result = this.runCmd(cmd, repoPath);
 
     if (
@@ -1715,6 +1737,8 @@ export class Scanner {
           'pnpm-lock.yaml',
           'pnpm-workspace.yaml',
           'package-lock.json',
+          'CODE_OF_CONDUCT.md',
+          'SECURITY.md',
         ];
 
         const isExcluded = excludedFiles.some(
