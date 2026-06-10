@@ -841,6 +841,32 @@ export class Scanner {
           this.logIssue('README_MISSING_SECTION', { section });
         }
       }
+
+      // Check for emoji bullet points in Features section
+      const featuresMatch = content.match(
+        /#+ Features\s+([\s\S]*?)(?:\n#+|$)/i
+      );
+      if (featuresMatch) {
+        const featuresContent = featuresMatch[1].trim();
+        const featureLines = featuresContent
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l !== '');
+
+        // Find the first list in the features section
+        const listItems = featureLines.filter((l) => l.startsWith('-'));
+
+        if (listItems.length > 0) {
+          const allHaveEmojis = listItems.every((line) =>
+            /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(line)
+          );
+          if (!allHaveEmojis) {
+            this.logIssue('README_FEATURES_EMOJIS');
+          }
+        } else {
+          this.logIssue('README_FEATURES_EMOJIS');
+        }
+      }
     } catch {
       // Already reported
     }

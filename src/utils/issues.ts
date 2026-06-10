@@ -61,6 +61,11 @@ export const ISSUES = {
     message: 'README.md: Missing section "{section}"',
     severity: Severity.LOW,
   },
+  README_FEATURES_EMOJIS: {
+    message:
+      'README.md: "# Features" section must include bullet points with emojis',
+    severity: Severity.LOW,
+  },
   PACKAGE_JSON_NAME_MISMATCH: {
     message: 'package.json: "name" should be "{expectedName}"',
     severity: Severity.MEDIUM,
