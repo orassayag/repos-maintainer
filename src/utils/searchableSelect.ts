@@ -46,15 +46,20 @@ export class SearchableSelect extends (Select as { new (options: any): any }) {
   }
 
   async dispatch(s: string | undefined, key: KeypressEvent): Promise<void> {
+    const keyName = key?.name ?? '';
+    const isNumberKey = /^[0-9]$/.test(keyName) || (s && /^[0-9]$/.test(s));
     const isPassthrough =
-      !s || key?.ctrl || key?.meta || PASSTHROUGH_KEYS.has(key?.name ?? '');
+      !s ||
+      key?.ctrl ||
+      key?.meta ||
+      (PASSTHROUGH_KEYS.has(keyName) && !isNumberKey);
 
     if (isPassthrough) {
       await super.dispatch(s, key);
       return;
     }
 
-    if (key?.name === 'backspace') {
+    if (keyName === 'backspace') {
       if (this.searchTerm.length > 0) {
         this.searchTerm = this.searchTerm.slice(0, -1);
       }
@@ -64,6 +69,10 @@ export class SearchableSelect extends (Select as { new (options: any): any }) {
 
     this._applyFilter();
     (this as any).render();
+  }
+
+  number(): void {
+    // Disable number key handling entirely to prevent index selection
   }
 
   private _applyFilter(): void {
