@@ -307,6 +307,22 @@ export const ISSUES = {
       '{file}: Duplicate MD title "{title}" (level {level}) at lines: {lines}',
     severity: Severity.LOW,
   },
+  SRC_INDEX_EMPTY: {
+    message: 'src/index.ts is empty',
+    severity: Severity.LOW,
+  },
+  README_BUILT_IN_PARAGRAPH_MISSING: {
+    message: 'README.md: Missing "Built in" paragraph',
+    severity: Severity.LOW,
+  },
+  README_BUILT_IN_PARAGRAPH_NO_SPACING: {
+    message: 'README.md: "Built in" paragraph has no empty line before it',
+    severity: Severity.LOW,
+  },
+  GITHUB_DESCRIPTION_MISSING_BUILT_IN: {
+    message: 'GitHub: Description does not start with "Built in" paragraph',
+    severity: Severity.LOW,
+  },
 } as const;
 
 export type IssueKey = keyof typeof ISSUES;

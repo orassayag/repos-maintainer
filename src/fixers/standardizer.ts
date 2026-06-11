@@ -188,6 +188,22 @@ export async function standardizeRepo(
     Logger.success('Created all the template files');
   }
 
+  // ── Step 5.05: Check and delete empty src/index.ts if legacy ──────────
+  const srcIndexPath = path.join(localPath, 'src/index.ts');
+  if (isLegacy) {
+    try {
+      const srcIndexContent = await fs.readFile(srcIndexPath, 'utf-8');
+      if (srcIndexContent.trim() === '') {
+        if (!settings.DRY_RUN) {
+          await fs.unlink(srcIndexPath);
+        }
+        changes.push('src/index.ts: Removed (empty file, legacy project)');
+      }
+    } catch {
+      // File doesn't exist or not empty, do nothing
+    }
+  }
+
   // ── Step 5.1: Ensure folders ──────────────────────────────────────────
   try {
     await fs.mkdir(path.join(localPath, 'misc'), { recursive: true });

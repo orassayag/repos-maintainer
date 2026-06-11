@@ -34,6 +34,7 @@ import {
 
 import {
   extractReadmeDescription,
+  extractBuiltInParagraph,
   validateGitHubDescription,
   validatePackageDescription,
   validateReadmeDescription,
@@ -69,6 +70,7 @@ export class Scanner {
   private scanIssues: ScanIssue[] = [];
   private currentRepoName: string = '';
   private foundUnlistedBinaries: string[] = [];
+  private currentBuiltInParagraph: string = '';
 
   private logIssue(
     issueKey: IssueKey,
@@ -695,7 +697,11 @@ export class Scanner {
     const targetContent = await fs.readFile(targetPath, 'utf-8');
     const templateContent = await fs.readFile(templatePath, 'utf-8');
 
-    if (fileName === '.gitignore') {
+    if (fileName === 'src/index.ts') {
+      if (targetContent.trim() === '') {
+        this.logIssue('SRC_INDEX_EMPTY');
+      }
+    } else if (fileName === '.gitignore') {
       this.validateGitignore(targetContent, templateContent);
     } else if (fileName === '.npmrc') {
       if (!targetContent.includes('minimum-release-age=0')) {
@@ -812,6 +818,15 @@ export class Scanner {
           min: 500,
           max: 600,
         });
+      }
+
+      // Check for "Built in" paragraph
+      const builtIn = extractBuiltInParagraph(content);
+      this.currentBuiltInParagraph = builtIn.paragraph;
+      if (!builtIn.found) {
+        this.logIssue('README_BUILT_IN_PARAGRAPH_MISSING');
+      } else if (!builtIn.hasSpacing) {
+        this.logIssue('README_BUILT_IN_PARAGRAPH_NO_SPACING');
       }
 
       const requiredSections = [
@@ -1468,6 +1483,13 @@ export class Scanner {
     const githubDescValidation = validateGitHubDescription(githubDesc);
     if (githubDescValidation !== true) {
       this.logIssue('GITHUB_DESCRIPTION_LENGTH', { actual: githubDesc.length });
+    }
+
+    if (this.currentBuiltInParagraph) {
+      const trimmedBuiltIn = this.currentBuiltInParagraph.trim();
+      if (!githubDesc.trim().startsWith(trimmedBuiltIn)) {
+        this.logIssue('GITHUB_DESCRIPTION_MISSING_BUILT_IN');
+      }
     }
 
     const isStarred = await isRepoStarred(owner, repo);
