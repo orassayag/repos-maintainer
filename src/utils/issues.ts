@@ -320,7 +320,7 @@ export const ISSUES = {
     severity: Severity.LOW,
   },
   GITHUB_DESCRIPTION_MISSING_BUILT_IN: {
-    message: 'GitHub: Description does not start with "Built in" paragraph',
+    message: 'GitHub: Description does not contain "Built in" paragraph',
     severity: Severity.LOW,
   },
 } as const;

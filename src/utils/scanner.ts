@@ -1486,8 +1486,7 @@ export class Scanner {
     }
 
     if (this.currentBuiltInParagraph) {
-      const trimmedBuiltIn = this.currentBuiltInParagraph.trim();
-      if (!githubDesc.trim().startsWith(trimmedBuiltIn)) {
+      if (!githubDesc.trim().includes('Built in')) {
         this.logIssue('GITHUB_DESCRIPTION_MISSING_BUILT_IN');
       }
     }
