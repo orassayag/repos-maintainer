@@ -509,21 +509,29 @@ async function syncNpmrc(
       }
     }
 
-    // Check if it has the required line with the correct value
-    // We check for the exact line to ensure no other value is set for this key
-    const lines = destContent.split('\n').map((l) => l.trim());
-    const hasCorrectLine = lines.some((l) => l === requiredLine);
+    // Process the .npmrc file
+    const lines = destContent.split('\n');
+    const filteredLines = lines.filter((line) => {
+      const trimmedLine = line.trim();
+      // Remove lines that contain network-concurrency
+      return !trimmedLine.startsWith('network-concurrency');
+    });
+    const hasCorrectLine = filteredLines.some((l) => l.trim() === requiredLine);
 
+    // Ensure we have the required line
+    let finalLines = filteredLines;
     if (!hasCorrectLine) {
+      finalLines = [...filteredLines, requiredLine];
+    }
+
+    const finalContent = finalLines.join('\n');
+
+    if (finalContent !== destContent) {
       if (!settings.DRY_RUN) {
-        // If it has a different value for minimum-release-age, or doesn't have it at all,
-        // the user said "override it and put the value: minimum-release-age=0".
-        // To be safe and clean, we'll just overwrite with the template content
-        // since the template only contains this one line.
-        await fs.writeFile(destPath, templateContent, 'utf-8');
-        return 'Updated .npmrc to include minimum-release-age=0';
+        await fs.writeFile(destPath, finalContent, 'utf-8');
+        return 'Updated .npmrc (removed network-concurrency and ensured minimum-release-age=0)';
       } else {
-        return '[DRY RUN] Would update .npmrc to include minimum-release-age=0';
+        return '[DRY RUN] Would update .npmrc (removed network-concurrency and ensured minimum-release-age=0)';
       }
     }
   } catch (err) {

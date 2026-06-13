@@ -707,6 +707,12 @@ export class Scanner {
       if (!targetContent.includes('minimum-release-age=0')) {
         this.logIssue('FILE_CONTENT_MISMATCH', { file: fileName });
       }
+      if (targetContent.includes('network-concurrency')) {
+        this.logToReport(
+          '.npmrc: Contains network-concurrency',
+          Severity.MEDIUM
+        );
+      }
     } else if (
       fileName === 'CODE_OF_CONDUCT.md' ||
       fileName === 'SECURITY.md'
