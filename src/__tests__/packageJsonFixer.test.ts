@@ -6,11 +6,11 @@ import {
 import fs from 'fs/promises';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
-import { execSync } from 'child_process';
+import latestVersion from 'latest-version';
 
 vi.mock('fs/promises');
 vi.mock('../utils/logger.js');
-vi.mock('child_process');
+vi.mock('latest-version');
 vi.mock('../settings.js', () => ({
   settings: {
     TEMPLATES_DIR: '/mock/templates',
@@ -37,7 +37,7 @@ describe('packageJsonFixer', () => {
         devDependencies: { pkg2: '' },
       });
       vi.mocked(fs.readFile).mockResolvedValue(template);
-      vi.mocked(execSync).mockReturnValue('1.0.0' as any);
+      vi.mocked(latestVersion).mockResolvedValue('1.0.0');
 
       const result = await injectPackageJson(repoPath, 'test-repo', 'desc', [
         'k1',
@@ -60,9 +60,7 @@ describe('packageJsonFixer', () => {
         dependencies: { pkg1: '' },
       });
       vi.mocked(fs.readFile).mockResolvedValue(template);
-      vi.mocked(execSync).mockImplementation(() => {
-        throw new Error('npm error');
-      });
+      vi.mocked(latestVersion).mockRejectedValue(new Error('npm error'));
 
       const result = await injectPackageJson(repoPath, 'test-repo', 'desc', []);
 
@@ -399,7 +397,7 @@ describe('packageJsonFixer', () => {
         .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
         .mockResolvedValueOnce(templateWithDevDeps);
 
-      vi.mocked(execSync).mockReturnValue('1.2.3' as any);
+      vi.mocked(latestVersion).mockResolvedValue('1.2.3');
 
       const result = await fixPackageJson(repoPath, 'test-repo');
 
@@ -425,7 +423,7 @@ describe('packageJsonFixer', () => {
         .mockResolvedValueOnce(JSON.stringify({ name: 'test' }))
         .mockResolvedValueOnce(templateWithDeps);
 
-      vi.mocked(execSync).mockReturnValue('2.0.0' as any);
+      vi.mocked(latestVersion).mockResolvedValue('2.0.0');
 
       const result = await fixPackageJson(repoPath, 'test-repo');
 

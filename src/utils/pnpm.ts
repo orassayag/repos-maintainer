@@ -17,13 +17,24 @@ export async function runPnpmInstall(repoPath: string): Promise<boolean> {
   }
 
   try {
-    await execAsync('pnpm install', {
-      cwd: repoPath,
-    });
+    const { stdout, stderr } = await execAsync(
+      'pnpm install --ignore-scripts',
+      {
+        cwd: repoPath,
+        env: {
+          ...process.env,
+          PNPM_CONFIG_IGNORE_BUILDS: 'false',
+        },
+      }
+    );
+    if (stdout) Logger.info(stdout);
+    if (stderr) Logger.warn(stderr);
     Logger.success("'pnpm install' completed successfully");
     return true;
-  } catch (err) {
-    Logger.error(`'pnpm install' failed: ${(err as Error).message}`);
+  } catch (err: any) {
+    Logger.error(`'pnpm install' failed: ${err.message}`);
+    if (err.stdout) Logger.error(`stdout: ${err.stdout}`);
+    if (err.stderr) Logger.error(`stderr: ${err.stderr}`);
     return false;
   }
 }

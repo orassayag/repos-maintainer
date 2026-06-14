@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { execSync } from 'child_process';
+import latestVersion from 'latest-version';
 import { settings } from '../settings.js';
 import { Logger } from '../utils/logger.js';
 
@@ -8,12 +8,10 @@ import { Logger } from '../utils/logger.js';
  * Fetches the latest version of a package from npm.
  * Falls back to an empty string if it fails.
  */
-function getLatestVersion(pkgName: string): string {
+async function getLatestVersion(pkgName: string): Promise<string> {
   try {
-    return (
-      '^' +
-      execSync(`npm show ${pkgName} version`, { encoding: 'utf-8' }).trim()
-    );
+    const version = await latestVersion(pkgName);
+    return '^' + version;
   } catch {
     return '';
   }
@@ -51,13 +49,13 @@ export async function injectPackageJson(
 
     if (pkg.dependencies) {
       for (const dep of Object.keys(pkg.dependencies)) {
-        pkg.dependencies[dep] = getLatestVersion(dep);
+        pkg.dependencies[dep] = await getLatestVersion(dep);
       }
     }
 
     if (pkg.devDependencies) {
       for (const dep of Object.keys(pkg.devDependencies)) {
-        pkg.devDependencies[dep] = getLatestVersion(dep);
+        pkg.devDependencies[dep] = await getLatestVersion(dep);
       }
     }
 
@@ -434,7 +432,7 @@ export async function fixPackageJson(
         pkg.dependencies = JSON.parse(JSON.stringify(templatePkg.dependencies));
         // Fetch dynamic versions
         for (const dep of Object.keys(pkg.dependencies)) {
-          pkg.dependencies[dep] = getLatestVersion(dep);
+          pkg.dependencies[dep] = await getLatestVersion(dep);
         }
         changed = true;
         Logger.info(`Added missing "dependencies" in ${relativePath}`);
@@ -458,7 +456,7 @@ export async function fixPackageJson(
         );
         // Fetch dynamic versions
         for (const dep of Object.keys(pkg.devDependencies)) {
-          pkg.devDependencies[dep] = getLatestVersion(dep);
+          pkg.devDependencies[dep] = await getLatestVersion(dep);
         }
         changed = true;
         Logger.info(`Added missing "devDependencies" in ${relativePath}`);

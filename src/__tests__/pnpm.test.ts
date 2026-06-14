@@ -33,8 +33,8 @@ describe('pnpm', () => {
 
     expect(result).toBe(true);
     expect(exec).toHaveBeenCalledWith(
-      'pnpm install',
-      { cwd: '/mock/path' },
+      'pnpm install --ignore-scripts',
+      expect.objectContaining({ cwd: '/mock/path' }),
       expect.any(Function)
     );
     expect(Logger.success).toHaveBeenCalled();
