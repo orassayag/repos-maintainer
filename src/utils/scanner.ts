@@ -269,7 +269,7 @@ export class Scanner {
 
     // 6.1. All MD files duplicate title scan
     if (!isTraining) {
-      await this.scanMdDuplicates(repoPath, excludedPaths);
+      await this.scanMdDuplicates(repoPath, excludedPaths, isMulti);
     }
 
     // 7. package.json deep scan
@@ -304,7 +304,8 @@ export class Scanner {
             githubMetadata ? githubMetadata.topics : null,
             relativePkgPath,
             isActive,
-            isLegacy
+            isLegacy,
+            isMulti
           );
           this.scanPackageJsonSorting(path.dirname(pkgPath), relativePkgPath);
         }
@@ -315,7 +316,8 @@ export class Scanner {
           githubMetadata ? githubMetadata.topics : null,
           'package.json',
           isActive,
-          isLegacy
+          isLegacy,
+          isMulti
         );
         this.scanPackageJsonSorting(repoPath);
       }
@@ -923,7 +925,8 @@ export class Scanner {
     githubTopics: string[] | null = null,
     relativePath: string = 'package.json',
     isActive: boolean = true,
-    isLegacy: boolean = false
+    isLegacy: boolean = false,
+    isMulti: boolean = false
   ): Promise<void> {
     const filePath = path.join(repoPath, 'package.json');
     try {
@@ -1172,8 +1175,8 @@ export class Scanner {
         });
       }
 
-      // Keywords vs GitHub Topics Validation
-      if (keywords.length > 0 && githubTopics !== null) {
+      // Keywords vs GitHub Topics Validation (skip for multi-repos)
+      if (!isMulti && keywords.length > 0 && githubTopics !== null) {
         const sortedKeywords = [...keywords].sort();
         const sortedTopics = [...githubTopics].sort();
 
@@ -1825,7 +1828,8 @@ export class Scanner {
 
   private async scanMdDuplicates(
     repoPath: string,
-    excludedPaths: string[]
+    excludedPaths: string[],
+    isMulti: boolean
   ): Promise<void> {
     const files = await this.getAllFiles(repoPath);
     const mdFiles = files.filter((f) => {
@@ -1836,6 +1840,9 @@ export class Scanner {
       const parts = f.split(/[\\/]/);
       const ignoredDirs = ['node_modules', '.git', 'dist', 'build', 'coverage'];
       if (parts.some((part) => ignoredDirs.includes(part))) return false;
+
+      // For multi-repos: only check root-level README.md, skip inner ones
+      if (isMulti && f.toLowerCase() !== 'readme.md') return false;
 
       return !excludedPaths.some((p) => f === p || f.startsWith(p + '/'));
     });
