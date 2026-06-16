@@ -100,7 +100,7 @@ export function getExcludedKnipPackages(repoName: string): string[] {
   const globalExcludes = excludes.EXCLUDED_KNIP_PACKAGES_GLOBALLY || [];
   const globalBinaries = excludes.EXCLUDED_KNIP_BINARIES_GLOBALLY || [];
   const projectExcludes =
-    excludes.EXCLUDED_KNIP_PACKAGES_PER_PROJECT[repoName] || [];
+    (excludes.EXCLUDED_KNIP_PACKAGES_PER_PROJECT || {})[repoName] || [];
   return [
     ...new Set([...globalExcludes, ...globalBinaries, ...projectExcludes]),
   ];
@@ -111,15 +111,15 @@ export function getExcludedKnipBinaries(): string[] {
 }
 
 export function getExcludedKnipPaths(repoName: string): string[] {
-  return excludes.EXCLUDED_KNIP_PATHS[repoName] || [];
+  return (excludes.EXCLUDED_KNIP_PATHS || {})[repoName] || [];
 }
 
 export function isKnipScanExcluded(repoName: string): boolean {
-  return excludes.EXCLUDED_KNIP_SCAN.includes(repoName);
+  return (excludes.EXCLUDED_KNIP_SCAN || []).includes(repoName);
 }
 
 export function isKnipUnusedDepsExcluded(repoName: string): boolean {
-  return excludes.EXCLUDED_KNIP_UNUSED_DEPS_SCAN.includes(repoName);
+  return (excludes.EXCLUDED_KNIP_UNUSED_DEPS_SCAN || []).includes(repoName);
 }
 
 export function isLegacyProject(repoName: string): boolean {
