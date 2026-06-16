@@ -1496,7 +1496,7 @@ export class Scanner {
 
     if (this.currentBuiltInParagraph) {
       if (
-        !githubDesc.trim().includes('Built in') ||
+        !githubDesc.trim().includes('Built in') &&
         !githubDesc.trim().includes('Built between')
       ) {
         this.logIssue('GITHUB_DESCRIPTION_MISSING_BUILT_IN');
