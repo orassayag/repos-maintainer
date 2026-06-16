@@ -192,7 +192,7 @@ export function extractBuiltInParagraph(content: string): {
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (trimmed.startsWith('Built in')) {
+    if (trimmed.startsWith('Built in') || trimmed.startsWith('Built between')) {
       // Check if previous line is empty (or it's the first line)
       const hasSpacing = i === 0 || lines[i - 1].trim() === '';
 
