@@ -43,6 +43,7 @@ export const TEMPLATE_FILES = [
   'tsconfig.json',
   'tsconfig.node.json',
   'vitest.config.ts',
+  'knip.json',
   'src/index.ts',
   '.github/rulesets/main-protection.json',
   '.vscode/settings.json',
