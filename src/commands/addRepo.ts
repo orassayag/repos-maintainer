@@ -23,6 +23,7 @@ import { addOrUpdateRepoInList } from '../utils/repoList.js';
 import { fixReadme } from '../fixers/readmeFixer.js';
 import { fixRulesets } from '../fixers/rulesetsFixer.js';
 import { isLegacyProject } from '../utils/excludes.js';
+import { isDotNetOrWindowsProject } from '../utils/projectType.js';
 import {
   validateGitHubDescription,
   validatePackageDescription,
@@ -173,6 +174,7 @@ export async function addRepoCommand(): Promise<{
     await addOrUpdateRepoInList(repoName, repoUrl, purpose, structure);
 
     const isLegacy = isLegacyProject(repoName);
+    const isDotNet = await isDotNetOrWindowsProject(repoPath);
 
     // 3. Template Injection
     Logger.log('📄 Injecting standard templates...');
@@ -201,6 +203,10 @@ export async function addRepoCommand(): Promise<{
       // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
       // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files
       if ((template === 'src/index.ts' || template === '.npmrc') && isLegacy) {
+        continue;
+      }
+      // Skip knip.json for .NET projects
+      if (template === 'knip.json' && isDotNet) {
         continue;
       }
       await ensureTemplateFile(repoPath, template, true);

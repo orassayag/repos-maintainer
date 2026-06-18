@@ -249,7 +249,8 @@ export async function syncRepoCommand(): Promise<{
       repoPath,
       TEMPLATE_FILES,
       isTraining,
-      selectedRepo.type === 'active'
+      selectedRepo.type === 'active',
+      isMulti
     );
     if (templateChanges.length > 0) {
       changed = true;
@@ -262,7 +263,7 @@ export async function syncRepoCommand(): Promise<{
       });
     }
 
-    // B.1 Sync sub-project template files (ESLint, Prettier)
+    // B.1 Sync sub-project template files (ESLint, Prettier, knip.json)
     if (isMulti && !isTraining) {
       Logger.log('📄 Syncing sub-project template files...');
       for (const pkgPath of pkgPaths) {
@@ -270,9 +271,10 @@ export async function syncRepoCommand(): Promise<{
         const relDir = path.relative(repoPath, pkgDir);
         const subTemplateChanges = await syncTemplateFiles(
           pkgDir,
-          ['eslint.config.mjs', '.prettierrc'],
+          ['eslint.config.mjs', '.prettierrc', 'knip.json'],
           isTraining,
-          selectedRepo.type === 'active'
+          selectedRepo.type === 'active',
+          true
         );
         if (subTemplateChanges.length > 0) {
           changed = true;

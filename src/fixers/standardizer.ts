@@ -13,7 +13,10 @@ import { fixPackageJson } from './packageJsonFixer.js';
 import { fixReadme } from './readmeFixer.js';
 import { fixMetadata } from './metadataFixer.js';
 import { fixRulesets } from './rulesetsFixer.js';
-import { isTypeScriptProject } from '../utils/projectType.js';
+import {
+  isTypeScriptProject,
+  isDotNetOrWindowsProject,
+} from '../utils/projectType.js';
 import { isLegacyProject } from '../utils/excludes.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,9 +144,15 @@ export async function standardizeRepo(
   ];
 
   const isLegacy = isLegacyProject(repoName);
+  const isDotNet = await isDotNetOrWindowsProject(localPath);
 
   for (const file of TEMPLATE_FILES) {
     const isTsFile = tsTemplateFiles.includes(file);
+
+    // Skip knip.json for .NET projects
+    if (file === 'knip.json' && isDotNet) {
+      continue;
+    }
 
     // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
     // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files

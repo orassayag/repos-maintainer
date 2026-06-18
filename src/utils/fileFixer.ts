@@ -3,7 +3,10 @@ import path from 'path';
 import { minimatch } from 'minimatch';
 import { settings } from '../settings.js';
 import { Logger } from './logger.js';
-import { isTypeScriptProject } from './projectType.js';
+import {
+  isTypeScriptProject,
+  isDotNetOrWindowsProject,
+} from './projectType.js';
 
 interface GitignoreSection {
   /** The raw comment header, e.g. "# Distribution", or null for a headerless block. */
@@ -301,10 +304,12 @@ export async function syncTemplateFiles(
   repoPath: string,
   templateFiles: string[],
   isTraining: boolean = false,
-  isActive: boolean = true
+  isActive: boolean = true,
+  isMulti: boolean = false
 ): Promise<string[]> {
   const changes: string[] = [];
   const hasTsFiles = await isTypeScriptProject(repoPath);
+  const isDotNet = await isDotNetOrWindowsProject(repoPath);
   const tsTemplateFiles = [
     'tsconfig.json',
     'tsconfig.node.json',
@@ -314,6 +319,14 @@ export async function syncTemplateFiles(
   ];
 
   for (const file of templateFiles) {
+    // Skip knip.json for .NET projects
+    if (file === 'knip.json' && isDotNet) {
+      continue;
+    }
+    // Skip knip.json in root for multi-structure projects
+    if (file === 'knip.json' && isMulti) {
+      continue;
+    }
     const isTsFile = tsTemplateFiles.includes(file);
     const destPath = path.join(repoPath, file);
 

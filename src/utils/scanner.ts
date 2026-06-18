@@ -203,6 +203,12 @@ export class Scanner {
 
     const hasTsFiles = await isTypeScriptProject(repoPath);
 
+    // Find all package.json paths for multi-structure projects
+    let pkgPaths: string[] = [];
+    if (isMulti && !isTraining) {
+      pkgPaths = await this.findMultiPackageJsonPaths(repoPath);
+    }
+
     for (const rawFile of templateFiles) {
       // Normalize path to use forward slashes for consistent comparison
       const file = rawFile.replace(/\\/g, '/');
@@ -231,6 +237,33 @@ export class Scanner {
       // Only for the "active" type project we need to write this issue on the report, otherwise ignore it (on legacy projects)
       // ONLY FOR SPECIFIC "src/index.ts" and ".npmrc", keep the other logic of the validations on template files
       if ((file === 'src/index.ts' || file === '.npmrc') && !isActive) {
+        continue;
+      }
+
+      // Skip knip.json for .NET projects
+      if (file === 'knip.json' && isDotNet) {
+        continue;
+      }
+
+      // Handle knip.json specially for multi-structure projects
+      if (file === 'knip.json' && isMulti && !isTraining) {
+        for (const pkgPath of pkgPaths) {
+          const pkgDir = path.dirname(pkgPath);
+          const targetFilePath = path.join(pkgDir, file);
+          try {
+            await fs.access(targetFilePath);
+            // Verify content for knip.json
+            await this.verifyFileContent(
+              file,
+              targetFilePath,
+              path.join(templatesDir, rawFile)
+            );
+          } catch {
+            this.logIssue('MISSING_TEMPLATE_FILE', {
+              file: path.join(path.relative(repoPath, pkgDir), file),
+            });
+          }
+        }
         continue;
       }
 
