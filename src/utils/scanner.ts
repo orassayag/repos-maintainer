@@ -240,12 +240,12 @@ export class Scanner {
         continue;
       }
 
-      // Skip knip.json for .NET projects
-      if (file === 'knip.json' && isDotNet) {
+      // Skip knip.json for .NET projects or training projects
+      if (file === 'knip.json' && (isDotNet || isTraining)) {
         continue;
       }
 
-      // Handle knip.json specially for multi-structure projects
+      // Handle knip.json specially for multi-structure projects (skip if training)
       if (file === 'knip.json' && isMulti && !isTraining) {
         for (const pkgPath of pkgPaths) {
           const pkgDir = path.dirname(pkgPath);
