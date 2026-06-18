@@ -215,22 +215,19 @@ export class Scanner {
 
       if (excludedPaths.includes(file)) continue;
 
-      // Skip TypeScript template files if no .ts files are found
+      // Skip TypeScript template files if no .ts files are found OR it's a training repo
       const tsTemplateFiles = [
         'tsconfig.json',
         'tsconfig.node.json',
         'vitest.config.ts',
         'eslint.config.mjs',
       ];
-      if (tsTemplateFiles.includes(file) && !hasTsFiles) {
+      if (tsTemplateFiles.includes(file) && (!hasTsFiles || isTraining)) {
         continue;
       }
 
-      // Skip package.json and eslint.config.mjs if it's a training repo
-      if (
-        (file === 'package.json' || file === 'eslint.config.mjs') &&
-        (isTraining || isMulti)
-      ) {
+      // Skip package.json if it's a training repo or multi-structure repo
+      if (file === 'package.json' && (isTraining || isMulti)) {
         continue;
       }
 
