@@ -14,7 +14,7 @@ import {
 } from '../github.js';
 import { settings, getLocalRepoPath } from '../settings.js';
 import { fixPackageJson } from '../fixers/packageJsonFixer.js';
-import { fixReadme, fixInstructions } from '../fixers/readmeFixer.js';
+import { fixReadme } from '../fixers/readmeFixer.js';
 import { syncTemplateFiles } from '../utils/fileFixer.js';
 import { TEMPLATE_FILES } from '../fixers/standardizer.js';
 import { Scanner } from '../utils/scanner.js';
@@ -329,11 +329,10 @@ export async function syncRepoCommand(): Promise<{
       }
     }
 
-    // C. Sync Documentation (README.md, INSTRUCTIONS.md)
+    // C. Sync Documentation (README.md only)
     Logger.log('📝 Syncing documentation sections...');
     const readmeChanged = await fixReadme(repoPath);
-    const instructionsChanged = await fixInstructions(repoPath);
-    if (readmeChanged || instructionsChanged) changed = true;
+    if (readmeChanged) changed = true;
 
     // D. Final package.json fix and sort
     if (!isTraining) {
