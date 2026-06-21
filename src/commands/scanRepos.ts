@@ -5,7 +5,11 @@ import { Scanner, RepoScanResult } from '../utils/scanner.js';
 import { Severity, formatIssuesForReport } from '../utils/issues.js';
 import { isProjectExcluded } from '../utils/excludes.js';
 import { settings } from '../settings.js';
-import { readRepoList, RepoEntry } from '../utils/repoList.js';
+import {
+  readRepoList,
+  RepoEntry,
+  ensureAllReposArePresent,
+} from '../utils/repoList.js';
 
 const REPORT_PATH = 'C:\\Users\\Or Assayag\\Desktop\\SCAN_REPOS_REPORT.txt';
 
@@ -13,6 +17,9 @@ export async function scanReposCommand(): Promise<void> {
   Logger.setContext('ScanRepos');
   Logger.debug('Starting scanReposCommand');
   Logger.log('\n🔎 Scan Repos — Starting full repository scan...\n');
+
+  // Ensure all GitHub repos are present locally and in list
+  await ensureAllReposArePresent();
 
   // 1. Get all directories in PROJECTS_ROOT
   let projectDirs: string[] = [];

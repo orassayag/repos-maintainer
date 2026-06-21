@@ -295,6 +295,31 @@ export async function updateRuleset(
 // URL parsing
 // ─────────────────────────────────────────────────────────────────────────────
 
+export async function listUserRepos(): Promise<
+  { name: string; html_url: string }[]
+> {
+  const octokit = getOctokit();
+  let repos: any[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    // Use listForAuthenticatedUser to get ALL repos (including private ones)
+    const { data } = await octokit.repos.listForAuthenticatedUser({
+      per_page: perPage,
+      page: page,
+    });
+    if (data.length === 0) break;
+    repos = repos.concat(data);
+    page++;
+  }
+
+  return repos.map((repo) => ({
+    name: repo.name,
+    html_url: repo.html_url,
+  }));
+}
+
 export function parseGitHubUrl(
   url: string
 ): { owner: string; repo: string } | null {

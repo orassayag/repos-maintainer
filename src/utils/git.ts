@@ -7,7 +7,7 @@ import { Logger } from './logger.js';
 /**
  * Ensures a repo is cloned locally and up-to-date.
  * - If the folder doesn't exist → clone
- * - If the folder exists → verify remote matches, then pull
+ * - If the folder exists → verify remote matches, then pull (only if no uncommitted changes)
  * Returns true on success, false on remote mismatch or failure.
  */
 export async function ensureRepoCloned(
@@ -39,6 +39,15 @@ export async function ensureRepoCloned(
       return false;
     }
 
+    // Check for uncommitted changes before pulling
+    const status = await repoGit.status();
+    if (status.files.length > 0) {
+      Logger.warn(
+        `Skipping pull for ${repoName} — uncommitted changes detected!`
+      );
+      return true;
+    }
+
     Logger.log(`📥 Pulling latest for ${repoName}...`);
     try {
       await repoGit.pull('origin', 'main', { '--rebase': null });
@@ -47,9 +56,7 @@ export async function ensureRepoCloned(
       try {
         await repoGit.pull('origin', 'master', { '--rebase': null });
       } catch {
-        Logger.warn(
-          `Pull failed for ${repoName} (may have uncommitted changes)`
-        );
+        Logger.warn(`Pull failed for ${repoName}`);
       }
     }
     return true;

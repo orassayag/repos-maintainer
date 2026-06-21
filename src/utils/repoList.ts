@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
 import { getReposListPath } from '../settings.js';
 import { Logger } from './logger.js';
+import { listUserRepos } from '../github.js';
+import { ensureRepoCloned } from './git.js';
 
 export interface RepoEntry {
   name: string;
@@ -59,5 +61,39 @@ export async function addOrUpdateRepoInList(
   entries.sort((a, b) => a.name.localeCompare(b.name));
 
   await fs.writeFile(filePath, JSON.stringify(entries, null, 2), 'utf-8');
-  Logger.success(`Updated repo list with: ${repoName}`);
+  Logger.success('Updated repo list with: ' + repoName);
+}
+
+/**
+ * Ensures all repos from GitHub are in project-repos-names.json and cloned locally.
+ */
+export async function ensureAllReposArePresent(): Promise<void> {
+  Logger.setContext('EnsureRepos');
+  Logger.log('Ensuring all GitHub repos are present locally...');
+
+  // 1. Fetch all repos from GitHub
+  const githubRepos = await listUserRepos();
+  Logger.log('Found ' + githubRepos.length + ' repos on GitHub');
+
+  // 2. Read existing repo list
+  const repoList = await readRepoList();
+  const existingRepoNames = new Set(repoList.map((r) => r.name.toLowerCase()));
+  Logger.log('Found ' + repoList.length + ' repos in project-repos-names.json');
+
+  // 3. Check and add missing repos to list, and clone them
+  let addedCount = 0;
+  for (const githubRepo of githubRepos) {
+    if (!existingRepoNames.has(githubRepo.name.toLowerCase())) {
+      Logger.log('Adding missing repo to list: ' + githubRepo.name);
+      await addOrUpdateRepoInList(githubRepo.name, githubRepo.html_url);
+      addedCount++;
+    }
+
+    // 4. Ensure repo is cloned locally
+    await ensureRepoCloned(githubRepo.html_url, githubRepo.name);
+  }
+
+  Logger.success(
+    'All GitHub repos are present! Added ' + addedCount + ' new repos!'
+  );
 }
