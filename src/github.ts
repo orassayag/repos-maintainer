@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { throttling } from '@octokit/plugin-throttling';
 import { Logger } from './utils/logger.js';
+import { settings } from './settings.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Octokit singleton
@@ -314,7 +315,12 @@ export async function listUserRepos(): Promise<
     page++;
   }
 
-  return repos.map((repo) => ({
+  // Filter to only include repos owned by the authenticated user
+  const userOwnedRepos = repos.filter(
+    (repo) => repo.owner.login === settings.AUTHOR_GITHUB
+  );
+
+  return userOwnedRepos.map((repo) => ({
     name: repo.name,
     html_url: repo.html_url,
   }));
