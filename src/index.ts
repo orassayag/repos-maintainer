@@ -99,6 +99,8 @@ export async function main(): Promise<void> {
 
   // Parse CLI flags
   const args = process.argv.slice(2);
+  const isSyncReposMode =
+    args.includes('SYNC-REPOS') || args.includes('--sync-repos');
   const isAutoMode =
     args.includes('--auto') || args.includes('sync') || args.includes('AUTO');
 
@@ -113,6 +115,7 @@ export async function main(): Promise<void> {
   }
 
   Logger.debug('CLI arguments parsed', {
+    isSyncReposMode,
     isAutoMode,
     dryRun: settings.DRY_RUN,
     gitClean: settings.GIT_CLEAN_ENABLED,
@@ -125,7 +128,13 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (isAutoMode) {
+  if (isSyncReposMode) {
+    // Sync-repos mode: pull latest for all repos, no scan/fix
+    Logger.debug('Running in SYNC-REPOS mode');
+    Logger.log('🔃 Running in SYNC-REPOS mode (pull only)...');
+    const { syncReposCommand } = await import('./commands/syncRepos.js');
+    await syncReposCommand();
+  } else if (isAutoMode) {
     // Auto mode: run Scan Repos directly without menu
     Logger.debug('Running in AUTO mode');
     Logger.log('🔄 Running in AUTO mode (Scan Repos)...');

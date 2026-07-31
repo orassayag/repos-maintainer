@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ensureRepoCloned, commitAndPush, runGitClean } from '../utils/git.js';
+import {
+  ensureRepoCloned,
+  pullLatestForRepo,
+  commitAndPush,
+  runGitClean,
+} from '../utils/git.js';
 import { simpleGit } from 'simple-git';
 import fs from 'fs/promises';
 import { getLocalRepoPath } from '../settings.js';
@@ -21,12 +26,102 @@ describe('git', () => {
     commit: vi.fn(),
     push: vi.fn(),
     raw: vi.fn(),
+    fetch: vi.fn(),
+    revparse: vi.fn(),
+  };
+
+  const originMatches = (): void => {
+    mockGit.getRemotes.mockResolvedValue([
+      { name: 'origin', refs: { fetch: 'http://repo.git' } },
+    ]);
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(simpleGit).mockReturnValue(mockGit);
     vi.mocked(getLocalRepoPath).mockReturnValue(mockRepoPath);
+    mockGit.status.mockResolvedValue({ files: [] });
+    mockGit.revparse.mockResolvedValue('main\n');
+    mockGit.fetch.mockResolvedValue(undefined);
+    mockGit.raw.mockResolvedValue('1\n');
+    mockGit.pull.mockResolvedValue({});
+  });
+
+  describe('pullLatestForRepo', () => {
+    it('should pull when behind the remote', async () => {
+      originMatches();
+      mockGit.raw.mockResolvedValue('3\n');
+
+      const result = await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(result).toEqual({ pulled: true });
+      expect(mockGit.fetch).toHaveBeenCalledWith('origin', 'main');
+      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'main', {
+        '--rebase': null,
+      });
+    });
+
+    it('should skip when already up to date', async () => {
+      originMatches();
+      mockGit.raw.mockResolvedValue('0\n');
+
+      const result = await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(result).toEqual({ pulled: false, skippedReason: 'up-to-date' });
+      expect(mockGit.pull).not.toHaveBeenCalled();
+    });
+
+    it('should skip when the working tree is dirty', async () => {
+      originMatches();
+      mockGit.status.mockResolvedValue({ files: ['dirty.txt'] });
+
+      const result = await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(result).toEqual({ pulled: false, skippedReason: 'dirty' });
+      expect(mockGit.fetch).not.toHaveBeenCalled();
+      expect(mockGit.pull).not.toHaveBeenCalled();
+    });
+
+    it('should skip on remote mismatch', async () => {
+      mockGit.getRemotes.mockResolvedValue([
+        { name: 'origin', refs: { fetch: 'http://other.git' } },
+      ]);
+
+      const result = await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(result).toEqual({ pulled: false, skippedReason: 'mismatch' });
+    });
+
+    it('should skip when there is no origin remote', async () => {
+      mockGit.getRemotes.mockResolvedValue([]);
+
+      const result = await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(result).toEqual({ pulled: false, skippedReason: 'mismatch' });
+    });
+
+    it('should detect the current branch instead of assuming main', async () => {
+      originMatches();
+      mockGit.revparse.mockResolvedValue('develop\n');
+      mockGit.raw.mockResolvedValue('2\n');
+
+      await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(mockGit.fetch).toHaveBeenCalledWith('origin', 'develop');
+      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'develop', {
+        '--rebase': null,
+      });
+    });
+
+    it('should fall back to main on a detached HEAD', async () => {
+      originMatches();
+      mockGit.revparse.mockResolvedValue('HEAD\n');
+      mockGit.raw.mockResolvedValue('1\n');
+
+      await pullLatestForRepo(mockRepoPath, 'repo');
+
+      expect(mockGit.fetch).toHaveBeenCalledWith('origin', 'main');
+    });
   });
 
   describe('ensureRepoCloned', () => {
@@ -47,10 +142,8 @@ describe('git', () => {
 
     it('should pull if folder exists and remote matches', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined);
-      mockGit.getRemotes.mockResolvedValue([
-        { name: 'origin', refs: { fetch: 'http://repo.git' } },
-      ]);
-      mockGit.pull.mockResolvedValue({});
+      originMatches();
+      mockGit.raw.mockResolvedValue('1\n');
 
       const result = await ensureRepoCloned('http://repo.git', 'repo');
 
@@ -83,6 +176,20 @@ describe('git', () => {
       expect(result).toBe(false);
       expect(Logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Remote mismatch')
+      );
+    });
+
+    it('should return true and warn if the pull fails', async () => {
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      originMatches();
+      mockGit.raw.mockResolvedValue('1\n');
+      mockGit.pull.mockRejectedValue(new Error('conflict'));
+
+      const result = await ensureRepoCloned('http://repo.git', 'repo');
+
+      expect(result).toBe(true);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Pull failed for repo')
       );
     });
   });

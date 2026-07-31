@@ -138,6 +138,27 @@ describe('index entry point', () => {
       );
     });
 
+    it('should run sync-repos mode when SYNC-REPOS is present', async () => {
+      process.argv = ['node', 'index.js', 'SYNC-REPOS'];
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.readdir).mockResolvedValue(['p1'] as any);
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify([{ name: 'r1', url: 'u1' }])
+      );
+
+      const mockSyncRepos = vi.fn();
+      vi.doMock('../commands/syncRepos.js', () => ({
+        syncReposCommand: mockSyncRepos,
+      }));
+
+      await main();
+
+      expect(Logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('Running in SYNC-REPOS mode')
+      );
+      expect(showMainMenu).not.toHaveBeenCalled();
+    });
+
     it('should show menu if not in auto mode', async () => {
       process.argv = ['node', 'index.js'];
       vi.mocked(fs.access).mockResolvedValue(undefined);

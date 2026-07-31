@@ -5,12 +5,14 @@ import { addRepoCommand } from '../commands/addRepo.js';
 import { syncRepoCommand } from '../commands/syncRepo.js';
 import { scanReposCommand } from '../commands/scanRepos.js';
 import { scanRepoCommand } from '../commands/scanRepo.js';
+import { syncReposCommand } from '../commands/syncRepos.js';
 
 vi.mock('../utils/prompts.js');
 vi.mock('../commands/addRepo.js');
 vi.mock('../commands/syncRepo.js');
 vi.mock('../commands/scanRepos.js');
 vi.mock('../commands/scanRepo.js');
+vi.mock('../commands/syncRepos.js');
 
 describe('cli', () => {
   beforeEach(() => {
@@ -72,6 +74,25 @@ describe('cli', () => {
     }
 
     expect(scanReposCommand).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    exitSpy.mockRestore();
+  });
+
+  it('should call syncReposCommand when "sync-repos" is selected', async () => {
+    vi.mocked(select)
+      .mockResolvedValueOnce('sync-repos')
+      .mockResolvedValueOnce('exit');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit');
+    });
+
+    try {
+      await showMainMenu();
+    } catch (e: any) {
+      if (e.message !== 'process.exit') throw e;
+    }
+
+    expect(syncReposCommand).toHaveBeenCalled();
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
   });

@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs/promises';
-import { readRepoList, addOrUpdateRepoInList } from '../utils/repoList.js';
-import { getReposListPath } from '../settings.js';
+import {
+  readRepoList,
+  addOrUpdateRepoInList,
+  syncAllRepos,
+} from '../utils/repoList.js';
+import { getReposListPath, getLocalRepoPath } from '../settings.js';
+import { pullLatestForRepo } from '../utils/git.js';
 import { Logger } from '../utils/logger.js';
 
 vi.mock('fs/promises');
 vi.mock('../settings.js');
+vi.mock('../utils/git.js');
+vi.mock('../github.js');
 vi.mock('../utils/logger.js');
 
 describe('repoList', () => {
@@ -14,6 +21,9 @@ describe('repoList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getReposListPath).mockReturnValue(mockFilePath);
+    vi.mocked(getLocalRepoPath).mockImplementation(
+      (name: string) => `/projects/${name}`
+    );
   });
 
   describe('readRepoList', () => {
@@ -116,6 +126,56 @@ describe('repoList', () => {
         JSON.stringify(expectedRepos, null, 2),
         'utf-8'
       );
+    });
+  });
+
+  describe('syncAllRepos', () => {
+    const listRepos = (names: string[]): void => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        JSON.stringify(names.map((name) => ({ name, url: `url-${name}` })))
+      );
+    };
+
+    it('should aggregate per-repo pull outcomes into a summary', async () => {
+      listRepos(['pulled', 'fresh', 'dirty']);
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(pullLatestForRepo).mockImplementation(async (_p, name) => {
+        if (name === 'pulled') return { pulled: true };
+        if (name === 'fresh')
+          return { pulled: false, skippedReason: 'up-to-date' };
+        return { pulled: false, skippedReason: 'dirty' };
+      });
+
+      const summary = await syncAllRepos();
+
+      expect(summary.pulled).toBe(1);
+      expect(summary.upToDate).toBe(1);
+      expect(summary.skippedDirty).toBe(1);
+      expect(summary.errors).toBe(0);
+      expect(summary.results).toHaveLength(3);
+    });
+
+    it('should record an error when a repo is not cloned locally', async () => {
+      listRepos(['missing']);
+      vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+
+      const summary = await syncAllRepos();
+
+      expect(summary.errors).toBe(1);
+      expect(pullLatestForRepo).not.toHaveBeenCalled();
+      expect(summary.results[0].error).toContain('not cloned');
+    });
+
+    it('should record an error when the pull throws', async () => {
+      listRepos(['boom']);
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(pullLatestForRepo).mockRejectedValue(new Error('rebase fail'));
+
+      const summary = await syncAllRepos();
+
+      expect(summary.errors).toBe(1);
+      expect(summary.results[0].error).toBe('rebase fail');
+      expect(Logger.error).toHaveBeenCalled();
     });
   });
 });

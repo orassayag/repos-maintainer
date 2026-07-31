@@ -27,6 +27,7 @@
     "start:live": "cross-env DRY_MODE=false tsx src/index.ts",
     "start:no-cache": "tsx src/index.ts --no-cache",
     "sync": "tsx src/index.ts --auto",
+    "sync-repos": "tsx src/index.ts SYNC-REPOS",
     "dev": "tsx watch src/index.ts",
     "test": "cross-env NODE_OPTIONS='--no-warnings' vitest run --coverage",
     "test:watch": "cross-env NODE_OPTIONS='--no-warnings' vitest",

@@ -1,8 +1,12 @@
 import fs from 'fs/promises';
-import { getReposListPath } from '../settings.js';
+import { getReposListPath, getLocalRepoPath } from '../settings.js';
 import { Logger } from './logger.js';
 import { listUserRepos } from '../github.js';
-import { ensureRepoCloned } from './git.js';
+import {
+  ensureRepoCloned,
+  pullLatestForRepo,
+  PullSkipReason,
+} from './git.js';
 
 export interface RepoEntry {
   name: string;
@@ -10,6 +14,21 @@ export interface RepoEntry {
   type?: string;
   purpose?: 'personal' | 'training';
   structure?: 'single' | 'multi';
+}
+
+export interface RepoSyncResult {
+  name: string;
+  pulled: boolean;
+  skippedReason?: PullSkipReason;
+  error?: string;
+}
+
+export interface SyncSummary {
+  results: RepoSyncResult[];
+  pulled: number;
+  upToDate: number;
+  skippedDirty: number;
+  errors: number;
 }
 
 /**
@@ -96,4 +115,74 @@ export async function ensureAllReposArePresent(): Promise<void> {
   Logger.success(
     'All GitHub repos are present! Added ' + addedCount + ' new repos!'
   );
+}
+
+/**
+ * Pull-only orchestrator for the nightly sync: reads the local repo list and
+ * pulls latest for each already-cloned repo via the shared `pullLatestForRepo`.
+ * Does not clone missing repos, add to the list, scan, or fix — it only pulls.
+ * Returns a per-repo summary so callers can build a report.
+ */
+export async function syncAllRepos(): Promise<SyncSummary> {
+  Logger.setContext('SyncRepos');
+  Logger.log('Pulling latest for all repos in the list...');
+
+  const repoList = await readRepoList();
+  Logger.log('Found ' + repoList.length + ' repos in the list');
+
+  const results: RepoSyncResult[] = [];
+
+  for (const entry of repoList) {
+    const localPath = getLocalRepoPath(entry.name);
+
+    let cloned = true;
+    try {
+      await fs.access(localPath);
+    } catch {
+      cloned = false;
+    }
+
+    if (!cloned) {
+      Logger.warn(
+        `Skipping ${entry.name} — not cloned locally at ${localPath}`
+      );
+      results.push({
+        name: entry.name,
+        pulled: false,
+        error: 'not cloned locally',
+      });
+      continue;
+    }
+
+    try {
+      const result = await pullLatestForRepo(localPath, entry.name);
+      results.push({
+        name: entry.name,
+        pulled: result.pulled,
+        skippedReason: result.skippedReason,
+      });
+    } catch (err) {
+      Logger.error(`Failed to pull ${entry.name}`, err);
+      results.push({
+        name: entry.name,
+        pulled: false,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  const summary: SyncSummary = {
+    results,
+    pulled: results.filter((r) => r.pulled).length,
+    upToDate: results.filter((r) => r.skippedReason === 'up-to-date').length,
+    skippedDirty: results.filter((r) => r.skippedReason === 'dirty').length,
+    errors: results.filter((r) => r.error).length,
+  };
+
+  Logger.success(
+    `Sync complete: ${summary.pulled} pulled, ${summary.upToDate} up to date, ` +
+      `${summary.skippedDirty} skipped (uncommitted), ${summary.errors} errors`
+  );
+
+  return summary;
 }

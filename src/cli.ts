@@ -3,6 +3,7 @@ import { addRepoCommand } from './commands/addRepo.js';
 import { syncRepoCommand } from './commands/syncRepo.js';
 import { scanReposCommand } from './commands/scanRepos.js';
 import { scanRepoCommand } from './commands/scanRepo.js';
+import { syncReposCommand } from './commands/syncRepos.js';
 
 let lastScannedRepo: { name: string; url: string } | null = null;
 
@@ -35,6 +36,10 @@ export async function showMainMenu(): Promise<void> {
     {
       name: '🔎 Scan Repos        - Scan all repositories in projects folder',
       value: 'sync',
+    },
+    {
+      name: '🔃 Sync Repos        - Pull latest for all repos',
+      value: 'sync-repos',
     },
     { name: '🚪 Exit', value: 'exit' }
   );
@@ -75,6 +80,9 @@ export async function showMainMenu(): Promise<void> {
       break;
     case 'sync':
       await scanReposCommand();
+      break;
+    case 'sync-repos':
+      await syncReposCommand();
       break;
     case 'exit':
       console.log('\n👋 Goodbye!');
