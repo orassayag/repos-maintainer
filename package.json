@@ -89,7 +89,7 @@
     "pnpm": ">=8.0.0"
   },
   "dependencies": {
-    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/plugin-throttling": "^11.0.5",
     "@octokit/rest": "^22.0.1",
     "dotenv": "^17.4.2",
     "enquirer": "^2.4.1",
