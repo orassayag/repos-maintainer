@@ -3,4 +3,5 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - dotenv@18.0.3
+  - '@rolldown/binding-win32-x64-msvc@1.2.10'
+  - prettier@3.9.9
