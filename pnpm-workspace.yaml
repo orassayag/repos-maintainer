@@ -3,4 +3,14 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - '@rolldown/binding-win32-x64-msvc@1.2.11'
+  - '@simple-git/args-pathspec@1.0.4'
+  - '@simple-git/argv-parser@2.0.0'
+  - '@vitest/coverage-istanbul@5.0.2'
+  - '@vitest/mocker@5.0.2'
+  - '@vitest/pretty-format@5.0.2'
+  - '@vitest/spy@5.0.2'
+  - '@vitest/ui@5.0.2'
+  - '@vitest/utils@5.0.2'
+  - dotenv@18.0.4
+  - simple-git@4.0.1
+  - vitest@5.0.2
