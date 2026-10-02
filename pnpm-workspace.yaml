@@ -3,12 +3,4 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - '@rolldown/binding-win32-x64-msvc@1.2.12'
-  - '@vitest/coverage-istanbul@5.0.3'
-  - '@vitest/mocker@5.0.3'
-  - '@vitest/pretty-format@5.0.3'
-  - '@vitest/spy@5.0.3'
-  - '@vitest/ui@5.0.3'
-  - '@vitest/utils@5.0.3'
-  - dotenv@18.0.5
-  - vitest@5.0.3
+  - '@types/node@26.6.4'
