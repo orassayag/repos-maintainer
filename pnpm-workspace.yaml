@@ -3,4 +3,4 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - dotenv@18.0.6
+  - '@rolldown/binding-win32-x64-msvc@1.2.13'
