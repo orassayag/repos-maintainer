@@ -91,7 +91,7 @@
   "dependencies": {
     "@octokit/plugin-throttling": "^11.0.5",
     "@octokit/rest": "^22.0.1",
-    "dotenv": "^18.0.6",
+    "dotenv": "^18.0.7",
     "enquirer": "^2.4.1",
     "latest-version": "^9.0.0",
     "minimatch": "^10.2.6",
@@ -102,7 +102,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@rolldown/binding-win32-x64-msvc": "1.2.13",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/semver": "^7.8.0",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
