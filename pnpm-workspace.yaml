@@ -3,4 +3,5 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - eslint-plugin-prettier@5.5.7
+  - '@rolldown/binding-win32-x64-msvc@1.2.14'
+  - dotenv@18.0.8
