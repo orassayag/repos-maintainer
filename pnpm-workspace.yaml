@@ -2,5 +2,3 @@ allowBuilds:
   esbuild: true
 ignoredBuiltDependencies:
   - esbuild
-minimumReleaseAgeExclude:
-  - '@rolldown/binding-win32-x64-msvc@1.2.15'
