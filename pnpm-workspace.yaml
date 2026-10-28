@@ -3,5 +3,5 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - '@isaacs/nonrecursive-glob-match@1.0.1'
-  - minimatch@11.0.0
+  - '@isaacs/nonrecursive-glob-match@1.0.2'
+  - minimatch@11.0.2
