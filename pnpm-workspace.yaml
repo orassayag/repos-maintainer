@@ -3,6 +3,4 @@ allowBuilds:
 ignoredBuiltDependencies:
   - esbuild
 minimumReleaseAgeExclude:
-  - '@isaacs/nonrecursive-glob-match@1.0.3'
-  - '@types/node@26.6.6'
-  - minimatch@11.0.3
+  - '@rolldown/binding-win32-x64-msvc@1.2.16'
